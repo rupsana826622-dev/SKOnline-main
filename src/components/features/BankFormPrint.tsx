@@ -393,14 +393,21 @@ function Page3PMJJBY({ customer, settings }: Props) {
             ["Account Number", customer.accountNumber],
             ["Date of Birth", customer.dob],
             ["Mobile", customer.mobile],
-            ["Nominee Name", customer.nomineeName],
-            ["Nominee Relationship", customer.nomineeRelationship],
-            ["Nominee Age", customer.nomineeAge],
+            ["Nominee Name", customer.pmjjbyNomineeName],
+            ["Nominee Relationship", customer.pmjjbyNomineeRelationship],
+            ["Nominee DOB / Age", customer.pmjjbyNomineeDob || customer.pmjjbyNomineeAge],
             ["Premium Tier Selected", customer.pmjjbyPremiumTier],
             ["KYC Document Type", customer.pmjjbyKycType],
             ["KYC Document ID", customer.pmjjbyKycId],
             ["Disability Status", customer.pmjjbyDisability],
             ["Disability Details", customer.pmjjbyDisabilityDetails || "N/A"],
+            ["Aadhar Auto-Debit Consent", customer.pmjjbyAadharConsent ? "Yes" : "No"],
+            ...(customer.pmjjbyGuardianName ? [
+              ["Nominee Guardian Name", customer.pmjjbyGuardianName],
+              ["Guardian Relationship", customer.pmjjbyGuardianRelationship],
+              ["Guardian Address", customer.pmjjbyGuardianAddress],
+              ["Guardian Mobile", customer.pmjjbyGuardianMobile],
+            ] : []),
           ].map(([lbl, val]) => (
             <tr key={String(lbl)}>
               <td style={{ border: "1px solid #000", padding: "3px 6px", fontWeight: 600, fontSize: "8.5px", width: "170px", background: "#f5f5f5" }}>{lbl}</td>
@@ -463,12 +470,20 @@ function Page4PMSBY({ customer, settings }: Props) {
             ["Account Number", customer.accountNumber],
             ["Date of Birth", customer.dob],
             ["Mobile", customer.mobile],
-            ["Nominee Name", customer.nomineeName],
-            ["Nominee Relationship", customer.nomineeRelationship],
+            ["Nominee Name", customer.pmsbyNomineeName],
+            ["Nominee Relationship", customer.pmsbyNomineeRelationship],
+            ["Nominee DOB / Age", customer.pmsbyNomineeDob || customer.pmsbyNomineeAge],
             ["KYC Document Type", customer.pmsbyKycType],
             ["KYC Document ID", customer.pmsbyKycId],
             ["Disability Status", customer.pmsbyDisability],
             ["Disability Details", customer.pmsbyDisabilityDetails || "N/A"],
+            ["Aadhar Auto-Debit Consent", customer.pmsbyAadharConsent ? "Yes" : "No"],
+            ...(customer.pmsbyGuardianName ? [
+              ["Nominee Guardian Name", customer.pmsbyGuardianName],
+              ["Guardian Relationship", customer.pmsbyGuardianRelationship],
+              ["Guardian Address", customer.pmsbyGuardianAddress],
+              ["Guardian Mobile", customer.pmsbyGuardianMobile],
+            ] : []),
           ].map(([lbl, val]) => (
             <tr key={String(lbl)}>
               <td style={{ border: "1px solid #000", padding: "3px 6px", fontWeight: 600, fontSize: "8.5px", width: "170px", background: "#f5f5f5" }}>{lbl}</td>
@@ -526,10 +541,18 @@ function Page5APY({ customer, settings }: Props) {
             ...(customer.apyMaritalStatus === "Married" ? [
               ["Spouse Name", customer.apySpouseName],
               ["Spouse Date of Birth", customer.apySpouseDob],
+              ["Spouse Aadhar Number", customer.apySpouseAadhar],
             ] : []),
-            ["Nominee Name", customer.nomineeName],
-            ["Nominee Relationship", customer.nomineeRelationship],
-            ["Nominee Age", customer.nomineeAge],
+            ["Nominee Name", customer.apyNomineeName],
+            ["Nominee Relationship", customer.apyNomineeRelationship],
+            ["Nominee DOB / Age", customer.apyNomineeDob || customer.apyNomineeAge],
+            ["Nominee Aadhar Number", customer.apyNomineeAadhar],
+            ["Auto-Debit Consent", customer.apyAutodebitConsent ? "Yes" : "No"],
+            ...(customer.apyGuardianName ? [
+              ["Nominee Guardian Name", customer.apyGuardianName],
+              ["Guardian Relationship", customer.apyGuardianRelationship],
+              ["Guardian Mobile", customer.apyGuardianMobile],
+            ] : []),
           ].map(([lbl, val]) => (
             <tr key={String(lbl)}>
               <td style={{ border: "1px solid #000", padding: "3px 6px", fontWeight: 600, fontSize: "8.5px", width: "170px", background: "#f5f5f5" }}>{lbl}</td>

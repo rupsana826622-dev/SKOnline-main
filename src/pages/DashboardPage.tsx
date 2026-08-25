@@ -8,6 +8,7 @@ import { getCustomers } from "@/lib/storage";
 import { getDaysUntilBirthday, exportToCSV, formatDateTime } from "@/lib/utils";
 import BirthdayReminder from "@/components/features/BirthdayReminder";
 import type { Customer } from "@/types";
+import SEO from "@/components/common/SEO";
 
 export default function DashboardPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -53,6 +54,7 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      <SEO title="Dashboard" />
       {/* Page Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

@@ -3,6 +3,7 @@ import { Search, Truck, Package, CreditCard, CheckCircle, Clock } from "lucide-r
 import { getCustomers, updateCustomer } from "@/lib/storage";
 import type { Customer } from "@/types";
 import { toast } from "sonner";
+import SEO from "@/components/common/SEO";
 
 type DeliveryFilter = "All" | "Passbook Pending" | "ATM Pending" | "Fully Delivered";
 
@@ -67,6 +68,7 @@ export default function DeliveryTrackerPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
+      <SEO title="Delivery Tracker" />
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">

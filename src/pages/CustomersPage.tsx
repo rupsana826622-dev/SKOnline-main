@@ -10,6 +10,7 @@ import PrintModal from "@/components/features/PrintModal";
 import type { Customer } from "@/types";
 import { CATEGORIES } from "@/constants";
 import { toast } from "sonner";
+import SEO from "@/components/common/SEO";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -75,6 +76,7 @@ export default function CustomersPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
+      <SEO title="Manage Customers" />
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

@@ -5,6 +5,7 @@ import { setSession, getSession } from "@/lib/storage";
 import { MOCK_CREDENTIALS, APP_NAME, APP_TAGLINE, POWERED_BY } from "@/constants";
 import loginBg from "@/assets/login-bg.jpg";
 import logoImg from "@/assets/sk-logo.png";
+import SEO from "@/components/common/SEO";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -34,6 +35,16 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
+      <SEO
+        title="Login"
+        description="Secure operator login page for SK ONLINE Customer Service Point (CSP) banking management portal."
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "LoginPage",
+          "name": "SK ONLINE Secure Portal Login",
+          "description": "Secure operator login page for SK ONLINE Customer Service Point (CSP) banking management portal."
+        }}
+      />
       {/* Left – Hero */}
       <div className="hidden lg:flex flex-1 relative overflow-hidden">
         <img src={loginBg} alt="SK ONLINE" className="absolute inset-0 w-full h-full object-cover" />

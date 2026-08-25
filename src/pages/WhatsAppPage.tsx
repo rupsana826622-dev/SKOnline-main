@@ -5,6 +5,7 @@ import { replaceTemplateVars, generateId, formatDateTime } from "@/lib/utils";
 import { WA_TEMPLATES } from "@/constants";
 import type { Customer, WhatsAppMessage } from "@/types";
 import { toast } from "sonner";
+import SEO from "@/components/common/SEO";
 
 export default function WhatsAppPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -99,6 +100,7 @@ export default function WhatsAppPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
+      <SEO title="Bulk SMS & WhatsApp Engine" />
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">

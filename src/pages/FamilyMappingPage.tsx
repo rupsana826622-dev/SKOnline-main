@@ -1,5 +1,6 @@
+// Force IDE type cache refresh
 import { useState, useEffect, useMemo } from "react";
-import { Map, Users, Home, Search, ChevronDown, ChevronRight } from "lucide-react";
+import { Map as MapIcon, Users, Home, Search, ChevronDown, ChevronRight } from "lucide-react";
 import { getCustomers } from "@/lib/storage";
 import type { Customer } from "@/types";
 
@@ -29,7 +30,9 @@ export default function FamilyMappingPage() {
         grouped.get(key)!.push(c);
       } else {
         // Group by address (village + mandal)
-        const key = `${c.village.toLowerCase().trim()}|${c.mandal.toLowerCase().trim()}`;
+        const village = (c.village || "").toLowerCase().trim();
+        const mandal = (c.mandal || "").toLowerCase().trim();
+        const key = `${village}|${mandal}`;
         if (!key || key === "|") return;
         if (!grouped.has(key)) grouped.set(key, []);
         grouped.get(key)!.push(c);
@@ -42,7 +45,7 @@ export default function FamilyMappingPage() {
         key,
         label: groupBy === "familyId"
           ? key
-          : `${members[0].village} · ${members[0].mandal}`,
+          : `${members[0]?.village || "No Village"} · ${members[0]?.mandal || "No Mandal"}`,
         customers: members,
         type: groupBy,
       }))
@@ -54,7 +57,7 @@ export default function FamilyMappingPage() {
     const lower = search.toLowerCase();
     return groups.filter(g =>
       g.label.toLowerCase().includes(lower) ||
-      g.customers.some(c => c.name.toLowerCase().includes(lower))
+      g.customers.some(c => c.name && c.name.toLowerCase().includes(lower))
     );
   }, [groups, search]);
 
@@ -68,7 +71,9 @@ export default function FamilyMappingPage() {
 
   const lonelyCustomers = customers.filter(c => {
     if (groupBy === "familyId") return !c.familyId;
-    const key = `${c.village.toLowerCase().trim()}|${c.mandal.toLowerCase().trim()}`;
+    const village = (c.village || "").toLowerCase().trim();
+    const mandal = (c.mandal || "").toLowerCase().trim();
+    const key = `${village}|${mandal}`;
     return !key || key === "|";
   });
 
@@ -77,7 +82,7 @@ export default function FamilyMappingPage() {
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-          <Map size={20} className="text-violet-600" />
+          <MapIcon size={20} className="text-violet-600" />
           Family Household Mapping
         </h1>
         <p className="text-sm text-slate-500 mt-0.5">Group customers by family ID or shared address</p>
@@ -217,7 +222,7 @@ export default function FamilyMappingPage() {
 
         {filtered.length === 0 && (
           <div className="sk-card p-10 text-center">
-            <Map size={32} className="mx-auto text-slate-300 mb-3" />
+            <MapIcon size={32} className="mx-auto text-slate-300 mb-3" />
             <div className="text-slate-500 font-medium">No family groups found</div>
             <div className="text-sm text-slate-400 mt-1">
               {groupBy === "familyId"

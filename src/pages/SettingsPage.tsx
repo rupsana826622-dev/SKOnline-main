@@ -7,6 +7,7 @@ import { getSettings, saveSettings } from "@/lib/storage";
 import type { AppSettings } from "@/types";
 import { POWERED_BY } from "@/constants";
 import { toast } from "sonner";
+import SEO from "@/components/common/SEO";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>(getSettings());
@@ -81,6 +82,7 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-5">
+      <SEO title="Portal Settings" />
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
