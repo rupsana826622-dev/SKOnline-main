@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import * as React from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -191,6 +192,17 @@ export default function AddCustomerPage() {
     if (!form.accountSuffix.trim()) errs.accountSuffix = "Account suffix is required";
     if (enrollAPY && form.apyMaritalStatus === "Married" && !form.apySpouseName.trim()) {
       errs.apySpouseName = "Spouse name required for married APY subscriber";
+    }
+    // Guard for APY nominee minor
+    if (enrollAPY && form.nomineeDob) {
+      const [day, month, year] = form.nomineeDob.split('-').map(Number);
+      const dob = new Date(year, month - 1, day);
+      const ageDiffMs = Date.now() - dob.getTime();
+      const ageDate = new Date(ageDiffMs);
+      const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+      if (age < 18 && !form.guardianName.trim()) {
+        errs.guardianName = "Guardian name required for minor nominee";
+      }
     }
     setErrors(errs);
     if (Object.keys(errs).length > 0) {
@@ -615,6 +627,28 @@ export default function AddCustomerPage() {
                         </Field>
                       </>
                     )}
+                    <Field label="Nominee Name">
+                      <Inp k="nomineeName" form={form} set={set} placeholder="Nominee's full name" uppercase />
+                    </Field>
+                    <Field label="Nominee Relationship">
+                      <Inp k="nomineeRelationship" form={form} set={set} placeholder="e.g. Wife, Son, Father" />
+                    </Field>
+                    <Field label="Nominee DOB / Age">
+                      <Inp k="nomineeDob" form={form} set={set} placeholder="DD-MM-YYYY" mono />
+                    </Field>
+                    {/* Guardian for minor nominee */}
+                    {form.nomineeDob && (() => {
+                      const [day, month, year] = form.nomineeDob.split('-').map(Number);
+                      const dob = new Date(year, month - 1, day);
+                      const ageDiffMs = Date.now() - dob.getTime();
+                      const ageDate = new Date(ageDiffMs);
+                      const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+                      return age < 18 ? (
+                        <Field label="Guardian Name (if Nominee is Minor)" error={errors.guardianName} required>
+                          <Inp k="guardianName" form={form} set={set} placeholder="Guardian's full name" uppercase />
+                        </Field>
+                      ) : null;
+                    })()}
                     <Field label="Pension Amount Slab">
                       <Sel k="apyPensionSlab" form={form} set={set} options={APY_PENSION_SLABS} />
                     </Field>
