@@ -61,7 +61,7 @@ export default function SettingsPage() {
         type={type}
         className={`form-input ${mono ? "font-mono" : ""}`}
         placeholder={placeholder}
-        value={settings[k]}
+        value={typeof settings[k] === "string" ? settings[k] : ""}
         onChange={e => set(k, e.target.value)}
       />
     </div>
@@ -74,7 +74,7 @@ export default function SettingsPage() {
         type={showSecrets ? "text" : "password"}
         className="form-input font-mono"
         placeholder={placeholder}
-        value={settings[k]}
+        value={typeof settings[k] === "string" ? settings[k] : ""}
         onChange={e => set(k, e.target.value)}
       />
     </div>
@@ -224,6 +224,154 @@ export default function SettingsPage() {
         </div>
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
           <strong>Note:</strong> WhatsApp messaging is currently <strong>simulated</strong>. Connect Supabase backend to enable real API calls and automated birthday messages.
+        </div>
+      </SectionCard>
+
+      {/* Dynamic Logo & Header Management */}
+      <SectionCard title="PDF Form Header Logo Management" icon={Settings}>
+        <div className="text-xs text-slate-500 mb-2">
+          Upload custom logos for PDF form headers. Single-logo forms take 1 logo slot (top-left). Multi-logo insurance forms take 3 separate slots (Left, Center, Right).
+        </div>
+
+        {/* Single Logo Forms */}
+        <div className="space-y-3 border-b border-slate-200 pb-4">
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Single Logo Forms</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* FI Logo */}
+            <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-2">
+              <div className="font-semibold text-xs text-slate-700">Financial Inclusion Logo</div>
+              <div className="h-14 border border-slate-200 rounded flex items-center justify-center p-1 bg-slate-50">
+                <img src={settings.fiLogo} alt="FI Logo" className="max-h-full object-contain" />
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="text-[11px] w-full text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const r = new FileReader();
+                    r.onload = ev => set("fiLogo", ev.target?.result as string);
+                    r.readAsDataURL(file);
+                  }
+                }}
+              />
+            </div>
+
+            {/* CPS Logo */}
+            <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-2">
+              <div className="font-semibold text-xs text-slate-700">Customer Profile Sheet Logo</div>
+              <div className="h-14 border border-slate-200 rounded flex items-center justify-center p-1 bg-slate-50">
+                <img src={settings.cpsLogo} alt="CPS Logo" className="max-h-full object-contain" />
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="text-[11px] w-full text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const r = new FileReader();
+                    r.onload = ev => set("cpsLogo", ev.target?.result as string);
+                    r.readAsDataURL(file);
+                  }
+                }}
+              />
+            </div>
+
+            {/* APY Logo */}
+            <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-2">
+              <div className="font-semibold text-xs text-slate-700">Atal Pension Yojana (APY) Logo</div>
+              <div className="h-14 border border-slate-200 rounded flex items-center justify-center p-1 bg-slate-50">
+                <img src={settings.apyLogo} alt="APY Logo" className="max-h-full object-contain" />
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="text-[11px] w-full text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const r = new FileReader();
+                    r.onload = ev => set("apyLogo", ev.target?.result as string);
+                    r.readAsDataURL(file);
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Multi-Logo Forms: PMJJBY */}
+        <div className="space-y-2 border-b border-slate-200 pb-4">
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">PMJJBY Form (3 Header Slots)</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {["left", "center", "right"].map(pos => (
+              <div key={pos} className="border border-slate-200 rounded-lg p-2.5 bg-white space-y-1.5">
+                <div className="font-semibold text-[11px] text-slate-700 capitalize">{pos} Header Slot</div>
+                <div className="h-12 border border-slate-200 rounded flex items-center justify-center p-1 bg-slate-50">
+                  <img src={settings.pmjjbyLogos?.[pos as "left" | "center" | "right"]} alt={`PMJJBY ${pos}`} className="max-h-full object-contain" />
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="text-[10px] w-full text-slate-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[10px] file:bg-slate-100"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const r = new FileReader();
+                      r.onload = ev => {
+                        setSettings(s => ({
+                          ...s,
+                          pmjjbyLogos: {
+                            ...(s.pmjjbyLogos || { left: "", center: "", right: "" }),
+                            [pos]: ev.target?.result as string,
+                          },
+                        }));
+                      };
+                      r.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Multi-Logo Forms: PMSBY */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">PMSBY Form (3 Header Slots)</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {["left", "center", "right"].map(pos => (
+              <div key={pos} className="border border-slate-200 rounded-lg p-2.5 bg-white space-y-1.5">
+                <div className="font-semibold text-[11px] text-slate-700 capitalize">{pos} Header Slot</div>
+                <div className="h-12 border border-slate-200 rounded flex items-center justify-center p-1 bg-slate-50">
+                  <img src={settings.pmsbyLogos?.[pos as "left" | "center" | "right"]} alt={`PMSBY ${pos}`} className="max-h-full object-contain" />
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="text-[10px] w-full text-slate-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[10px] file:bg-slate-100"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const r = new FileReader();
+                      r.onload = ev => {
+                        setSettings(s => ({
+                          ...s,
+                          pmsbyLogos: {
+                            ...(s.pmsbyLogos || { left: "", center: "", right: "" }),
+                            [pos]: ev.target?.result as string,
+                          },
+                        }));
+                      };
+                      r.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </SectionCard>
 

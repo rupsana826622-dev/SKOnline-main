@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, UserPlus, Truck, MessageSquare,
-  Settings, Map, LogOut, ChevronLeft, ChevronRight, ShieldCheck,
+  Settings, Map, LogOut, ChevronLeft, ChevronRight, ShieldCheck, Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { clearSession } from "@/lib/storage";
@@ -18,6 +18,7 @@ const navItems = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { label: "Customers", path: "/customers", icon: Users },
   { label: "Add Customer", path: "/add-customer", icon: UserPlus },
+  { label: "A4 PDF Generator", path: "/pdf-generator", icon: Printer },
   { label: "Delivery Tracker", path: "/delivery", icon: Truck },
   { label: "WB-SMS / WhatsApp", path: "/whatsapp", icon: MessageSquare },
   { label: "Family Mapping", path: "/family-mapping", icon: Map },

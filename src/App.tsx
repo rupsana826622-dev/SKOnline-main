@@ -9,6 +9,7 @@ import DeliveryTrackerPage from "@/pages/DeliveryTrackerPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
 import SettingsPage from "@/pages/SettingsPage";
 import FamilyMappingPage from "@/pages/FamilyMappingPage";
+import PdfGeneratorPage from "@/pages/PdfGeneratorPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/add-customer" element={<AddCustomerPage />} />
+          <Route path="/pdf-generator" element={<PdfGeneratorPage />} />
           <Route path="/delivery" element={<DeliveryTrackerPage />} />
           <Route path="/whatsapp" element={<WhatsAppPage />} />
           <Route path="/settings" element={<SettingsPage />} />

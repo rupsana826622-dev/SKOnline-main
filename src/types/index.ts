@@ -2,6 +2,7 @@ export interface Customer {
   id: string;
   // Account Identification
   branchCode: string;
+  ifscCode?: string;
   customerId: string; // CIF
   accountNumber: string;
   refNumber: string;
@@ -130,6 +131,20 @@ export interface AppSettings {
   waGatewayUrl: string;
   waToken: string;
   waPhoneNumberId: string;
+  // Form Header Logos
+  fiLogo?: string;
+  cpsLogo?: string;
+  apyLogo?: string;
+  pmjjbyLogos?: {
+    left: string;
+    center: string;
+    right: string;
+  };
+  pmsbyLogos?: {
+    left: string;
+    center: string;
+    right: string;
+  };
 }
 
 export interface WhatsAppMessage {
