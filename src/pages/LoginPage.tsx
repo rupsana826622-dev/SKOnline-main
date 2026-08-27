@@ -24,8 +24,8 @@ export default function LoginPage() {
     setLoading(true);
     await new Promise(r => setTimeout(r, 600));
     
-    // Case-insensitive check for Abul / Abul
-    if (username.trim().toLowerCase() === "abul" && password.trim().toLowerCase() === "abul") {
+    // Case-sensitive password verification for operator account
+    if (username.trim() === "skonline" && password === "Skonline@1234") {
       setSession(username.trim());
       navigate("/dashboard", { replace: true });
     } else {
@@ -196,14 +196,21 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-650 hover:bg-blue-700 disabled:opacity-60 text-white font-bold text-sm tracking-wider uppercase py-3 rounded-xl transition-all duration-150 flex items-center justify-center gap-2 mt-4 shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20"
+              style={{ backgroundColor: loading ? undefined : '#1D4ED8' }}
+              className="w-full disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-[15px] tracking-[0.5px] rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mt-4 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 hover:bg-[#1E40AF] active:bg-[#1E3A8A]"
+              onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1E40AF'; }}
+              onMouseLeave={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1D4ED8'; }}
+              onMouseDown={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1E3A8A'; }}
+              onMouseUp={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1E40AF'; }}
             >
               {loading ? (
                 <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
               ) : (
-                <ShieldCheck size={16} />
+                <Lock size={16} className="flex-shrink-0" />
               )}
-              {loading ? "Authenticating..." : "Sign In"}
+              <span style={{ height: '44px', lineHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
+                {loading ? "Authenticating..." : "SIGN IN"}
+              </span>
             </button>
           </form>
         </div>
