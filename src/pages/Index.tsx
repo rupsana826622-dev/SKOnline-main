@@ -307,8 +307,9 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-[#334155] font-sans selection:bg-[#0056B3] selection:text-white relative overflow-hidden mesh-gradient-bg">
       <SEO 
-        title="Alinur Sekh - Senior LIC Advisor & Multi-Service Hub" 
-        description="Official portfolio of Alinur Sekh (Certified Senior LIC Advisor, License 16541-41A). Dual-banking BOB/BOI CSP services, GST/ITR filing, and CSC Tathya Mitra."
+        title="SK ONLINE | Authorized LIC Advisor, Dual Bank CSP & Digital Citizen Services" 
+        description="SK Online managed by Alinur Sekh: Authorized Bank of India & Bank of Baroda CSP, Certified LIC Life Insurance Advisory, GST/ITR filing, and CSC digital citizen services in Rampur Bazar, Sandeshkhali."
+        keywords="SK Online, Alinur Sekh, LIC Agent Sandeshkhali, Bank of India CSP Rampur, Bank of Baroda CSP, CSC Center North 24 Parganas, GST Filing, ITR Filing, PVC Card Print, Train Ticket Booking"
       />
       
       <style>{inlineStyles}</style>
