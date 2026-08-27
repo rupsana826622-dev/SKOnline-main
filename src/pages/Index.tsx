@@ -45,21 +45,28 @@ const inlineStyles = `
     transform: translateY(0);
   }
   
-  /* Standard corporate elevation animations (no shrink or cartoonish tilt) */
-  .corporate-card {
-    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.2s ease;
-  }
-  .corporate-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 30px -5px rgba(0, 51, 102, 0.08);
-    border-color: rgba(0, 86, 179, 0.25);
-  }
-  
+  /* Translucent glassmorphic navigation bar */
   .glass-header {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(0, 51, 102, 0.06);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  }
+  
+  /* Premium Mesh Background system */
+  .mesh-gradient-bg {
+    background-color: #F8FAFC;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(238, 242, 255, 0.4) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(254, 249, 195, 0.25) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(255, 255, 255, 0.8) 0px, transparent 50%);
+  }
+
+  /* Interactive service cards shared styling */
+  .service-card-premium {
+    background-color: #FFFFFF;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
   }
 `;
 
@@ -208,23 +215,38 @@ export default function Index() {
   const licOfferings = [
     {
       title: "জীবন বীমা (Life Insurance)",
-      desc: "Comprehensive financial security coverage plans that protect your family in case of unforeseen circumstances."
+      desc: "Comprehensive financial security coverage plans that protect your family in case of unforeseen circumstances.",
+      themeClass: "hover:border-[#2563EB]/40 hover:shadow-[0_12px_30px_-5px_rgba(37,99,235,0.08)] border-b-4 border-b-transparent hover:border-b-[#2563EB]",
+      iconBg: "bg-blue-50 text-[#2563EB] border border-blue-100/60",
+      btnClass: "text-[#2563EB] hover:text-[#1D4ED8]"
     },
     {
       title: "সঞ্চয় পরিকল্পনা (Savings Plans)",
-      desc: "Guaranteed maturity return programs designed to systematically build your wealth and fulfill dreams."
+      desc: "Guaranteed maturity return programs designed to systematically build your wealth and fulfill dreams.",
+      themeClass: "hover:border-[#D97706]/40 hover:shadow-[0_12px_30px_-5px_rgba(217,119,6,0.08)] border-b-4 border-b-transparent hover:border-b-[#D97706]",
+      iconBg: "bg-amber-50 text-[#D97706] border border-amber-100/60",
+      btnClass: "text-[#D97706] hover:text-[#B45309]"
     },
     {
       title: "অবসরকালীন পরিকল্পনা (Retirement Plans)",
-      desc: "Ensure regular life-long monthly pensions to support financial independence after retirement."
+      desc: "Ensure regular life-long monthly pensions to support financial independence after retirement.",
+      themeClass: "hover:border-[#6366F1]/40 hover:shadow-[0_12px_30px_-5px_rgba(99,102,241,0.08)] border-b-4 border-b-transparent hover:border-b-[#6366F1]",
+      iconBg: "bg-indigo-50 text-[#6366F1] border border-indigo-100/60",
+      btnClass: "text-[#6366F1] hover:text-[#4F46E5]"
     },
     {
       title: "শিশু শিক্ষা ও ভবিষ্যৎ পরিকল্পনা (Child Future Plans)",
-      desc: "Fulfill educational milestones and marriage cost needs for your children with tailored investments."
+      desc: "Fulfill educational milestones and marriage cost needs for your children with tailored investments.",
+      themeClass: "hover:border-[#0284C7]/40 hover:shadow-[0_12px_30px_-5px_rgba(2,132,199,0.08)] border-b-4 border-b-transparent hover:border-b-[#0284C7]",
+      iconBg: "bg-sky-50 text-[#0284C7] border border-sky-100/60",
+      btnClass: "text-[#0284C7] hover:text-[#0369A1]"
     },
     {
       title: "স্বাস্থ্য বীমা ও টার্ম প্ল্যান (Health & Term Plans)",
-      desc: "High-value life coverage policies and medical protection riders providing ultimate risk coverage."
+      desc: "High-value life coverage policies and medical protection riders providing ultimate risk coverage.",
+      themeClass: "hover:border-[#059669]/40 hover:shadow-[0_12px_30px_-5px_rgba(5,150,105,0.08)] border-b-4 border-b-transparent hover:border-b-[#059669]",
+      iconBg: "bg-emerald-50 text-[#059669] border border-emerald-100/60",
+      btnClass: "text-[#059669] hover:text-[#047857]"
     }
   ];
 
@@ -233,41 +255,53 @@ export default function Index() {
       title: "Dual Bank CSP Integration",
       tagline: "Bank of Baroda & Bank of India Authorized CSP",
       description: "Direct customer service branch operations. Fully enabled for AEPS Aadhaar cash withdrawals, deposits, money transfers, and savings account opening.",
-      icon: <Landmark className="w-6 h-6 text-[#003366]" />,
-      badge: "BOB & BOI CSP"
+      icon: <Landmark className="w-5.5 h-5.5" />,
+      badge: "BOB & BOI CSP",
+      themeClass: "hover:border-[#1E3A8A]/40 hover:shadow-[0_12px_30px_-5px_rgba(30,58,138,0.08)] border-b-4 border-b-transparent hover:border-b-[#1E3A8A]",
+      iconBg: "bg-blue-100/60 text-[#1E3A8A] border border-blue-200/50",
+      btnClass: "text-[#1E3A8A] hover:text-[#172554]"
     },
     {
       title: "Taxation & Compliance",
       tagline: "GST & Income Tax Returns Office",
       description: "Get end-to-end support for new GST registrations, monthly business return filings, and personal ITR calculation & submissions.",
-      icon: <FileText className="w-6 h-6 text-[#003366]" />,
-      badge: "GST & ITR"
+      icon: <FileText className="w-5.5 h-5.5" />,
+      badge: "GST & ITR",
+      themeClass: "hover:border-[#E11D48]/40 hover:shadow-[0_12px_30px_-5px_rgba(225,29,72,0.08)] border-b-4 border-b-transparent hover:border-b-[#E11D48]",
+      iconBg: "bg-rose-50 text-[#E11D48] border border-rose-100/60",
+      btnClass: "text-[#E11D48] hover:text-[#BE123C]"
     },
     {
       title: "CSC & Tathya Mitra Kendra",
       tagline: "Authorized Digital Government Services",
       description: "Official local hub for processing birth/death certificates, trade licenses, digital certificates, and applying for government schemes.",
-      icon: <Layers className="w-6 h-6 text-[#003366]" />,
-      badge: "Digital India"
+      icon: <Layers className="w-5.5 h-5.5" />,
+      badge: "Digital India",
+      themeClass: "hover:border-[#0D9488]/40 hover:shadow-[0_12px_30px_-5px_rgba(13,148,136,0.08)] border-b-4 border-b-transparent hover:border-b-[#0D9488]",
+      iconBg: "bg-teal-50 text-[#0D9488] border border-teal-100/60",
+      btnClass: "text-[#0D9488] hover:text-[#0F766E]"
     },
     {
       title: "Travel & Ticketing Services",
       tagline: "Railway & Flight E-Bookings",
       description: "Instant online ticketing portal for flight bookings, hotel reservations, and official IRCTC Indian Railways train ticketing.",
-      icon: <Activity className="w-6 h-6 text-[#003366]" />,
-      badge: "IRCTC Authorized"
+      icon: <Activity className="w-5.5 h-5.5" />,
+      badge: "IRCTC Authorized",
+      themeClass: "hover:border-[#EA580C]/40 hover:shadow-[0_12px_30px_-5px_rgba(234,88,12,0.08)] border-b-4 border-b-transparent hover:border-b-[#EA580C]",
+      iconBg: "bg-orange-50 text-[#EA580C] border border-orange-100/60",
+      btnClass: "text-[#EA580C] hover:text-[#C2410C]"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#334155] font-sans selection:bg-[#0056B3] selection:text-white relative overflow-hidden">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#334155] font-sans selection:bg-[#0056B3] selection:text-white relative overflow-hidden mesh-gradient-bg">
       <SEO 
         title="Alinur Sekh - Senior LIC Advisor & Multi-Service Hub" 
         description="Official portfolio of Alinur Sekh (Certified Senior LIC Advisor, License 16541-41A). Dual-banking BOB/BOI CSP services, GST/ITR filing, and CSC Tathya Mitra."
       />
       
       <style>{inlineStyles}</style>
-
+      
       {/* Modern Light Glassmorphic Header */}
       <header className="fixed top-0 left-0 right-0 z-50 glass-header shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -372,10 +406,8 @@ export default function Index() {
         )}
       </header>
 
-      {/* Hero Section - Light theme, 2-Column Split Layout */}
-      <section id="home" className="relative bg-white pt-24 pb-16 sm:pt-36 sm:pb-24 border-b border-slate-100 overflow-hidden">
-        {/* Subtle pattern background */}
-        <div className="absolute inset-0 bg-[#003366]/[0.01] bg-[radial-gradient(#003366_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
+      {/* Hero Section - Mesh background, 2-Column Split Layout */}
+      <section id="home" className="relative pt-24 pb-16 sm:pt-36 sm:pb-24 border-b border-slate-200/60 overflow-hidden bg-gradient-to-b from-[#EEF2FF]/40 via-white to-[#FEF9C3]/20">
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#0056B3]/5 rounded-full blur-[120px] pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -383,45 +415,60 @@ export default function Index() {
             
             {/* Left Column: Headline and Badges */}
             <div className="lg:col-span-7 text-left space-y-6">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#003366]/5 border border-[#003366]/10 animate-fade-in-up">
-                <UserCheck className="w-4 h-4 text-[#003366]" />
-                <span className="text-xs font-bold tracking-wide text-[#003366]">Government Authorized Financial Services</span>
+              {/* Authorized Pills Row */}
+              <div className="flex flex-wrap items-center gap-3 animate-fade-in-up">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-150 text-blue-700">
+                  <ShieldCheck className="w-4 h-4 text-blue-600" />
+                  <span className="text-xs font-bold tracking-wide">Government Authorized Financial & Banking Hub</span>
+                </div>
+                
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/20 text-[#AA7C11]">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#AA7C11]" />
+                  <span className="text-[11px] font-bold tracking-wide">LIC Agent License: 16541-41A</span>
+                </div>
               </div>
               
-              <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-[1.15] text-[#0F172A] reveal-on-scroll active">
-                Secure Your Family's Future &<br />
-                <span className="text-[#0056B3]">Simplify Your Banking</span>
+              <h2 className="text-4xl sm:text-6xl font-extrabold tracking-tight leading-[1.12] text-[#0F172A] reveal-on-scroll active">
+                Secure Your Today,<br />
+                <span className="bg-gradient-to-r from-[#D4AF37] via-[#AA7C11] to-[#D4AF37] bg-clip-text text-transparent drop-shadow-sm">Protect Your Tomorrow</span>
               </h2>
               
               <p className="text-[#475569] text-sm sm:text-base md:text-lg font-normal leading-relaxed max-w-xl reveal-on-scroll active">
                 Consult with <strong>Alinur Sekh</strong>, a certified senior life insurance advisor, and access Bank of Baroda & Bank of India CSP services, GST submissions, and Tata Mitra citizen desk offerings.
               </p>
 
-              {/* LIC Agent Trust Box */}
-              <div className="bg-[#F8FAFC] border-l-4 border-[#D4AF37] rounded-r-xl p-4 max-w-lg shadow-sm reveal-on-scroll active">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#003366] uppercase tracking-wider mb-1">
+              {/* LIC Agent Trust Card */}
+              <div className="bg-white/80 border border-slate-200/80 rounded-2xl p-5 max-w-lg shadow-sm hover:shadow transition-shadow backdrop-blur-sm reveal-on-scroll active">
+                <div className="flex items-center gap-2 text-xs font-extrabold text-[#003366] uppercase tracking-wider mb-2">
                   <Star className="w-3.5 h-3.5 fill-current text-[#D4AF37]" />
-                  Authorized LIC Advisor Profile
+                  Authorized Senior Advisor Profile
                 </div>
-                <div className="text-sm font-bold text-[#0F172A]">Alinur Sekh</div>
-                <div className="text-xs text-slate-500 font-mono mt-0.5">LIC License No: <span className="font-bold text-slate-800">16541-41A</span> &nbsp;|&nbsp; 10+ Years Track Record</div>
-                <div className="text-xs italic text-slate-650 mt-1.5 font-medium">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-base font-extrabold text-[#0F172A]">Alinur Sekh</h3>
+                    <p className="text-xs text-slate-500 font-mono mt-0.5">License: <span className="font-extrabold text-slate-800">16541-41A</span> &nbsp;|&nbsp; 10+ Years Experience</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    <CheckCircle2 size={10} /> Active
+                  </span>
+                </div>
+                <div className="text-xs italic text-slate-650 mt-3 font-medium border-t border-slate-100 pt-2.5">
                   "Your Trust. My Commitment. Securing Your Today, Protecting Your Tomorrow."
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2 reveal-on-scroll active">
+              <div className="flex flex-col sm:flex-row gap-3.5 pt-2 reveal-on-scroll active">
                 <a 
                   href="#lic-plans" 
-                  className="inline-flex items-center justify-center px-6 py-3 bg-[#0056B3] hover:bg-[#003c80] text-white font-bold text-xs uppercase tracking-wider rounded-lg transition-all duration-150 shadow-md shadow-blue-500/10 gap-2"
+                  className="inline-flex items-center justify-center px-6 py-3 bg-[#0056B3] hover:bg-[#004494] text-white font-bold text-xs uppercase tracking-wider rounded-lg transition-all duration-150 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/35 hover:-translate-y-0.5 gap-2"
                 >
                   Explore LIC Plans
                   <ArrowRight className="w-4 h-4" />
                 </a>
                 <a 
                   href="#contact" 
-                  className="inline-flex items-center justify-center px-6 py-3 bg-white hover:bg-slate-50 text-[#003366] font-bold text-xs uppercase tracking-wider rounded-lg transition-all duration-150 border border-slate-200 gap-2 shadow-sm"
+                  className="inline-flex items-center justify-center px-6 py-3 bg-white hover:bg-slate-50 text-[#003366] font-bold text-xs uppercase tracking-wider rounded-lg transition-all duration-150 border border-slate-300 hover:border-slate-400 gap-2 shadow-sm"
                 >
                   Get in Touch
                 </a>
@@ -431,25 +478,30 @@ export default function Index() {
             {/* Right Column: Stylized Portrait Container */}
             <div className="lg:col-span-5 flex justify-center lg:justify-end reveal-on-scroll active">
               <div className="relative max-w-sm w-full">
-                {/* Visual back frame */}
-                <div className="absolute inset-2 bg-gradient-to-tr from-[#003366] to-[#0056B3] rounded-2xl transform rotate-3 -z-10 shadow-lg" />
+                {/* Visual back gold accent border offset */}
+                <div className="absolute -inset-1.5 rounded-[26px] bg-gradient-to-tr from-[#D4AF37]/30 to-[#003366]/20 blur-sm -z-10" />
                 
-                {/* Image Card Container */}
-                <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-xl overflow-hidden relative">
-                  <img 
-                    src={agentPortrait} 
-                    alt="Alinur Sekh Portrait" 
-                    className="w-full h-[400px] object-cover rounded-xl object-top" 
-                  />
+                {/* Image Card Container with rounded-3xl and custom shadow */}
+                <div 
+                  className="bg-white rounded-[24px] p-2.5 border border-slate-200 overflow-hidden relative"
+                  style={{ boxShadow: "0 20px 40px -15px rgba(0, 51, 102, 0.15)" }}
+                >
+                  <div className="rounded-[18px] overflow-hidden border border-[#D4AF37]/20 aspect-[4/5] w-full h-[420px]">
+                    <img 
+                      src={agentPortrait} 
+                      alt="Alinur Sekh Portrait" 
+                      className="w-full h-full object-cover object-top block" 
+                    />
+                  </div>
                   
                   {/* Floating verification badge */}
-                  <div className="absolute bottom-6 left-6 right-6 bg-white/95 border border-slate-100 p-3.5 rounded-xl shadow-lg backdrop-blur flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center flex-shrink-0">
-                      <Award className="w-5 h-5 text-emerald-600" />
+                  <div className="absolute bottom-5 left-5 right-5 bg-white/95 border border-slate-150 p-3 rounded-xl shadow-lg backdrop-blur-md flex items-center gap-3">
+                    <div className="w-8.5 h-8.5 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center flex-shrink-0">
+                      <Award className="w-4.5 h-4.5 text-emerald-600" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-[#0F172A]">Alinur Sekh</div>
-                      <div className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase">Senior Advisor (LIC Agent)</div>
+                      <div className="text-xs font-extrabold text-[#0F172A]">Alinur Sekh</div>
+                      <div className="text-[10px] text-slate-500 font-bold tracking-wide uppercase">Senior LIC Advisor & CSP Manager</div>
                     </div>
                   </div>
                 </div>
@@ -467,15 +519,20 @@ export default function Index() {
             
             {/* Visual Action Photo Column (Left) */}
             <div className="lg:col-span-5 relative reveal-on-scroll">
-              <div className="absolute -top-3 -left-3 w-40 h-40 bg-blue-50 rounded-2xl -z-10 animate-pulse" />
-              <div className="absolute -bottom-3 -right-3 w-40 h-40 bg-[#D4AF37]/5 rounded-2xl -z-10" />
+              <div className="absolute -top-3 -left-3 w-32 h-32 bg-blue-50 rounded-2xl -z-10 animate-pulse" />
+              <div className="absolute -bottom-3 -right-3 w-32 h-32 bg-[#D4AF37]/5 rounded-2xl -z-10" />
               
-              <div className="bg-white rounded-2xl p-2.5 border border-slate-200 shadow-lg overflow-hidden">
+              {/* Image Container Fix - aspect 4:3 or 16:10 with top framing */}
+              <div className="bg-white rounded-[20px] p-2 border border-slate-250 shadow-xl overflow-hidden relative aspect-[4/3] sm:aspect-[16/10] lg:aspect-[4/3]">
                 <img 
                   src={agentAction} 
                   alt="Alinur Sekh with LIC plaque" 
-                  className="w-full h-[450px] object-cover rounded-xl"
+                  className="w-full h-full object-cover object-top rounded-[14px]"
                 />
+                {/* Floating gold ribbon/badge */}
+                <div className="absolute top-4 right-4 bg-gradient-to-r from-[#D4AF37] to-[#AA7C11] text-white font-extrabold text-[10px] uppercase tracking-wider px-3 py-1 rounded-full shadow-md border border-[#D4AF37]">
+                  🏆 10+ Years of Excellence
+                </div>
               </div>
             </div>
 
@@ -498,14 +555,15 @@ export default function Index() {
                 We believe that financial security is the base of building a prospering community. Beside LIC policy planning, our office coordinates banking inclusion solutions through authorized Customer Service Point (CSP) banking counters and assists citizens with essential compliance tools.
               </p>
               
-              <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-6">
-                <div>
-                  <div className="text-2xl sm:text-3xl font-extrabold text-[#003366]">10+ Years</div>
-                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-1">Experience in Advisory</div>
+              {/* Premium styled stats widgets */}
+              <div className="grid grid-cols-2 gap-6 border-t border-slate-150 pt-6">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <div className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-[#003366] to-[#0056B3] bg-clip-text text-transparent">10+ Years</div>
+                  <div className="text-[10px] text-[#475569] font-bold uppercase tracking-wide mt-1">Experience in Advisory</div>
                 </div>
-                <div>
-                  <div className="text-2xl sm:text-3xl font-extrabold text-[#D4AF37]">16541-41A</div>
-                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-1">Verified LIC License</div>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <div className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-[#D4AF37] to-[#AA7C11] bg-clip-text text-transparent font-mono">16541-41A</div>
+                  <div className="text-[10px] text-[#475569] font-bold uppercase tracking-wide mt-1">Verified LIC License</div>
                 </div>
               </div>
 
@@ -525,7 +583,7 @@ export default function Index() {
       </section>
 
       {/* Primary Services - LIC Insurance Solutions Section */}
-      <section id="lic-plans" className="py-16 sm:py-24 bg-[#F8FAFC] border-t border-slate-100">
+      <section id="lic-plans" className="py-16 sm:py-24 bg-[#F8FAFC]/50 border-t border-slate-200/60 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20 reveal-on-scroll">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#003366]/5 border border-[#003366]/10 mb-4">
@@ -544,20 +602,24 @@ export default function Index() {
             {licOfferings.map((plan, idx) => (
               <div 
                 key={idx}
-                className="corporate-card bg-white rounded-xl border border-slate-200/80 p-8 shadow-sm transition-all duration-300 relative overflow-hidden flex flex-col justify-between"
+                className={`service-card-premium rounded-2xl p-8 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 relative overflow-hidden flex flex-col justify-between group ${plan.themeClass}`}
               >
                 <div>
-                  <div className="w-12 h-12 rounded-lg bg-[#003366]/5 border border-[#003366]/10 flex items-center justify-center mb-6">
-                    <ShieldCheck className="w-6 h-6 text-[#003366]" />
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-6 transition-colors ${plan.iconBg}`}>
+                    {idx === 0 && <ShieldCheck className="w-5.5 h-5.5" />}
+                    {idx === 1 && <Award className="w-5.5 h-5.5" />}
+                    {idx === 2 && <Calendar className="w-5.5 h-5.5" />}
+                    {idx === 3 && <UserCheck className="w-5.5 h-5.5" />}
+                    {idx === 4 && <Activity className="w-5.5 h-5.5" />}
                   </div>
                   <h3 className="text-lg font-extrabold text-[#0F172A] mb-3">{plan.title}</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">{plan.desc}</p>
+                  <p className="text-slate-500 text-xs leading-relaxed">{plan.desc}</p>
                 </div>
-                <div className="pt-6 border-t border-slate-50 mt-6 flex justify-between items-center">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-[#D4AF37]">LIC India Plans</span>
-                  <a href="#contact" className="text-xs font-bold text-[#0056B3] hover:text-[#003c80] flex items-center gap-1">
+                <div className="pt-6 border-t border-slate-100 mt-6 flex justify-between items-center">
+                  <span className="text-[9px] uppercase font-bold tracking-widest text-[#D4AF37]">LIC India Plans</span>
+                  <a href="#contact" className={`text-xs font-bold flex items-center gap-1.5 transition-colors ${plan.btnClass}`}>
                     Apply Now
-                    <ArrowRight className="w-3 h-3" />
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                   </a>
                 </div>
               </div>
@@ -567,7 +629,7 @@ export default function Index() {
       </section>
 
       {/* Secondary Services - Digital & Banking CSP Services Section */}
-      <section id="services" className="py-16 sm:py-24 bg-white border-t border-slate-100">
+      <section id="services" className="py-16 sm:py-24 bg-white border-t border-slate-200/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20 reveal-on-scroll">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0056B3]/5 border border-[#0056B3]/10 mb-4">
@@ -586,22 +648,22 @@ export default function Index() {
             {coreServices.map((service, idx) => (
               <div 
                 key={idx}
-                className="corporate-card bg-slate-50/50 rounded-xl border border-slate-200/80 p-8 shadow-sm transition-all duration-300 flex flex-col sm:flex-row gap-5 items-start justify-between"
+                className={`service-card-premium rounded-2xl p-8 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 flex flex-col sm:flex-row gap-6 items-start justify-between group ${service.themeClass}`}
               >
-                <div className="w-12 h-12 rounded-lg bg-[#003366]/5 border border-[#003366]/10 flex items-center justify-center flex-shrink-0">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${service.iconBg}`}>
                   {service.icon}
                 </div>
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#0056B3]">{service.badge}</span>
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-[#0056B3]">{service.badge}</span>
                   </div>
                   <h3 className="text-lg font-extrabold text-[#0F172A]">{service.title}</h3>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">{service.tagline}</p>
-                  <p className="text-slate-650 text-sm leading-relaxed pt-1">{service.description}</p>
-                  <div className="pt-2">
-                    <a href="#contact" className="inline-flex items-center text-xs font-bold text-[#0056B3] hover:text-[#003c80] gap-1 group">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">{service.tagline}</p>
+                  <p className="text-slate-500 text-xs leading-relaxed pt-1">{service.description}</p>
+                  <div className="pt-3">
+                    <a href="#contact" className={`inline-flex items-center text-xs font-bold gap-1.5 ${service.btnClass}`}>
                       Request Support
-                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                     </a>
                   </div>
                 </div>
@@ -612,7 +674,7 @@ export default function Index() {
       </section>
 
       {/* Lead Capture Form & Info Section */}
-      <section id="contact" className="py-16 sm:py-24 bg-[#F8FAFC] border-t border-slate-100 relative">
+      <section id="contact" className="py-16 sm:py-24 bg-[#F8FAFC]/50 border-t border-slate-200/60 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
             
@@ -627,7 +689,7 @@ export default function Index() {
                 Secure Office Consultations
               </h2>
               
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
+              <p className="text-slate-550 text-sm sm:text-base leading-relaxed">
                 Connect with Alinur Sekh for custom life plans or request online support for taxes, certificates, and travel files.
               </p>
 
@@ -692,7 +754,7 @@ export default function Index() {
                   href="https://wa.me/919609080917"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all gap-2"
+                  className="inline-flex items-center justify-center px-5 py-3 bg-[#22c55e] hover:bg-[#16a34a] text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all gap-2"
                 >
                   <Send className="w-4 h-4" />
                   Send WhatsApp
@@ -708,7 +770,7 @@ export default function Index() {
               <form onSubmit={handleInquirySubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-650 uppercase tracking-wider mb-1.5">Full Name</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Full Name</label>
                     <input 
                       type="text" 
                       placeholder="Enter your name" 
@@ -719,7 +781,7 @@ export default function Index() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-650 uppercase tracking-wider mb-1.5">Mobile Number</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Mobile Number</label>
                     <input 
                       type="tel" 
                       placeholder="10-digit mobile" 
@@ -732,7 +794,7 @@ export default function Index() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-650 uppercase tracking-wider mb-1.5">Select Service Category</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Select Service Category</label>
                   <select 
                     value={inquiryService}
                     onChange={e => setInquiryService(e.target.value)}
@@ -747,7 +809,7 @@ export default function Index() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-650 uppercase tracking-wider mb-1.5">Message / Inquiry Details</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Message / Inquiry Details</label>
                   <textarea 
                     rows={4} 
                     placeholder="Provide details about your inquiry..." 
