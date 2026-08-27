@@ -3,12 +3,15 @@ import { Link } from "react-router-dom";
 import { 
   ShieldCheck, Phone, Mail, MapPin, ExternalLink, ArrowRight, 
   Layers, Landmark, FileText, CheckCircle2, ChevronRight, Award, 
-  TrendingUp, Activity, HelpCircle, Send, Menu, X
+  Activity, Send, Menu, X, Calendar, UserCheck, Star
 } from "lucide-react";
+import { toast } from "sonner";
 import logoImg from "@/assets/sk-logo.png";
+import agentPortrait from "@/assets/agent-portrait.jpg";
+import agentAction from "@/assets/agent-action.jpg";
 import SEO from "@/components/common/SEO";
 
-// Custom styles for 3D card tilt effect and scroll animations
+// Custom styles for lightweight animations and hover effects
 const inlineStyles = `
   @keyframes float-breathing {
     0%, 100% { transform: translateY(0) scale(1); }
@@ -34,27 +37,29 @@ const inlineStyles = `
   
   .reveal-on-scroll {
     opacity: 0;
-    transform: translateY(40px);
-    transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1), transform 1s cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translateY(24px);
+    transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .reveal-on-scroll.active {
     opacity: 1;
     transform: translateY(0);
   }
   
-  .tilt-card {
-    transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.2s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.2s ease;
-    transform-style: preserve-3d;
+  /* Standard corporate elevation animations (no shrink or cartoonish tilt) */
+  .corporate-card {
+    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.2s ease;
   }
-  .tilt-card-inner {
-    transform: translateZ(20px);
+  .corporate-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px -5px rgba(0, 51, 102, 0.08);
+    border-color: rgba(0, 86, 179, 0.25);
   }
   
   .glass-header {
-    background: rgba(15, 23, 42, 0.85);
+    background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(0, 51, 102, 0.06);
   }
 `;
 
@@ -62,6 +67,12 @@ export default function Index() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dragRef = useRef<HTMLAnchorElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Inquiry Form state
+  const [inquiryName, setInquiryName] = useState("");
+  const [inquiryMobile, setInquiryMobile] = useState("");
+  const [inquiryService, setInquiryService] = useState("LIC Advisory");
+  const [inquiryMessage, setInquiryMessage] = useState("");
 
   // Scroll reveal IntersectionObserver setup
   useEffect(() => {
@@ -73,7 +84,7 @@ export default function Index() {
           }
         });
       },
-      { threshold: 0.1, rootMargin: "0px 0px -50px 0px" }
+      { threshold: 0.05, rootMargin: "0px 0px -20px 0px" }
     );
 
     const elements = document.querySelectorAll(".reveal-on-scroll");
@@ -157,115 +168,133 @@ export default function Index() {
     };
   }, []);
 
-  // 3D Tilt Card Event Handlers
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const card = e.currentTarget;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const xc = rect.width / 2;
-    const yc = rect.height / 2;
-    // Rotate parameters: tilt up to 8 degrees
-    const rotateX = (yc - y) / 15;
-    const rotateY = (x - xc) / 15;
+  const handleInquirySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
-    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.03, 1.03, 1.03)`;
-    
-    // Create radial highlight moving along with the cursor
-    card.style.setProperty('--mouse-x', `${x}px`);
-    card.style.setProperty('--mouse-y', `${y}px`);
-    card.style.borderColor = 'rgba(59, 130, 246, 0.4)';
+    // 10-digit mobile verification
+    const cleanMobile = inquiryMobile.replace(/[^0-9]/g, "");
+    if (cleanMobile.length !== 10) {
+      toast.error("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+
+    const newInquiry = {
+      id: "inq_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
+      name: inquiryName.trim(),
+      mobile: cleanMobile,
+      service: inquiryService,
+      message: inquiryMessage.trim(),
+      timestamp: new Date().toISOString(),
+      resolved: false
+    };
+
+    try {
+      const existing = localStorage.getItem("customerInquiries");
+      const inquiriesList = existing ? JSON.parse(existing) : [];
+      inquiriesList.unshift(newInquiry);
+      localStorage.setItem("customerInquiries", JSON.stringify(inquiriesList));
+
+      toast.success("Thank you! Your inquiry has been submitted successfully.");
+      
+      // Clear form
+      setInquiryName("");
+      setInquiryMobile("");
+      setInquiryMessage("");
+    } catch (err) {
+      toast.error("Failed to save your inquiry. Please try again.");
+    }
   };
 
-  const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
-    const card = e.currentTarget;
-    card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
-    card.style.borderColor = 'rgba(226, 232, 240, 0.8)';
-  };
-
-  const services = [
+  const licOfferings = [
     {
-      title: "LIC & Life Insurance Advisory",
-      tagline: "Certified Agent Advisory",
-      description: "Get comprehensive policy planning, hassle-free online premium payments, and personalized risk assessment to secure your family's future.",
-      icon: <ShieldCheck className="w-8 h-8 text-blue-600 group-hover:scale-110 transition-transform duration-300" />,
-      bullets: ["Certified Advisory", "Premium Payment Gateway", "Claims & Surrender Support"],
-      gradient: "from-blue-500/10 to-indigo-500/5",
-      badge: "LIC Certified"
+      title: "জীবন বীমা (Life Insurance)",
+      desc: "Comprehensive financial security coverage plans that protect your family in case of unforeseen circumstances."
     },
     {
+      title: "সঞ্চয় পরিকল্পনা (Savings Plans)",
+      desc: "Guaranteed maturity return programs designed to systematically build your wealth and fulfill dreams."
+    },
+    {
+      title: "অবসরকালীন পরিকল্পনা (Retirement Plans)",
+      desc: "Ensure regular life-long monthly pensions to support financial independence after retirement."
+    },
+    {
+      title: "শিশু শিক্ষা ও ভবিষ্যৎ পরিকল্পনা (Child Future Plans)",
+      desc: "Fulfill educational milestones and marriage cost needs for your children with tailored investments."
+    },
+    {
+      title: "স্বাস্থ্য বীমা ও টার্ম প্ল্যান (Health & Term Plans)",
+      desc: "High-value life coverage policies and medical protection riders providing ultimate risk coverage."
+    }
+  ];
+
+  const coreServices = [
+    {
       title: "Dual Bank CSP Integration",
-      tagline: "Authorized Service Point",
-      description: "Direct customer banking desk for Bank of Baroda & Bank of India. Access AEPS cash withdrawals, instant savings accounts, and direct deposits.",
-      icon: <Landmark className="w-8 h-8 text-blue-700 group-hover:scale-110 transition-transform duration-300" />,
-      bullets: ["Aadhaar Enabled Payments (AEPS)", "Instant Zero-Balance Accounts", "Seamless Money Transfers"],
-      gradient: "from-blue-600/10 to-slate-900/5",
-      badge: "BOB & BOI Authorized"
+      tagline: "Bank of Baroda & Bank of India Authorized CSP",
+      description: "Direct customer service branch operations. Fully enabled for AEPS Aadhaar cash withdrawals, deposits, money transfers, and savings account opening.",
+      icon: <Landmark className="w-6 h-6 text-[#003366]" />,
+      badge: "BOB & BOI CSP"
     },
     {
       title: "Taxation & Compliance",
-      tagline: "GST & Income Tax Return filing",
-      description: "Hassle-free GST registrations, quarterly/monthly filings, and individual ITR processing with fast approval cycles.",
-      icon: <FileText className="w-8 h-8 text-emerald-600 group-hover:scale-110 transition-transform duration-300" />,
-      bullets: ["GST Return Filing & Reg", "ITR filing for Salaried & Business", "Pan Card & Digital Signatures"],
-      gradient: "from-emerald-500/10 to-teal-500/5",
-      badge: "100% Compliant"
+      tagline: "GST & Income Tax Returns Office",
+      description: "Get end-to-end support for new GST registrations, monthly business return filings, and personal ITR calculation & submissions.",
+      icon: <FileText className="w-6 h-6 text-[#003366]" />,
+      badge: "GST & ITR"
     },
     {
       title: "CSC & Tathya Mitra Kendra",
-      tagline: "Government E-Services Hub",
-      description: "Your official local digital support center. Apply for birth/death certificates, voter cards, trade license applications, and government schemes.",
-      icon: <Layers className="w-8 h-8 text-amber-600 group-hover:scale-110 transition-transform duration-300" />,
-      bullets: ["Government Scheme Applications", "Certificate processing", "Digital Literacy Hub"],
-      gradient: "from-amber-500/10 to-orange-500/5",
+      tagline: "Authorized Digital Government Services",
+      description: "Official local hub for processing birth/death certificates, trade licenses, digital certificates, and applying for government schemes.",
+      icon: <Layers className="w-6 h-6 text-[#003366]" />,
       badge: "Digital India"
     },
     {
       title: "Travel & Ticketing Services",
-      tagline: "Quick Travel Reservations",
-      description: "Instant flight ticket bookings, hotel reservations, and official IRCTC Indian Railways train e-ticketing.",
-      icon: <Activity className="w-8 h-8 text-sky-600 group-hover:scale-110 transition-transform duration-300" />,
-      bullets: ["IRCTC E-Ticketing", "Affordable Air Booking", "Instant Reschedule / Refund"],
-      gradient: "from-sky-500/10 to-blue-500/5",
-      badge: "Super Fast"
+      tagline: "Railway & Flight E-Bookings",
+      description: "Instant online ticketing portal for flight bookings, hotel reservations, and official IRCTC Indian Railways train ticketing.",
+      icon: <Activity className="w-6 h-6 text-[#003366]" />,
+      badge: "IRCTC Authorized"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-600 selection:text-white relative overflow-hidden">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#334155] font-sans selection:bg-[#0056B3] selection:text-white relative overflow-hidden">
       <SEO 
-        title="Professional Portfolio & Multi-Service Hub" 
-        description="Explore professional Financial Advisory, Dual Bank CSP (BOB/BOI), Taxation/ITR, CSC Tathya Mitra, and travel booking services under one roof."
+        title="Alinur Sekh - Senior LIC Advisor & Multi-Service Hub" 
+        description="Official portfolio of Alinur Sekh (Certified Senior LIC Advisor, License 16541-41A). Dual-banking BOB/BOI CSP services, GST/ITR filing, and CSC Tathya Mitra."
       />
       
       <style>{inlineStyles}</style>
 
-      {/* Modern Glassmorphic Header */}
+      {/* Modern Light Glassmorphic Header */}
       <header className="fixed top-0 left-0 right-0 z-50 glass-header shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
             {/* Logo + Brand Name */}
             <div className="flex items-center gap-3">
-              <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-500 rounded-lg blur opacity-30 group-hover:opacity-70 transition duration-300"></div>
+              <div className="relative group flex-shrink-0">
+                <div className="absolute -inset-1 bg-gradient-to-r from-[#003366] to-[#0056B3] rounded-lg blur opacity-15 group-hover:opacity-30 transition duration-300"></div>
                 <img 
                   src={logoImg} 
                   alt="SK ONLINE Logo" 
-                  className="relative w-9 h-9 sm:w-11 sm:h-11 rounded-lg object-cover bg-white p-0.5 border border-white/10" 
+                  className="relative w-9 h-9 sm:w-11 sm:h-11 rounded-lg object-contain bg-white p-0.5 border border-slate-200" 
                 />
               </div>
               <div>
-                <h1 className="text-base sm:text-lg font-extrabold text-white tracking-tight leading-none">SK ONLINE</h1>
-                <p className="text-[10px] text-blue-400 font-semibold tracking-wide uppercase mt-0.5 sm:mt-1">Multi-Service Center</p>
+                <h1 className="text-sm sm:text-base font-extrabold text-[#0F172A] tracking-tight leading-none">SK ONLINE</h1>
+                <p className="text-[10px] text-[#0056B3] font-bold tracking-wider uppercase mt-0.5 sm:mt-1">Multi-Service & LIC Hub</p>
               </div>
             </div>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
-              <a href="#home" className="text-slate-300 hover:text-white text-sm font-medium transition-colors">Home</a>
-              <a href="#about" className="text-slate-300 hover:text-white text-sm font-medium transition-colors">About</a>
-              <a href="#services" className="text-slate-300 hover:text-white text-sm font-medium transition-colors">Services</a>
-              <a href="#contact" className="text-slate-300 hover:text-white text-sm font-medium transition-colors">Contact</a>
+            <nav className="hidden md:flex items-center gap-6">
+              <a href="#home" className="text-[#334155] hover:text-[#003366] text-xs sm:text-sm font-semibold transition-colors">Home</a>
+              <a href="#about" className="text-[#334155] hover:text-[#003366] text-xs sm:text-sm font-semibold transition-colors">About Alinur</a>
+              <a href="#lic-plans" className="text-[#334155] hover:text-[#003366] text-xs sm:text-sm font-semibold transition-colors">LIC Plans</a>
+              <a href="#services" className="text-[#334155] hover:text-[#003366] text-xs sm:text-sm font-semibold transition-colors">Other Services</a>
+              <a href="#contact" className="text-[#334155] hover:text-[#003366] text-xs sm:text-sm font-semibold transition-colors">Contact</a>
             </nav>
 
             {/* Login Action (Top-Right) */}
@@ -273,7 +302,7 @@ export default function Index() {
               <Link 
                 id="header-login-btn"
                 to="/login" 
-                className="inline-flex items-center justify-center px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-lg hover:shadow-blue-500/20 transition-all duration-150 gap-2 border border-blue-500/20"
+                className="inline-flex items-center justify-center px-4.5 py-2.5 bg-[#003366] hover:bg-[#002244] text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all duration-150 gap-2 border border-[#003366]/20"
               >
                 <ShieldCheck className="w-4 h-4" />
                 Login Portal
@@ -283,7 +312,7 @@ export default function Index() {
             {/* Mobile Menu Button */}
             <button 
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-slate-300 hover:text-white focus:outline-none"
+              className="md:hidden p-2 rounded-lg text-[#334155] hover:text-[#0F172A] focus:outline-none"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -292,40 +321,47 @@ export default function Index() {
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-slate-900 border-b border-slate-800 animate-fade-in-down">
+          <div className="md:hidden bg-white border-b border-slate-200 animate-fade-in-down">
             <div className="px-4 pt-2 pb-6 space-y-3 shadow-inner">
               <a 
                 href="#home" 
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-md text-base font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                className="block px-3 py-2 rounded-md text-sm font-semibold text-[#334155] hover:bg-slate-50 hover:text-[#003366] transition-colors"
               >
                 Home
               </a>
               <a 
                 href="#about" 
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-md text-base font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                className="block px-3 py-2 rounded-md text-sm font-semibold text-[#334155] hover:bg-slate-50 hover:text-[#003366] transition-colors"
               >
-                About
+                About Alinur
+              </a>
+              <a 
+                href="#lic-plans" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 rounded-md text-sm font-semibold text-[#334155] hover:bg-slate-50 hover:text-[#003366] transition-colors"
+              >
+                LIC Plans
               </a>
               <a 
                 href="#services" 
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-md text-base font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                className="block px-3 py-2 rounded-md text-sm font-semibold text-[#334155] hover:bg-slate-50 hover:text-[#003366] transition-colors"
               >
-                Services
+                Other Services
               </a>
               <a 
                 href="#contact" 
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-md text-base font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                className="block px-3 py-2 rounded-md text-sm font-semibold text-[#334155] hover:bg-slate-50 hover:text-[#003366] transition-colors"
               >
                 Contact
               </a>
-              <div className="pt-4 px-3">
+              <div className="pt-3 px-3">
                 <Link 
                   to="/login"
-                  className="w-full flex items-center justify-center py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-sm tracking-wide gap-2 shadow-md"
+                  className="w-full flex items-center justify-center py-2.5 bg-[#003366] hover:bg-[#002244] text-white rounded-md font-bold text-xs uppercase tracking-wider gap-2 shadow-sm"
                 >
                   <ShieldCheck className="w-4 h-4" />
                   Sign In
@@ -336,187 +372,192 @@ export default function Index() {
         )}
       </header>
 
-      {/* Hero Section */}
-      <section id="home" className="relative bg-slate-950 text-white pt-28 pb-16 sm:pt-40 sm:pb-28 overflow-hidden">
-        {/* Background Mesh Gradients */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(29,78,216,0.15),transparent_50%),radial-gradient(ellipse_at_bottom_left,rgba(16,185,129,0.08),transparent_50%)] pointer-events-none" />
-        
-        {/* Grid Background Overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
+      {/* Hero Section - Light theme, 2-Column Split Layout */}
+      <section id="home" className="relative bg-white pt-24 pb-16 sm:pt-36 sm:pb-24 border-b border-slate-100 overflow-hidden">
+        {/* Subtle pattern background */}
+        <div className="absolute inset-0 bg-[#003366]/[0.01] bg-[radial-gradient(#003366_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#0056B3]/5 rounded-full blur-[120px] pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 mb-6 sm:mb-8 animate-fade-in-up">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs sm:text-sm font-semibold tracking-wide text-blue-300">Authorized Digital Service Provider</span>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             
-            <h2 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1] mb-6 sm:mb-8 reveal-on-scroll active">
-              Premium Financial Advisory,<br />
-              <span className="bg-gradient-to-r from-blue-400 via-indigo-305 to-amber-300 bg-clip-text text-transparent">
-                CSP Banking & Digital Services
-              </span>
-            </h2>
-            
-            <p className="text-slate-400 text-sm sm:text-lg md:text-xl font-normal leading-relaxed max-w-2xl mx-auto mb-8 sm:mb-10 reveal-on-scroll active">
-              One-stop hub managed by Abul, assisting citizens with Bank Customer Service Point (CSP) banking desk operations, LIC policies, tax submissions, and instant official ticketing.
-            </p>
+            {/* Left Column: Headline and Badges */}
+            <div className="lg:col-span-7 text-left space-y-6">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#003366]/5 border border-[#003366]/10 animate-fade-in-up">
+                <UserCheck className="w-4 h-4 text-[#003366]" />
+                <span className="text-xs font-bold tracking-wide text-[#003366]">Government Authorized Financial Services</span>
+              </div>
+              
+              <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-[1.15] text-[#0F172A] reveal-on-scroll active">
+                Secure Your Family's Future &<br />
+                <span className="text-[#0056B3]">Simplify Your Banking</span>
+              </h2>
+              
+              <p className="text-[#475569] text-sm sm:text-base md:text-lg font-normal leading-relaxed max-w-xl reveal-on-scroll active">
+                Consult with <strong>Alinur Sekh</strong>, a certified senior life insurance advisor, and access Bank of Baroda & Bank of India CSP services, GST submissions, and Tata Mitra citizen desk offerings.
+              </p>
 
-            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 reveal-on-scroll active">
-              <a 
-                href="#services" 
-                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm tracking-wide rounded-lg transition-all duration-150 shadow-xl shadow-blue-500/15 gap-2 border border-blue-500/20"
-              >
-                Explore Services
-                <ArrowRight className="w-4 h-4" />
-              </a>
-              <a 
-                href="#contact" 
-                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 bg-slate-900 hover:bg-slate-850 hover:text-white text-slate-300 font-bold text-sm tracking-wide rounded-lg transition-all duration-150 border border-slate-800 gap-2"
-              >
-                Contact Now
-              </a>
+              {/* LIC Agent Trust Box */}
+              <div className="bg-[#F8FAFC] border-l-4 border-[#D4AF37] rounded-r-xl p-4 max-w-lg shadow-sm reveal-on-scroll active">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#003366] uppercase tracking-wider mb-1">
+                  <Star className="w-3.5 h-3.5 fill-current text-[#D4AF37]" />
+                  Authorized LIC Advisor Profile
+                </div>
+                <div className="text-sm font-bold text-[#0F172A]">Alinur Sekh</div>
+                <div className="text-xs text-slate-500 font-mono mt-0.5">LIC License No: <span className="font-bold text-slate-800">16541-41A</span> &nbsp;|&nbsp; 10+ Years Track Record</div>
+                <div className="text-xs italic text-slate-650 mt-1.5 font-medium">
+                  "Your Trust. My Commitment. Securing Your Today, Protecting Your Tomorrow."
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-2 reveal-on-scroll active">
+                <a 
+                  href="#lic-plans" 
+                  className="inline-flex items-center justify-center px-6 py-3 bg-[#0056B3] hover:bg-[#003c80] text-white font-bold text-xs uppercase tracking-wider rounded-lg transition-all duration-150 shadow-md shadow-blue-500/10 gap-2"
+                >
+                  Explore LIC Plans
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+                <a 
+                  href="#contact" 
+                  className="inline-flex items-center justify-center px-6 py-3 bg-white hover:bg-slate-50 text-[#003366] font-bold text-xs uppercase tracking-wider rounded-lg transition-all duration-150 border border-slate-200 gap-2 shadow-sm"
+                >
+                  Get in Touch
+                </a>
+              </div>
             </div>
+
+            {/* Right Column: Stylized Portrait Container */}
+            <div className="lg:col-span-5 flex justify-center lg:justify-end reveal-on-scroll active">
+              <div className="relative max-w-sm w-full">
+                {/* Visual back frame */}
+                <div className="absolute inset-2 bg-gradient-to-tr from-[#003366] to-[#0056B3] rounded-2xl transform rotate-3 -z-10 shadow-lg" />
+                
+                {/* Image Card Container */}
+                <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-xl overflow-hidden relative">
+                  <img 
+                    src={agentPortrait} 
+                    alt="Alinur Sekh Portrait" 
+                    className="w-full h-[400px] object-cover rounded-xl object-top" 
+                  />
+                  
+                  {/* Floating verification badge */}
+                  <div className="absolute bottom-6 left-6 right-6 bg-white/95 border border-slate-100 p-3.5 rounded-xl shadow-lg backdrop-blur flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center flex-shrink-0">
+                      <Award className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-[#0F172A]">Alinur Sekh</div>
+                      <div className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase">Senior Advisor (LIC Agent)</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
-
-        {/* Floating Accent Blob */}
-        <div className="absolute right-0 top-1/4 w-80 h-80 rounded-full bg-blue-500/10 blur-[100px] pointer-events-none" />
       </section>
 
-      {/* About Section */}
+      {/* About Alinur Section - Crisp White Box Layout */}
       <section id="about" className="py-16 sm:py-24 bg-white relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 sm:gap-16 items-center">
-            {/* Visual Column */}
-            <div className="relative reveal-on-scroll">
-              <div className="absolute -top-4 -left-4 w-72 h-72 bg-blue-100 rounded-3xl -z-10 animate-pulse" />
-              <div className="relative rounded-2xl bg-gradient-to-br from-slate-900 to-blue-900 p-8 sm:p-12 text-white shadow-2xl overflow-hidden">
-                <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full blur-2xl" />
-                <Award className="w-12 h-12 text-amber-400 mb-6" />
-                <h3 className="text-xl sm:text-2xl font-extrabold mb-4">Trusted Multi-Service Expert</h3>
-                <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">
-                  Providing compliant, reliable digital and financial support. Supporting government programs and direct electronic banking interfaces since inception to build local business confidence.
-                </p>
-                <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-6">
-                  <div>
-                    <div className="text-2xl sm:text-3xl font-extrabold text-blue-400">100%</div>
-                    <div className="text-xs text-slate-400 mt-1 uppercase font-semibold tracking-wide">Secure Operations</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400">Dual</div>
-                    <div className="text-xs text-slate-400 mt-1 uppercase font-semibold tracking-wide">CSP Integrations</div>
-                  </div>
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 sm:gap-16 items-center">
+            
+            {/* Visual Action Photo Column (Left) */}
+            <div className="lg:col-span-5 relative reveal-on-scroll">
+              <div className="absolute -top-3 -left-3 w-40 h-40 bg-blue-50 rounded-2xl -z-10 animate-pulse" />
+              <div className="absolute -bottom-3 -right-3 w-40 h-40 bg-[#D4AF37]/5 rounded-2xl -z-10" />
+              
+              <div className="bg-white rounded-2xl p-2.5 border border-slate-200 shadow-lg overflow-hidden">
+                <img 
+                  src={agentAction} 
+                  alt="Alinur Sekh with LIC plaque" 
+                  className="w-full h-[450px] object-cover rounded-xl"
+                />
               </div>
             </div>
 
-            {/* Text Column */}
-            <div className="reveal-on-scroll">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="w-8 h-0.5 bg-blue-600 rounded-full" />
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-600">The Professional</span>
+            {/* Text Column (Right) */}
+            <div className="lg:col-span-7 space-y-6 reveal-on-scroll">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-0.5 bg-[#0056B3]" />
+                <span className="text-xs font-bold uppercase tracking-wider text-[#0056B3]">About the Advisor</span>
               </div>
-              <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 mb-6 leading-tight">
-                Your Trusted Partner in Financial and Digital Solutions
+              
+              <h2 className="text-2xl sm:text-4xl font-extrabold text-[#0F172A] tracking-tight leading-tight">
+                Alinur Sekh — 10+ Years of Financial Integrity & Advisory
               </h2>
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-6">
-                SK ONLINE is a professional business consultancy offering certified services directly to the residents of Rampur Bazar and surrounding regions in Sandeshkhali. We bring banking access, insurance protection, travel operations, and official taxation services under a single roof.
+              
+              <p className="text-[#475569] text-sm sm:text-base leading-relaxed">
+                As a registered and certified Life Insurance Corporation (LIC) Advisor (License: <code>16541-41A</code>), Alinur Sekh has spent over a decade delivering custom life insurance protection and savings strategies to thousands of families and businesses across Rampur Bazar, Sandeshkhali, and North 24 Parganas.
               </p>
               
-              <div className="space-y-4 mb-8">
-                {[
-                  "Dual Customer Service Point (CSP) for BOB & BOI",
-                  "Licensed LIC Life Insurance policies & advisory desk",
-                  "Official GST registrations, filing, & individual taxation guidance",
-                  "Tathya Mitra government certificates & e-services"
-                ].map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
-                    <span className="text-sm sm:text-base text-slate-700 font-medium">{item}</span>
-                  </div>
-                ))}
+              <p className="text-[#475569] text-sm sm:text-base leading-relaxed">
+                We believe that financial security is the base of building a prospering community. Beside LIC policy planning, our office coordinates banking inclusion solutions through authorized Customer Service Point (CSP) banking counters and assists citizens with essential compliance tools.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-6">
+                <div>
+                  <div className="text-2xl sm:text-3xl font-extrabold text-[#003366]">10+ Years</div>
+                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-1">Experience in Advisory</div>
+                </div>
+                <div>
+                  <div className="text-2xl sm:text-3xl font-extrabold text-[#D4AF37]">16541-41A</div>
+                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-1">Verified LIC License</div>
+                </div>
               </div>
 
-              <a 
-                href="#contact" 
-                className="inline-flex items-center text-blue-600 hover:text-blue-700 text-sm sm:text-base font-bold gap-2 group"
-              >
-                Get in touch for details
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </a>
+              <div className="pt-2">
+                <a 
+                  href="#contact" 
+                  className="inline-flex items-center text-sm sm:text-base font-bold text-[#0056B3] hover:text-[#003c80] gap-1.5 group"
+                >
+                  Schedule a private advisory session
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </a>
+              </div>
             </div>
+
           </div>
         </div>
       </section>
 
-      {/* Services Section */}
-      <section id="services" className="py-16 sm:py-24 bg-slate-50 relative">
+      {/* Primary Services - LIC Insurance Solutions Section */}
+      <section id="lic-plans" className="py-16 sm:py-24 bg-[#F8FAFC] border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20 reveal-on-scroll">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 border border-blue-200/50 mb-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-700">What We Do</span>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#003366]/5 border border-[#003366]/10 mb-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#003366]">LIC Solutions</span>
             </div>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">
-              Our Professional Core Offerings
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-[#0F172A] tracking-tight">
+              Life Insurance Corporation (LIC) Spotlight
             </h2>
-            <p className="text-slate-600 text-sm sm:text-lg">
-              Explore dynamic, certified business support designed to optimize digital safety and convenience for individuals and business entities.
+            <p className="text-[#475569] text-sm sm:text-lg mt-2">
+              Protect your loved ones and achieve structured capital returns with official life insurance plans designed by Alinur Sekh.
             </p>
           </div>
 
-          {/* Interactive Services Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {services.map((service, idx) => (
+          {/* LIC Plans Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {licOfferings.map((plan, idx) => (
               <div 
                 key={idx}
-                onMouseMove={handleMouseMove}
-                onMouseLeave={handleMouseLeave}
-                className="tilt-card bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl p-8 transition-all duration-300 relative group overflow-hidden flex flex-col justify-between"
+                className="corporate-card bg-white rounded-xl border border-slate-200/80 p-8 shadow-sm transition-all duration-300 relative overflow-hidden flex flex-col justify-between"
               >
-                {/* Background Hover Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10 pointer-events-none" />
-                
-                {/* Top Details */}
-                <div className="tilt-card-inner">
-                  {/* Card Header (Icon & Badge) */}
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="w-14 h-14 rounded-xl bg-slate-50 flex items-center justify-center group-hover:bg-white shadow-sm border border-slate-100 transition-colors duration-300">
-                      {service.icon}
-                    </div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full">
-                      {service.badge}
-                    </span>
+                <div>
+                  <div className="w-12 h-12 rounded-lg bg-[#003366]/5 border border-[#003366]/10 flex items-center justify-center mb-6">
+                    <ShieldCheck className="w-6 h-6 text-[#003366]" />
                   </div>
-
-                  <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 mb-1 group-hover:text-blue-700 transition-colors">
-                    {service.title}
-                  </h3>
-                  <p className="text-xs text-blue-500 font-bold uppercase tracking-wider mb-4">
-                    {service.tagline}
-                  </p>
-                  <p className="text-slate-600 text-sm leading-relaxed mb-6">
-                    {service.description}
-                  </p>
-
-                  <div className="space-y-2 border-t border-slate-100 pt-5 mb-6">
-                    {service.bullets.map((bullet, bIdx) => (
-                      <div key={bIdx} className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                        <span className="text-xs text-slate-700 font-medium">{bullet}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <h3 className="text-lg font-extrabold text-[#0F172A] mb-3">{plan.title}</h3>
+                  <p className="text-slate-500 text-sm leading-relaxed">{plan.desc}</p>
                 </div>
-
-                {/* Card CTA */}
-                <div className="tilt-card-inner pt-2">
-                  <a 
-                    href="#contact" 
-                    className="inline-flex items-center text-xs font-bold text-blue-600 group-hover:text-blue-700 gap-1.5 transition-colors"
-                  >
-                    Request Service
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                <div className="pt-6 border-t border-slate-50 mt-6 flex justify-between items-center">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-[#D4AF37]">LIC India Plans</span>
+                  <a href="#contact" className="text-xs font-bold text-[#0056B3] hover:text-[#003c80] flex items-center gap-1">
+                    Apply Now
+                    <ArrowRight className="w-3 h-3" />
                   </a>
                 </div>
               </div>
@@ -525,33 +566,80 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Contact Section */}
-      <section id="contact" className="py-16 sm:py-24 bg-white relative">
+      {/* Secondary Services - Digital & Banking CSP Services Section */}
+      <section id="services" className="py-16 sm:py-24 bg-white border-t border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20 reveal-on-scroll">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0056B3]/5 border border-[#0056B3]/10 mb-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#0056B3]">Secondary Services</span>
+            </div>
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-[#0F172A] tracking-tight">
+              CSP Banking & Digital Hub
+            </h2>
+            <p className="text-[#475569] text-sm sm:text-lg mt-2">
+              Access secure banking kiosks, regulatory business taxation guidance, and official travel bookings.
+            </p>
+          </div>
+
+          {/* Core Services Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {coreServices.map((service, idx) => (
+              <div 
+                key={idx}
+                className="corporate-card bg-slate-50/50 rounded-xl border border-slate-200/80 p-8 shadow-sm transition-all duration-300 flex flex-col sm:flex-row gap-5 items-start justify-between"
+              >
+                <div className="w-12 h-12 rounded-lg bg-[#003366]/5 border border-[#003366]/10 flex items-center justify-center flex-shrink-0">
+                  {service.icon}
+                </div>
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#0056B3]">{service.badge}</span>
+                  </div>
+                  <h3 className="text-lg font-extrabold text-[#0F172A]">{service.title}</h3>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">{service.tagline}</p>
+                  <p className="text-slate-650 text-sm leading-relaxed pt-1">{service.description}</p>
+                  <div className="pt-2">
+                    <a href="#contact" className="inline-flex items-center text-xs font-bold text-[#0056B3] hover:text-[#003c80] gap-1 group">
+                      Request Support
+                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Lead Capture Form & Info Section */}
+      <section id="contact" className="py-16 sm:py-24 bg-[#F8FAFC] border-t border-slate-100 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
             
             {/* Info Grid (Left) */}
-            <div className="lg:col-span-5 reveal-on-scroll">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="w-8 h-0.5 bg-blue-600 rounded-full" />
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Find Us</span>
+            <div className="lg:col-span-5 space-y-6 reveal-on-scroll">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-0.5 bg-[#0056B3]" />
+                <span className="text-xs font-bold uppercase tracking-wider text-[#0056B3]">Get in Touch</span>
               </div>
-              <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 mb-6 leading-tight">
-                Get in Touch or Visit Our Office
+              
+              <h2 className="text-2xl sm:text-4xl font-extrabold text-[#0F172A] tracking-tight leading-tight">
+                Secure Office Consultations
               </h2>
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-8">
-                Have an inquiry about an insurance plan, taxation status, or CSP desk hours? Contact us directly or drop by our location.
+              
+              <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
+                Connect with Alinur Sekh for custom life plans or request online support for taxes, certificates, and travel files.
               </p>
 
-              <div className="space-y-6 mb-8">
+              <div className="space-y-6 pt-3">
                 {/* Address */}
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <MapPin className="w-5 h-5 text-blue-600" />
+                  <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                    <MapPin className="w-5 h-5 text-[#003366]" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Office Address</h4>
-                    <p className="text-sm font-semibold text-slate-800 mt-1 leading-relaxed">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Office Location</h4>
+                    <p className="text-sm font-bold text-slate-800 mt-1 leading-relaxed">
                       Vill + PO: Rampur Bazar, PS: Sandeshkhali,<br />
                       Dist: North 24 Parganas, West Bengal
                     </p>
@@ -560,39 +648,42 @@ export default function Index() {
 
                 {/* Telephone */}
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Phone className="w-5 h-5 text-blue-600" />
+                  <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                    <Phone className="w-5 h-5 text-[#003366]" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Call Support</h4>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mobile Contact</h4>
                     <a 
                       href="tel:+919609080917" 
-                      className="text-base font-bold text-slate-900 hover:text-blue-600 transition-colors mt-1 block"
+                      className="text-base font-bold text-slate-900 hover:text-[#0056B3] transition-colors mt-1 block"
                     >
                       +91 96090 80917
                     </a>
                   </div>
                 </div>
 
-                {/* General Support */}
+                {/* Email */}
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Mail className="w-5 h-5 text-blue-600" />
+                  <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                    <Mail className="w-5 h-5 text-[#003366]" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email Inquiry</h4>
-                    <p className="text-sm font-semibold text-slate-800 mt-1 block">
-                      support@skonline.in
-                    </p>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Email Inbox</h4>
+                    <a 
+                      href="mailto:alinursekh8437@gmail.com"
+                      className="text-sm font-semibold text-slate-800 hover:text-[#0056B3] transition-colors mt-1 block"
+                    >
+                      alinursekh8437@gmail.com
+                    </a>
                   </div>
                 </div>
               </div>
 
-              {/* Direct Buttons */}
-              <div className="flex flex-wrap gap-4">
+              {/* Action Links */}
+              <div className="flex flex-wrap gap-3 pt-2">
                 <a 
                   href="tel:+919609080917"
-                  className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-md hover:shadow-blue-500/10 transition-all gap-2"
+                  className="inline-flex items-center justify-center px-5 py-3 bg-[#003366] hover:bg-[#002244] text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all gap-2"
                 >
                   <Phone className="w-4 h-4" />
                   Call Directly
@@ -601,69 +692,77 @@ export default function Index() {
                   href="https://wa.me/919609080917"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-md hover:shadow-emerald-500/10 transition-all gap-2"
+                  className="inline-flex items-center justify-center px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all gap-2"
                 >
                   <Send className="w-4 h-4" />
-                  WhatsApp Chat
+                  Send WhatsApp
                 </a>
               </div>
             </div>
 
             {/* Quick Contact Form (Right) */}
-            <div className="lg:col-span-7 bg-slate-50 border border-slate-200/80 rounded-2xl p-6 sm:p-10 reveal-on-scroll">
-              <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 mb-2">Send a Quick Message</h3>
-              <p className="text-xs sm:text-sm text-slate-600 mb-6">Fill out the quick form below and our team will get back to you within 24 hours.</p>
+            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6 sm:p-10 shadow-md reveal-on-scroll">
+              <h3 className="text-lg sm:text-xl font-extrabold text-[#0F172A] mb-2">Submit an Official Inquiry</h3>
+              <p className="text-xs sm:text-sm text-slate-500 mb-6">Complete the direct submission form below to forward your lead file directly to the operator console dashboard.</p>
 
-              <form onSubmit={(e) => { e.preventDefault(); alert("Thank you! Your inquiry was submitted."); }} className="space-y-4">
+              <form onSubmit={handleInquirySubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Full Name</label>
+                    <label className="block text-xs font-bold text-slate-650 uppercase tracking-wider mb-1.5">Full Name</label>
                     <input 
                       type="text" 
-                      placeholder="Your Name" 
+                      placeholder="Enter your name" 
                       required 
-                      className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
+                      value={inquiryName}
+                      onChange={e => setInquiryName(e.target.value)}
+                      className="w-full bg-slate-50/50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-[#0056B3] focus:bg-white transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Mobile Number</label>
+                    <label className="block text-xs font-bold text-slate-650 uppercase tracking-wider mb-1.5">Mobile Number</label>
                     <input 
                       type="tel" 
-                      placeholder="10-digit Mobile" 
+                      placeholder="10-digit mobile" 
                       required 
-                      className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
+                      value={inquiryMobile}
+                      onChange={e => setInquiryMobile(e.target.value)}
+                      className="w-full bg-slate-50/50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-[#0056B3] focus:bg-white transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Select Service Interest</label>
+                  <label className="block text-xs font-bold text-slate-650 uppercase tracking-wider mb-1.5">Select Service Category</label>
                   <select 
-                    className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
+                    value={inquiryService}
+                    onChange={e => setInquiryService(e.target.value)}
+                    className="w-full bg-slate-50/50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-[#0056B3] focus:bg-white transition-all"
                   >
-                    <option>LIC / Insurance Advisory</option>
-                    <option>CSP BOB/BOI Banking</option>
-                    <option>GST & Taxation Return Filing</option>
-                    <option>Tathya Mitra / CSC Certificates</option>
-                    <option>Travel / Ticketing</option>
+                    <option value="LIC Advisory">LIC Life Insurance Advisory</option>
+                    <option value="Banking CSP">Banking CSP Counters (BOB/BOI)</option>
+                    <option value="GST & ITR">Taxation Desk (GST/ITR Filing)</option>
+                    <option value="CSC Services">CSC & Tathya Mitra Kendra</option>
+                    <option value="Travel & Tickets">Travel & Ticketing Services</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Message Description</label>
+                  <label className="block text-xs font-bold text-slate-650 uppercase tracking-wider mb-1.5">Message / Inquiry Details</label>
                   <textarea 
                     rows={4} 
-                    placeholder="Enter your message details here..." 
+                    placeholder="Provide details about your inquiry..." 
                     required 
-                    className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
+                    value={inquiryMessage}
+                    onChange={e => setInquiryMessage(e.target.value)}
+                    className="w-full bg-slate-50/50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-[#0056B3] focus:bg-white transition-all"
                   />
                 </div>
 
                 <button 
                   type="submit" 
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-widest py-3 rounded-lg shadow-md hover:shadow-blue-500/10 transition-all"
+                  className="w-full bg-[#0056B3] hover:bg-[#003c80] text-white font-bold text-xs uppercase tracking-widest py-3 rounded-lg shadow-md transition-all duration-150"
                 >
-                  Submit Inquiry
+                  Submit Inquiry to Console
                 </button>
               </form>
             </div>
@@ -672,32 +771,33 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Global Footer */}
-      <footer className="bg-slate-950 text-slate-400 py-12 border-t border-slate-900">
+      {/* Global Corporate Footer */}
+      <footer className="bg-[#0F172A] text-slate-400 py-12 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center border-b border-slate-900 pb-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center border-b border-slate-800 pb-8 mb-8">
             {/* Logo */}
             <div className="flex items-center gap-3">
-              <img src={logoImg} alt="SK ONLINE" className="w-8 h-8 rounded-lg object-cover" />
+              <img src={logoImg} alt="SK ONLINE" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5" />
               <div>
                 <div className="text-sm font-extrabold text-white tracking-tight">SK ONLINE</div>
-                <div className="text-[10px] text-slate-500 font-semibold tracking-wider uppercase mt-0.5">CSP Banking & Multi-Service Hub</div>
+                <div className="text-[10px] text-slate-400 font-bold tracking-wider uppercase mt-0.5">CSP Banking & LIC India Hub</div>
               </div>
             </div>
 
             {/* Links */}
             <div className="flex flex-wrap justify-start md:justify-center gap-6">
-              <a href="#home" className="text-xs hover:text-white transition-colors">Home</a>
-              <a href="#about" className="text-xs hover:text-white transition-colors">About</a>
-              <a href="#services" className="text-xs hover:text-white transition-colors">Services</a>
-              <a href="#contact" className="text-xs hover:text-white transition-colors">Contact</a>
+              <a href="#home" className="text-xs font-medium hover:text-white transition-colors">Home</a>
+              <a href="#about" className="text-xs font-medium hover:text-white transition-colors">About Alinur</a>
+              <a href="#lic-plans" className="text-xs font-medium hover:text-white transition-colors">LIC Plans</a>
+              <a href="#services" className="text-xs font-medium hover:text-white transition-colors">Services</a>
+              <a href="#contact" className="text-xs font-medium hover:text-white transition-colors">Contact</a>
             </div>
 
             {/* Auth Link */}
             <div className="flex justify-start md:justify-end">
               <Link 
                 to="/login" 
-                className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1.5"
+                className="text-xs font-bold text-[#0056B3] hover:text-[#003c80] flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg border border-slate-200"
               >
                 Operator Login Portal
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -707,7 +807,7 @@ export default function Index() {
 
           <div className="flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-4">
             <div>
-              &copy; {new Date().getFullYear()} SK ONLINE. All rights reserved.
+              &copy; {new Date().getFullYear()} SK ONLINE. All rights reserved. Managed by Alinur Sekh.
             </div>
             <div className="flex items-center gap-1">
               Powered by{" "}
@@ -715,7 +815,7 @@ export default function Index() {
                 href="https://digitalsolution.biz" 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="text-blue-400 hover:text-blue-300 hover:underline font-semibold"
+                className="text-blue-400 hover:text-blue-350 hover:underline font-semibold"
               >
                 Digital Solution
               </a>
@@ -731,7 +831,7 @@ export default function Index() {
         target="_blank"
         rel="noopener noreferrer"
         title="Chat on WhatsApp"
-        className={`fixed bottom-6 right-6 z-50 w-14 h-14 bg-[#22c55e] text-white rounded-full shadow-lg flex items-center justify-center cursor-move transition-transform active:scale-95 duration-100 select-none animate-float-whatsapp whatsapp-ripple ${
+        className={`fixed bottom-6 right-6 z-50 w-14 h-14 bg-[#22c55e] text-white rounded-full shadow-lg flex items-center justify-center cursor-move transition-transform active:scale-95 duration-105 select-none animate-float-whatsapp whatsapp-ripple ${
           isDragging ? 'shadow-2xl scale-105 rotate-6 border border-white/20' : ''
         }`}
         style={{ touchAction: 'none' }}

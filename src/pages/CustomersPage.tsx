@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search, UserPlus, Download, Filter, Printer,
-  Trash2, Eye, ChevronDown, FileText,
+  Trash2, Eye, ChevronDown,
 } from "lucide-react";
 import { getCustomers, deleteCustomer as deleteCustomerStorage } from "@/lib/storage";
 import { exportToCSV, formatDateTime, getDaysUntilBirthday } from "@/lib/utils";
@@ -214,16 +214,9 @@ export default function CustomersPage() {
                           <Eye size={14} />
                         </button>
                         <button
-                          onClick={() => navigate(`/pdf-generator?customerId=${c.id}`)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                          title="Generate A4 PDF Forms"
-                        >
-                          <FileText size={14} />
-                        </button>
-                        <button
                           onClick={() => setSelectedCustomer(c)}
                           className="p-1.5 rounded-lg text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                          title="Print Customer Card"
+                          title="Print & Download Documents"
                         >
                           <Printer size={14} />
                         </button>
