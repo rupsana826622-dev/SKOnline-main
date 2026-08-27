@@ -15,10 +15,10 @@ export const FinancialInclusionForm: React.FC<FinancialInclusionFormProps> = ({ 
   return (
     <FormContainer id="pdf-form-fi">
       {/* Top Header */}
-      <div className="flex justify-between items-start mb-2">
+      <div className="flex justify-between items-center mb-2">
         {/* Top-Left Single Logo Slot */}
-        <div className="w-[200px] h-[55px] flex items-center justify-start">
-          <img src={logo} alt="Bank Logo" className="max-h-full max-w-full object-contain" />
+        <div className="flex items-center justify-start">
+          <img src={logo} alt="Bank Logo" className="w-auto h-12 object-contain" />
         </div>
 
         {/* Top-Right Bank Use Only Box */}
@@ -93,7 +93,7 @@ export const FinancialInclusionForm: React.FC<FinancialInclusionFormProps> = ({ 
           <span className="font-semibold ml-2">Date of Birth</span>
           <div className="flex items-center gap-1">
             <span className="text-[9px] text-slate-500">D D M M Y Y Y Y</span>
-            <CharacterGrid value={(customer.dob || "").replace(/-/g, "")} length={8} boxWidth="16px" boxHeight="18px" fontSize="10px" />
+            <CharacterGrid value={(customer.dob || "").replace(/[-/]/g, "")} length={8} boxWidth="16px" boxHeight="18px" fontSize="10px" />
           </div>
         </div>
 
@@ -163,7 +163,7 @@ export const FinancialInclusionForm: React.FC<FinancialInclusionFormProps> = ({ 
         <div className="text-[11px] space-y-2">
           <div>Telephone No: <span className="font-bold">{customer.mobile || "_________________"}</span></div>
           <div>Place : <span className="font-semibold">{customer.village || customer.district || "_________________"}</span></div>
-          <div>Date : <span className="font-semibold">{new Date().toLocaleDateString("en-IN")}</span></div>
+          <div>Date : _________________________</div>
         </div>
 
         {/* Intentionally Blank Photo Attachment Box */}
@@ -196,7 +196,7 @@ export const FinancialInclusionForm: React.FC<FinancialInclusionFormProps> = ({ 
         </div>
 
         <div className="flex justify-between items-end pt-1">
-          <div>I know the above person for the past <span className="font-bold underline px-2">{customer.introducerYears || "_____"}</span> years</div>
+          <div>I know the above person for the past <span className="inline-block border-b border-black pb-0.5 px-2 font-bold leading-none">{customer.introducerYears || "_____"}</span> years</div>
           <div className="text-right font-bold text-[10px]">Signature of the introducer</div>
         </div>
       </div>

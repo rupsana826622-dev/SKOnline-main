@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import SEO from "@/components/common/SEO";
+import { getInquiries, resolveInquiry, clearAllInquiries } from "@/lib/storage";
 
 interface Inquiry {
   id: string;
@@ -21,11 +22,10 @@ export default function InquiriesPage() {
   const [search, setSearch] = useState("");
   const [serviceFilter, setServiceFilter] = useState("All");
 
-  // Load inquiries from localStorage
+  // Load inquiries from storage
   const loadInquiries = () => {
     try {
-      const raw = localStorage.getItem("customerInquiries");
-      setInquiries(raw ? JSON.parse(raw) : []);
+      setInquiries(getInquiries());
     } catch (err) {
       toast.error("Failed to load customer inquiries.");
     }
@@ -33,6 +33,13 @@ export default function InquiriesPage() {
 
   useEffect(() => {
     loadInquiries();
+
+    // Listen for Supabase background sync completion
+    const handleSync = () => {
+      loadInquiries();
+    };
+    window.addEventListener("supabase-sync-complete", handleSync);
+    return () => window.removeEventListener("supabase-sync-complete", handleSync);
   }, []);
 
   // Filter and Search calculations
@@ -55,9 +62,8 @@ export default function InquiriesPage() {
     if (!confirm(`Mark inquiry from "${clientName}" as resolved and remove it from lists?`)) return;
     
     try {
-      const updated = inquiries.filter(inq => inq.id !== id);
-      localStorage.setItem("customerInquiries", JSON.stringify(updated));
-      setInquiries(updated);
+      resolveInquiry(id);
+      loadInquiries();
       toast.success(`Inquiry from ${clientName} resolved.`);
     } catch (err) {
       toast.error("Failed to resolve inquiry.");
@@ -70,8 +76,8 @@ export default function InquiriesPage() {
     if (!confirm("Are you sure you want to clear all inquiries? This action cannot be undone.")) return;
 
     try {
-      localStorage.setItem("customerInquiries", JSON.stringify([]));
-      setInquiries([]);
+      clearAllInquiries();
+      loadInquiries();
       toast.success("All inquiries cleared.");
     } catch (err) {
       toast.error("Failed to clear inquiries.");

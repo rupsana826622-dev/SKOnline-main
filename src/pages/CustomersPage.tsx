@@ -23,6 +23,12 @@ export default function CustomersPage() {
 
   useEffect(() => {
     setCustomers(getCustomers());
+
+    const handleSync = () => {
+      setCustomers(getCustomers());
+    };
+    window.addEventListener("supabase-sync-complete", handleSync);
+    return () => window.removeEventListener("supabase-sync-complete", handleSync);
   }, []);
 
   const filtered = useMemo(() => {

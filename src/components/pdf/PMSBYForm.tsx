@@ -18,18 +18,18 @@ export const PMSBYForm: React.FC<PMSBYFormProps> = ({ customer, settings }) => {
   return (
     <FormContainer id="pdf-form-pmsby">
       {/* Header Multi-Logo Slots (Left, Center, Right) */}
-      <div className="flex justify-between items-center mb-2 h-[55px] border-b border-black pb-1">
+      <div className="flex justify-between items-center mb-2 h-14 border-b border-black pb-1">
         {/* Left Slot */}
-        <div className="w-[180px] h-full flex items-center justify-start">
-          <img src={logos.left || DEFAULT_NEW_INDIA_LOGO} alt="Insurer Logo" className="max-h-full max-w-full object-contain" />
+        <div className="flex items-center justify-start">
+          <img src={logos.left || DEFAULT_NEW_INDIA_LOGO} alt="Insurer Logo" className="w-auto h-12 object-contain" />
         </div>
         {/* Center Slot */}
-        <div className="w-[200px] h-full flex items-center justify-center">
-          <img src={logos.center || DEFAULT_PMSBY_LOGO} alt="PMSBY Logo" className="max-h-full max-w-full object-contain" />
+        <div className="flex items-center justify-center">
+          <img src={logos.center || DEFAULT_PMSBY_LOGO} alt="PMSBY Logo" className="w-auto h-12 object-contain" />
         </div>
         {/* Right Slot */}
-        <div className="w-[180px] h-full flex items-center justify-end">
-          <img src={logos.right || DEFAULT_BOI_LOGO} alt="Bank Logo" className="max-h-full max-w-full object-contain" />
+        <div className="flex items-center justify-end">
+          <img src={logos.right || DEFAULT_BOI_LOGO} alt="Bank Logo" className="w-auto h-12 object-contain" />
         </div>
       </div>
 
@@ -42,7 +42,7 @@ export const PMSBYForm: React.FC<PMSBYFormProps> = ({ customer, settings }) => {
       {/* Policy Consent Paragraphs */}
       <div className="text-[9.5px] leading-tight space-y-1 text-justify mb-2">
         <p>
-          I hereby give my consent to become a member of <strong>'Pradhan Mantri Suraksha Bima Yojana'</strong> of <u>The New India Assurance Co. Ltd.</u> (Name of Insurer) which will be administered by your Bank under Master Policy No. <u>{settings.cspCode || "BOI/PMSBY/2026"}</u> (To be pre-printed).
+          I hereby give my consent to become a member of <strong>'Pradhan Mantri Suraksha Bima Yojana'</strong> of <span className="inline-block border-b border-black font-semibold px-1 pb-[1px] leading-tight">The New India Assurance Co. Ltd.</span> (Name of Insurer) which will be administered by your Bank under Master Policy No. <span className="inline-block border-b border-black font-semibold px-1 pb-[1px] leading-tight">{settings.cspCode || "BOI/PMSBY/2026"}</span> (To be pre-printed).
         </p>
         <p>
           I hereby authorize you to debit my Account with your Branch with <strong>Rs. 20/- (Rupees twenty only)</strong>, towards premium of accidental insurance cover@ of Rs Two lakhs under PMSBY (claim payable in case of death or permanent disability# due to accident$). I further authorize you to deduct in future after 25th May and not later than on 1st of June every year until further instructions, an amount of <strong>Rs.20/- (Rupees twenty only)</strong>, or any amount as decided from time to time, which may be intimated immediately if and when revised, towards renewal of coverage under the scheme.
@@ -144,27 +144,26 @@ export const PMSBYForm: React.FC<PMSBYFormProps> = ({ customer, settings }) => {
         I hereby declare that the above statements are true in all respects and that I agree and declare that the above information shall form the basis of admission to the above scheme and that if any information be found untrue, my membership to the scheme shall be treated as canceled.
       </div>
 
-      <div className="flex justify-between items-end my-3">
-        <div className="text-xs">
-          Date: <span className="font-bold border-b border-black px-4">{new Date().toLocaleDateString("en-IN")}</span>
+      <div className="flex justify-between items-end my-4 pt-4">
+        <div className="text-xs font-bold">
+          Date: __________________
         </div>
-        <div className="w-[180px] h-[50px] border border-black flex flex-col justify-end text-center p-1">
-          <div className="border-t border-black text-[10px] font-bold">Signature of Customer</div>
+        <div className="text-right text-xs font-bold space-y-6">
+          <p className="pb-4">________________________________________</p>
+          <p>Signature of Customer</p>
         </div>
       </div>
 
-      {/* Bank Verification Section & Stamp Box */}
-      <div className="border-t border-black pt-2 flex justify-between items-start my-2">
-        <div className="text-[9.5px] max-w-[400px]">
-          **Confirmed that the applicant's details and signature have been verified from the records available with this Bank.
-          <br /><br />
-          Date: <span className="font-bold underline">{new Date().toLocaleDateString("en-IN")}</span>
+      {/* Bank Verification Section */}
+      <div className="border-t border-black pt-2 flex justify-between items-end my-3">
+        <div className="text-[9.5px] max-w-[320px] space-y-4">
+          <p>**Confirmed that the applicant's details and signature have been verified from the records available with this Bank.</p>
+          <p className="font-bold">Date: __________________</p>
         </div>
-
-        {/* Intentionally Blank Rubber Stamp Box */}
-        <div className="w-[200px] h-[75px] border-2 border-dashed border-black flex flex-col items-center justify-center text-[9px] font-bold text-slate-400 text-center p-1 bg-slate-50">
-          <div>Signature of Bank Manager</div>
-          <div className="text-[8px] mt-1">(Rubber Stamp with branch name & code)</div>
+        <div className="text-right text-xs font-bold space-y-2">
+          <p className="pb-8">________________________________________</p>
+          <p>Signature of the Bank officer/Branch Manager</p>
+          <p className="text-[9px] text-slate-500 font-normal font-sans">(Rubber Stamp with bank branch name and code)</p>
         </div>
       </div>
 

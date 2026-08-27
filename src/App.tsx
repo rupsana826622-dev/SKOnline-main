@@ -1,4 +1,5 @@
 // App main routing system configuration
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
@@ -13,8 +14,14 @@ import FamilyMappingPage from "@/pages/FamilyMappingPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import Index from "@/pages/Index";
 import InquiriesPage from "./pages/InquiriesPage";
+import { syncFromSupabase } from "@/lib/storage";
 
 export default function App() {
+  useEffect(() => {
+    // Sync settings, customers, and inquiries from Supabase
+    syncFromSupabase();
+  }, []);
+
   return (
     <BrowserRouter>
       <Toaster

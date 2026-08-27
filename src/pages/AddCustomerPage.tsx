@@ -125,7 +125,7 @@ function defaultForm(settings: ReturnType<typeof getSettings>) {
     name: "", fatherName: "", motherName: "", spouseName: "",
     sex: "Male", age: "", dob: "", profession: "", category: "OBC",
     // Address
-    address: "", village: "", mandal: "", district: "", state: "Telangana",
+    address: "", village: "", mandal: "", district: "", state: "West Bengal",
     // Financial & KYC
     annualIncome: "", annualIncomeTier: "< ₹25,000", panGir: "", mobile: "", email: "",
     // Nomination
@@ -203,8 +203,37 @@ export default function AddCustomerPage() {
   const [printCustomer, setPrintCustomer] = useState<Customer | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const formatDob = (val: string, prevVal: string = "") => {
+    if (val.length < prevVal.length) {
+      return val;
+    }
+    const digits = val.replace(/\D/g, "");
+    let formatted = "";
+    if (digits.length > 0) {
+      formatted += digits.substring(0, 2);
+      if (digits.length === 2) {
+        formatted += "/";
+      }
+    }
+    if (digits.length > 2) {
+      formatted += "/" + digits.substring(2, 4);
+      if (digits.length === 4) {
+        formatted += "/";
+      }
+    }
+    if (digits.length > 4) {
+      formatted += "/" + digits.substring(4, 8);
+    }
+    return formatted;
+  };
+
   const set = (k: string, v: string) => {
-    setFormState(f => ({ ...f, [k]: v }));
+    let finalValue = v;
+    if (k.toLowerCase().includes("dob") || k === "apySpouseDob") {
+      const prevVal = form[k] ?? "";
+      finalValue = formatDob(v.slice(0, 10), prevVal);
+    }
+    setFormState(f => ({ ...f, [k]: finalValue }));
     setErrors(e => { const n = { ...e }; delete n[k]; return n; });
   };
 
@@ -213,7 +242,7 @@ export default function AddCustomerPage() {
     if (/^\d+$/.test(val)) {
       return Number(val) < 18;
     }
-    const parts = val.split("-");
+    const parts = val.split(/[-/]/);
     if (parts.length === 3) {
       const day = Number(parts[0]);
       const month = Number(parts[1]);
@@ -479,8 +508,8 @@ export default function AddCustomerPage() {
                 </Field>
               </div>
               <div id="field-dob">
-                <Field label="Date of Birth (DD-MM-YYYY)" required error={errors.dob}>
-                  <Inp k="dob" form={form} set={set} placeholder="15-08-1990" maxLength={10} mono />
+                <Field label="Date of Birth (DD/MM/YYYY)" required error={errors.dob}>
+                  <Inp k="dob" form={form} set={set} placeholder="15/08/1990" maxLength={10} mono />
                 </Field>
               </div>
               <Field label="Category">
@@ -556,7 +585,7 @@ export default function AddCustomerPage() {
               <Inp k="nomineeAge" form={form} set={set} type="number" placeholder="Age" />
             </Field>
             <Field label="Nominee DOB (if Minor)" hint="Required if nominee is under 18">
-              <Inp k="nomineeDob" form={form} set={set} placeholder="DD-MM-YYYY" mono />
+              <Inp k="nomineeDob" form={form} set={set} placeholder="DD/MM/YYYY" mono />
             </Field>
             <Field label="Guardian Name (if Nominee is Minor)">
               <Inp k="guardianName" form={form} set={set} placeholder="Guardian's full name" uppercase />
@@ -704,7 +733,7 @@ export default function AddCustomerPage() {
                         <Inp k="pmjjbyNomineeRelationship" form={form} set={set} placeholder="e.g. Wife, Mother, Son" />
                       </Field>
                       <Field label="Nominee DOB / Age">
-                        <Inp k="pmjjbyNomineeDob" form={form} set={set} placeholder="DD-MM-YYYY or Age" mono />
+                        <Inp k="pmjjbyNomineeDob" form={form} set={set} placeholder="DD/MM/YYYY or Age" mono />
                       </Field>
                     </Grid>
 
@@ -805,7 +834,7 @@ export default function AddCustomerPage() {
                         <Inp k="pmsbyNomineeRelationship" form={form} set={set} placeholder="e.g. Wife, Mother, Son" />
                       </Field>
                       <Field label="Nominee DOB / Age">
-                        <Inp k="pmsbyNomineeDob" form={form} set={set} placeholder="DD-MM-YYYY or Age" mono />
+                        <Inp k="pmsbyNomineeDob" form={form} set={set} placeholder="DD/MM/YYYY or Age" mono />
                       </Field>
                     </Grid>
 
@@ -876,7 +905,7 @@ export default function AddCustomerPage() {
                           <Inp k="apySpouseName" form={form} set={set} placeholder="Spouse's full name" uppercase />
                         </Field>
                         <Field label="Spouse Date of Birth" error={errors.apySpouseDob} required>
-                          <Inp k="apySpouseDob" form={form} set={set} placeholder="DD-MM-YYYY" mono />
+                          <Inp k="apySpouseDob" form={form} set={set} placeholder="DD/MM/YYYY" mono />
                         </Field>
                         <Field label="Spouse Aadhar Number">
                           <Inp k="apySpouseAadhar" form={form} set={set} placeholder="12-digit Aadhar" mono maxLength={12} />
@@ -912,7 +941,7 @@ export default function AddCustomerPage() {
                         <Inp k="apyNomineeRelationship" form={form} set={set} placeholder="e.g. Wife, Husband, Son" />
                       </Field>
                       <Field label="Nominee DOB / Age">
-                        <Inp k="apyNomineeDob" form={form} set={set} placeholder="DD-MM-YYYY or Age" mono />
+                        <Inp k="apyNomineeDob" form={form} set={set} placeholder="DD/MM/YYYY or Age" mono />
                       </Field>
                     </Grid>
                     

@@ -2,12 +2,13 @@ import { useState } from "react";
 import { X, Printer, FileText, Receipt, FileCheck, Download, RefreshCw } from "lucide-react";
 import type { Customer } from "@/types";
 import { getSettings } from "@/lib/storage";
-import BankFormPrint from "./BankFormPrint";
 import AckSlipPrint from "./AckSlipPrint";
 
 // Import pixel-perfect 1:1 templates for high-DPI PDF generation
 import { FinancialInclusionForm } from "@/components/pdf/FinancialInclusionForm";
 import { CustomerProfileSheetForm } from "@/components/pdf/CustomerProfileSheetForm";
+import { CKYCDownloadConsentForm } from "@/components/pdf/CKYCDownloadConsentForm";
+import { OpeningConsentForm } from "@/components/pdf/OpeningConsentForm";
 import { PMJJBYForm } from "@/components/pdf/PMJJBYForm";
 import { PMSBYForm } from "@/components/pdf/PMSBYForm";
 import { APYForm } from "@/components/pdf/APYForm";
@@ -21,17 +22,6 @@ interface PrintModalProps {
   onClose: () => void;
 }
 
-const PRINT_PAGE_STYLE = `
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; background: #fff; }
-  .char-grid { display: flex; gap: 1px; }
-  .char-box { width: 16px; height: 18px; border: 1px solid #000; display: flex; align-items: center; justify-content: center; font-size: 9px; font-family: monospace; flex-shrink: 0; }
-  table { border-collapse: collapse; width: 100%; }
-  td, th { border: 1px solid #000; padding: 3px 5px; font-size: 9px; vertical-align: top; }
-  .print-page-break { page-break-before: always; }
-  @page { size: A4; margin: 10mm; }
-`;
-
 const PRINT_ACK_PAGE_STYLE = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; background: #fff; }
@@ -44,11 +34,11 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
   const [generatingReceipt, setGeneratingReceipt] = useState(false);
 
   const schemeCount = [customer.enrollPMJJBY, customer.enrollPMSBY, customer.enrollAPY].filter(Boolean).length;
-  const totalPages = 2 + schemeCount;
+  const totalPages = 4 + schemeCount;
 
   // Compile active form element IDs for PDF bundle
   const getActiveElementIds = () => {
-    const ids = ["pdf-form-fi", "pdf-form-cps"];
+    const ids = ["pdf-form-fi", "pdf-form-cps", "pdf-form-ckyc", "pdf-form-opening"];
     if (customer.enrollPMJJBY) ids.push("pdf-form-pmjjby");
     if (customer.enrollPMSBY) ids.push("pdf-form-pmsby");
     if (customer.enrollAPY) ids.push("pdf-form-apy");
@@ -88,23 +78,78 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
     }
   };
 
-  // Print triggers (Fallback / Direct Print options)
-  const printBankForm = () => {
-    const printContent = document.getElementById("bank-form-print");
+  // Reliable hidden iframe print helper to guarantee styles and rendering finishes
+  const printElementViaIframe = (elementId: string, customStyles: string = "") => {
+    const printContent = document.getElementById(elementId);
     if (!printContent) return;
-    const win = window.open("", "_blank", "width=900,height=750");
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>SK ONLINE — Bank Form</title><style>${PRINT_PAGE_STYLE}</style></head><body onload="window.print();">${printContent.innerHTML}</body></html>`);
-    win.document.close();
+
+    // Create a hidden iframe
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.opacity = "0";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    doc.open();
+    doc.write(`<!DOCTYPE html><html><head><title>Print</title>`);
+    
+    // Copy stylesheets from parent window to print window so Tailwind applies correctly
+    Array.from(document.querySelectorAll("link[rel='stylesheet'], style")).forEach(styleEl => {
+      doc.write(styleEl.outerHTML);
+    });
+
+    // Add extra inline print styles
+    doc.write(`
+      <style>
+        body { background: #fff; margin: 0; padding: 0; }
+        .a4-page { page-break-after: always !important; break-after: page !important; margin: 0 auto !important; box-shadow: none !important; border: none !important; }
+        ${customStyles}
+      </style>
+    `);
+    
+    doc.write(`</head><body><div class="print-area">${printContent.innerHTML}</div></body></html>`);
+    doc.close();
+
+    let printed = false;
+    const triggerPrint = () => {
+      if (printed) return;
+      printed = true;
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (e) {
+          console.error("Iframe printing failed", e);
+        }
+        setTimeout(() => {
+          if (iframe.parentNode) {
+            document.body.removeChild(iframe);
+          }
+        }, 1000);
+      }, 300);
+    };
+
+    iframe.onload = triggerPrint;
+    // Fallback if onload is not fired by the browser
+    setTimeout(triggerPrint, 600);
+  };
+
+  const printBankForm = () => {
+    printElementViaIframe("bank-forms-bundle");
   };
 
   const printAckSlip = () => {
-    const printContent = document.getElementById("ack-slip-print");
-    if (!printContent) return;
-    const win = window.open("", "_blank", "width=600,height=450");
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>SK ONLINE — Ack Slip</title><style>${PRINT_ACK_PAGE_STYLE}</style></head><body onload="window.print();">${printContent.innerHTML}</body></html>`);
-    win.document.close();
+    printElementViaIframe("ack-slip-print", PRINT_ACK_PAGE_STYLE);
   };
 
   return (
@@ -144,7 +189,7 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
                 A4 Bundle Target: {totalPages} Pages
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Includes Account Application, Customer Profile Sheet (CPS){[
+                Includes Account Application, Customer Profile Sheet (CPS), CKYC Consent, Opening Consent{[
                   customer.enrollPMJJBY && "PMJJBY",
                   customer.enrollPMSBY && "PMSBY",
                   customer.enrollAPY && "APY"
@@ -229,22 +274,22 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
         </div>
       </div>
 
-      {/* Hidden high-fidelity templates for A4 PDF generator */}
-      <div style={{ position: "absolute", left: "-9999px", top: 0, width: "210mm" }}>
+      {/* Hidden high-fidelity templates for A4 PDF generator and standard printing */}
+      <div id="bank-forms-bundle" style={{ position: "absolute", left: "-9999px", top: 0, width: "210mm" }}>
         <FinancialInclusionForm customer={customer} settings={settings} />
         <CustomerProfileSheetForm customer={customer} settings={settings} />
+        <CKYCDownloadConsentForm customer={customer} settings={settings} />
+        <OpeningConsentForm customer={customer} settings={settings} />
         {customer.enrollPMJJBY && <PMJJBYForm customer={customer} settings={settings} />}
         {customer.enrollPMSBY && <PMSBYForm customer={customer} settings={settings} />}
         {customer.enrollAPY && <APYForm customer={customer} settings={settings} />}
       </div>
 
       {/* Hidden print targets — always in DOM for window.print() */}
-      <div style={{ position: "absolute", left: "-9999px", top: 0, width: "210mm" }}>
-        <BankFormPrint customer={customer} settings={settings} />
-      </div>
       <div style={{ position: "absolute", left: "-9999px", top: 0, width: "148mm" }}>
         <AckSlipPrint customer={customer} settings={settings} />
       </div>
     </div>
   );
 }
+

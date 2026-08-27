@@ -22,9 +22,9 @@ export const CustomerProfileSheetForm: React.FC<CustomerProfileSheetFormProps> =
       </div>
 
       {/* Top Header Box with Logo & ID Grids */}
-      <div className="border-2 border-black flex justify-between items-stretch p-2 mb-3">
-        <div className="w-[180px] h-[55px] flex items-center justify-start">
-          <img src={logo} alt="Bank Logo" className="max-h-full max-w-full object-contain" />
+      <div className="border-2 border-black flex justify-between items-center p-2 mb-3">
+        <div className="flex items-center justify-start">
+          <img src={logo} alt="Bank Logo" className="w-auto h-12 object-contain" />
         </div>
 
         <div className="flex flex-col justify-center gap-1">
@@ -51,19 +51,19 @@ export const CustomerProfileSheetForm: React.FC<CustomerProfileSheetFormProps> =
 
       {/* Sol ID & Zone */}
       <div className="flex gap-8 text-xs font-bold mb-3 border-b border-black pb-1">
-        <div>Sol Id: <span className="underline font-mono px-2">{customer.solId || settings.solId || "_______"}</span></div>
-        <div>Zone: <span className="underline px-2">{customer.zone || settings.zone || "_______"}</span></div>
-        <div>Branch: <span className="underline px-2">{settings.cspBranchName || "_______"}</span></div>
+        <div>Sol Id: <span className="inline-block border-b border-black font-mono px-2 pb-[1px] leading-tight">{customer.solId || settings.solId || "_______"}</span></div>
+        <div>Zone: <span className="inline-block border-b border-black px-2 pb-[1px] leading-tight">{customer.zone || settings.zone || "_______"}</span></div>
+        <div>Branch: <span className="inline-block border-b border-black px-2 pb-[1px] leading-tight">{settings.cspBranchName || "_______"}</span></div>
       </div>
 
       {/* Customer Fields List */}
       <div className="space-y-3 text-xs">
         <div>
-          <span className="font-bold">I) Customer Name:</span> Shri/Smt/Ms./Dr. <span className="font-extrabold underline text-sm px-2">{customer.name || "__________________________________________________"}</span>
+          <span className="font-bold">I) Customer Name:</span> Shri/Smt/Ms./Dr. <span className="inline-block border-b border-black font-extrabold text-sm px-2 pb-[1px] leading-tight">{customer.name || "__________________________________________________"}</span>
         </div>
 
         <div>
-          <span className="font-bold">II) Address:</span> <span className="font-semibold underline px-2">{customer.address ? `${customer.address}, ${customer.village || ""}, ${customer.mandal || ""}, ${customer.district || ""}, ${customer.state || ""}` : "__________________________________________________________________________________"}</span>
+          <span className="font-bold">II) Address:</span> <span className="inline-block border-b border-black font-semibold px-2 pb-[1px] leading-tight">{customer.address ? `${customer.address}, ${customer.village || ""}, ${customer.mandal || ""}, ${customer.district || ""}, ${customer.state || ""}` : "__________________________________________________________________________________"}</span>
         </div>
 
         <div>
@@ -78,19 +78,19 @@ export const CustomerProfileSheetForm: React.FC<CustomerProfileSheetFormProps> =
         </div>
 
         <div>
-          <span className="font-bold">V) Date of Birth:</span> <span className="font-bold underline px-2">{customer.dob || "____ / ____ / ________"}</span>
+          <span className="font-bold">V) Date of Birth:</span> <span className="inline-block border-b border-black font-bold px-2 pb-[1px] leading-tight">{customer.dob || "____ / ____ / ________"}</span>
         </div>
 
         <div>
-          <span className="font-bold">VI) Name of Organization/Department:</span> <span className="underline px-2">{customer.profession || "__________________________________________________"}</span>
+          <span className="font-bold">VI) Name of Organization/Department:</span> <span className="inline-block border-b border-black px-2 pb-[1px] leading-tight">{customer.profession || "__________________________________________________"}</span>
         </div>
 
         <div>
-          <span className="font-bold">VII) Designation/Job Profile:</span> <span className="underline px-2">__________________________________________________</span>
+          <span className="font-bold">VII) Designation/Job Profile:</span> <span className="inline-block border-b border-black px-2 pb-[1px] leading-tight">__________________________________________________</span>
         </div>
 
         <div>
-          <span className="font-bold">VIII) Nature of business/activity:</span> <span className="underline px-2">__________________________________________________</span>
+          <span className="font-bold">VIII) Nature of business/activity:</span> <span className="inline-block border-b border-black px-2 pb-[1px] leading-tight">__________________________________________________</span>
         </div>
 
         <div>
@@ -152,7 +152,7 @@ export const CustomerProfileSheetForm: React.FC<CustomerProfileSheetFormProps> =
 
         {/* Risk Category Selector */}
         <div className="flex items-center gap-6 pt-2 text-sm">
-          <span className="font-extrabold underline">Risk Category: (tick one)</span>
+          <span className="font-extrabold">Risk Category: (tick one)</span>
           {["LOW", "MEDIUM", "HIGH"].map(risk => (
             <label key={risk} className="flex items-center gap-1.5 font-bold cursor-pointer">
               <span className={`w-5 h-5 border-2 border-black flex items-center justify-center font-black ${

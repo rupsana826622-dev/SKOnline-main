@@ -10,6 +10,8 @@ import logoImg from "@/assets/sk-logo.png";
 import agentPortrait from "@/assets/agent-portrait.jpg";
 import agentAction from "@/assets/agent-action.jpg";
 import SEO from "@/components/common/SEO";
+import { addInquiry } from "@/lib/storage";
+import { generateId } from "@/lib/utils";
 
 // Custom styles for lightweight animations and hover effects
 const inlineStyles = `
@@ -186,7 +188,7 @@ export default function Index() {
     }
 
     const newInquiry = {
-      id: "inq_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
+      id: generateId(),
       name: inquiryName.trim(),
       mobile: cleanMobile,
       service: inquiryService,
@@ -196,11 +198,7 @@ export default function Index() {
     };
 
     try {
-      const existing = localStorage.getItem("customerInquiries");
-      const inquiriesList = existing ? JSON.parse(existing) : [];
-      inquiriesList.unshift(newInquiry);
-      localStorage.setItem("customerInquiries", JSON.stringify(inquiriesList));
-
+      addInquiry(newInquiry);
       toast.success("Thank you! Your inquiry has been submitted successfully.");
       
       // Clear form

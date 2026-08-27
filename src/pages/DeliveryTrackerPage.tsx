@@ -12,7 +12,15 @@ export default function DeliveryTrackerPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<DeliveryFilter>("All");
 
-  useEffect(() => { setCustomers(getCustomers()); }, []);
+  useEffect(() => {
+    setCustomers(getCustomers());
+
+    const handleSync = () => {
+      setCustomers(getCustomers());
+    };
+    window.addEventListener("supabase-sync-complete", handleSync);
+    return () => window.removeEventListener("supabase-sync-complete", handleSync);
+  }, []);
 
   const toggle = (id: string, field: keyof Customer) => {
     const now = new Date().toISOString();

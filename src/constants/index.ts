@@ -32,6 +32,8 @@ export const DEFAULT_SETTINGS = {
   waPhoneNumberId: "",
   fiLogo: DEFAULT_BOI_LOGO,
   cpsLogo: DEFAULT_BOI_LOGO,
+  ckycLogo: DEFAULT_BOI_LOGO,
+  consentLogo: DEFAULT_BOI_LOGO,
   apyLogo: DEFAULT_PFRDA_LOGO,
   pmjjbyLogos: {
     left: DEFAULT_STAR_UNION_LOGO,

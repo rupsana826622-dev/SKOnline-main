@@ -15,27 +15,43 @@ export const CharacterGrid: React.FC<CharacterGridProps> = ({
   className = "",
   boxWidth = "18px",
   boxHeight = "20px",
-  fontSize = "12px",
+  fontSize = "11px",
 }) => {
   const chars = (value || "").toUpperCase().split("");
   const boxes = Array.from({ length }, (_, i) => chars[i] || "");
 
   return (
-    <div className={`flex items-center flex-nowrap ${className}`}>
+    <div className={`flex items-center flex-nowrap ${className}`} style={{ display: "flex", flexWrap: "nowrap" }}>
       {boxes.map((char, index) => (
         <div
           key={index}
           style={{
             width: boxWidth,
             height: boxHeight,
-            fontSize: fontSize,
             minWidth: boxWidth,
+            maxWidth: boxWidth,
+            fontSize: fontSize,
+            lineHeight: "1",
+            fontFamily: "monospace, 'Courier New', sans-serif",
+            fontWeight: "600",
+            textTransform: "uppercase",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            verticalAlign: "middle",
+            boxSizing: "border-box",
+            padding: 0,
+            margin: 0,
           }}
-          className="border border-black flex items-center justify-center font-mono font-bold text-black bg-white -ml-[1px] first:ml-0 overflow-hidden select-none"
+          className="border border-black text-black bg-white -ml-[1px] first:ml-0 overflow-hidden select-none"
         >
-          {char}
+          <span style={{ display: "inline-block", lineHeight: "1", padding: 0, margin: 0 }}>
+            {char}
+          </span>
         </div>
       ))}
     </div>
   );
 };
+

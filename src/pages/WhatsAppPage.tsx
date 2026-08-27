@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
-import { MessageSquare, Send, CheckCircle, XCircle, Clock, Eye, Search, Users } from "lucide-react";
+import { MessageSquare, Send, CheckCircle, XCircle, Clock, Eye, Search, Users, RefreshCw } from "lucide-react";
 import { getCustomers, getWaMessages, addWaMessage, getSettings } from "@/lib/storage";
-import { replaceTemplateVars, generateId, formatDateTime } from "@/lib/utils";
+import { generateId, formatDateTime } from "@/lib/utils";
 import { WA_TEMPLATES } from "@/constants";
 import type { Customer, WhatsAppMessage } from "@/types";
+import { WhatsAppService, type WhatsAppTemplateData, type WhatsAppConfigData } from "@/services/WhatsAppService";
 import { toast } from "sonner";
 import SEO from "@/components/common/SEO";
 
@@ -11,19 +12,57 @@ export default function WhatsAppPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [templateId, setTemplateId] = useState(WA_TEMPLATES[0].id);
+  const [templates, setTemplates] = useState<WhatsAppTemplateData[]>([]);
+  const [config, setConfig] = useState<WhatsAppConfigData | null>(null);
+  const [templateId, setTemplateId] = useState("");
   const [customMsg, setCustomMsg] = useState("");
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"compose" | "logs">("compose");
   const settings = getSettings();
 
   useEffect(() => {
     setCustomers(getCustomers());
     setMessages(getWaMessages());
+    loadBroadcasterData();
   }, []);
 
-  const selectedTemplate = WA_TEMPLATES.find(t => t.id === templateId)!;
+  const loadBroadcasterData = async () => {
+    setLoading(true);
+    try {
+      const dbConfig = await WhatsAppService.getConfig();
+      setConfig(dbConfig);
+
+      const dbTemplates = await WhatsAppService.getTemplates();
+      if (dbTemplates.length > 0) {
+        setTemplates(dbTemplates);
+        setTemplateId(dbTemplates[0].id);
+      } else {
+        // Fallback fallback mapped templates
+        const fallbacks: WhatsAppTemplateData[] = WA_TEMPLATES.map(t => ({
+          id: t.id,
+          template_name: t.name,
+          template_id: t.id,
+          category: t.category,
+          language: "en",
+          header_type: "NONE",
+          header_image_url: "",
+          message_body: t.body,
+          variables: ["name", "account_no", "ref_no", "csp_name"],
+          is_active: true,
+        }));
+        setTemplates(fallbacks);
+        setTemplateId(fallbacks[0].id);
+      }
+    } catch (err) {
+      console.error("Error loading templates in composer:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedTemplate = templates.find(t => t.id === templateId);
 
   const filteredCustomers = useMemo(() => {
     const lower = search.toLowerCase();
@@ -36,14 +75,27 @@ export default function WhatsAppPage() {
   }, [customers, search]);
 
   const previewMessage = (customer: Customer) => {
-    const template = customMsg || selectedTemplate.body;
-    return replaceTemplateVars(template, {
+    if (!selectedTemplate) return "";
+    const template = customMsg || selectedTemplate.message_body;
+    
+    const sampleValues: Record<string, string> = {
       name: customer.name,
       bank_name: settings.bankName,
       account_no: customer.accountNumber,
       ref_no: customer.refNumber,
       csp_name: settings.cspName,
+      branch_name: settings.cspBranchName,
+      1: customer.name,
+      2: customer.accountNumber,
+      3: settings.cspBranchName,
+    };
+
+    let result = template;
+    Object.entries(sampleValues).forEach(([key, val]) => {
+      result = result.replace(new RegExp(`{{${key}}}`, "g"), val);
     });
+
+    return result;
   };
 
   const toggleSelect = (id: string) => {
@@ -71,28 +123,62 @@ export default function WhatsAppPage() {
       toast.error("Please select at least one customer.");
       return;
     }
+    if (!selectedTemplate) {
+      toast.error("Please select a message template first.");
+      return;
+    }
+
     setSending(true);
     const selected = customers.filter(c => selectedIds.has(c.id));
+    let sentCount = 0;
 
     for (const customer of selected) {
-      await new Promise(r => setTimeout(r, 200));
+      const variablesValues: Record<string, string> = {
+        name: customer.name,
+        bank_name: settings.bankName,
+        account_no: customer.accountNumber,
+        ref_no: customer.refNumber,
+        csp_name: settings.cspName,
+        branch_name: settings.cspBranchName,
+        1: customer.name,
+        2: customer.accountNumber,
+        3: settings.cspBranchName,
+      };
+
+      const res = await WhatsAppService.sendMessage(
+        config || {
+          id: "global_config",
+          waba_id: "",
+          phone_number_id: "",
+          api_token: "simulated",
+          gateway_url: "https://graph.facebook.com/v19.0",
+          sender_id: "",
+          is_active: true,
+        },
+        selectedTemplate,
+        customer.mobile,
+        variablesValues
+      );
+
       const msg: WhatsAppMessage = {
         id: generateId(),
         customerId: customer.id,
         customerName: customer.name,
         mobile: customer.mobile,
         message: previewMessage(customer),
-        status: Math.random() > 0.15 ? "Sent" : "Failed",
+        status: res.success ? "Sent" : "Failed",
         sentAt: new Date().toISOString(),
-        template: selectedTemplate.name,
+        template: selectedTemplate.template_name,
       };
+      
       addWaMessage(msg);
+      if (res.success) sentCount++;
     }
 
     setMessages(getWaMessages());
     setSelectedIds(new Set());
     setSending(false);
-    toast.success(`Messages sent to ${selected.length} customer(s) (simulated).`);
+    toast.success(`Broadcasting complete. Successfully sent to ${sentCount} customer(s).`);
     setActiveTab("logs");
   };
 
@@ -102,9 +188,18 @@ export default function WhatsAppPage() {
     return <Clock size={14} className="text-amber-500" />;
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <RefreshCw size={32} className="animate-spin text-emerald-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-5">
       <SEO title="Bulk SMS & WhatsApp Engine" />
+      
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
@@ -148,6 +243,7 @@ export default function WhatsAppPage() {
               <div className="relative">
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
+                  type="text"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Search customers..."
@@ -194,8 +290,8 @@ export default function WhatsAppPage() {
             {/* Template Picker */}
             <div className="sk-card p-4 space-y-3">
               <div className="font-semibold text-slate-800 text-sm">Message Template</div>
-              <div className="space-y-2">
-                {WA_TEMPLATES.map(t => (
+              <div className="space-y-2 max-h-[220px] overflow-y-auto custom-scroll pr-1">
+                {templates.map(t => (
                   <label key={t.id} className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
                     templateId === t.id ? "border-emerald-400 bg-emerald-50" : "border-slate-200 hover:border-emerald-200"
                   }`}>
@@ -207,9 +303,9 @@ export default function WhatsAppPage() {
                       onChange={() => { setTemplateId(t.id); setCustomMsg(""); }}
                       className="mt-0.5 accent-emerald-600"
                     />
-                    <div>
-                      <div className="text-xs font-semibold text-slate-800">{t.name}</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">{t.category}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold text-slate-800 truncate">{t.template_name}</div>
+                      <div className="text-[9px] text-slate-500 mt-0.5">{t.category} ({t.language})</div>
                     </div>
                   </label>
                 ))}
@@ -223,10 +319,9 @@ export default function WhatsAppPage() {
                 value={customMsg}
                 onChange={e => setCustomMsg(e.target.value)}
                 rows={3}
-                placeholder="Leave blank to use selected template. Use {name}, {bank_name}, {account_no}, {ref_no}, {csp_name}"
+                placeholder="Leave blank to use selected template. Variables: {{name}}, {{account_no}}, {{ref_no}}, {{csp_name}}"
                 className="form-input resize-none text-xs leading-relaxed"
               />
-              <div className="text-[10px] text-slate-400">Variables: {"{name}"} {"{bank_name}"} {"{account_no}"} {"{ref_no}"} {"{csp_name}"}</div>
             </div>
 
             {/* Live Preview */}
@@ -238,8 +333,15 @@ export default function WhatsAppPage() {
                     <Eye size={14} className="text-emerald-500" />
                     Live Preview
                   </div>
-                  <div className="bg-emerald-50 rounded-xl p-3 text-xs text-slate-700 leading-relaxed border border-emerald-100">
-                    {previewMessage(first)}
+                  <div className="bg-emerald-50 rounded-xl p-3 text-xs text-slate-700 leading-relaxed border border-emerald-100 space-y-2">
+                    {selectedTemplate?.header_type === "IMAGE" && selectedTemplate.header_image_url && (
+                      <div className="rounded overflow-hidden border border-emerald-100 max-h-24 bg-white flex items-center justify-center">
+                        <img src={selectedTemplate.header_image_url} alt="Header" className="max-h-full object-contain" />
+                      </div>
+                    )}
+                    <div className="whitespace-pre-line leading-relaxed">
+                      {previewMessage(first)}
+                    </div>
                   </div>
                   <div className="text-[10px] text-slate-400">Preview for: {first.name}</div>
                 </div>

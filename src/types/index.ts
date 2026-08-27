@@ -134,6 +134,8 @@ export interface AppSettings {
   // Form Header Logos
   fiLogo?: string;
   cpsLogo?: string;
+  ckycLogo?: string;
+  consentLogo?: string;
   apyLogo?: string;
   pmjjbyLogos?: {
     left: string;
