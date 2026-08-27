@@ -1,6 +1,6 @@
 export const APP_NAME = "SK ONLINE";
 export const APP_TAGLINE = "CSP Banking Management Portal";
-export const POWERED_BY = "Powered by Digital Solutions";
+export const POWERED_BY = "Powered by Digital Solution";
 
 export const DEFAULT_BOI_LOGO = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80"><rect width="320" height="80" fill="%23ffffff"/><polygon points="40,8 48,32 72,32 52,46 60,70 40,54 20,70 28,46 8,32 32,32" fill="%23d97706"/><text x="85" y="36" font-family="sans-serif" font-weight="900" font-size="20" fill="%231e293b">बैंक ऑफ़ इंडिया</text><text x="85" y="60" font-family="sans-serif" font-weight="800" font-size="22" fill="%231e3a8a">Bank of India</text></svg>`;
 

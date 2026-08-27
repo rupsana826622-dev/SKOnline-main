@@ -11,6 +11,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import FamilyMappingPage from "@/pages/FamilyMappingPage";
 import PdfGeneratorPage from "@/pages/PdfGeneratorPage";
 import NotFoundPage from "@/pages/NotFoundPage";
+import Index from "@/pages/Index";
 
 export default function App() {
   return (
@@ -29,7 +30,7 @@ export default function App() {
         }}
       />
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Index />} />
         <Route path="/login" element={<LoginPage />} />
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />

@@ -24,7 +24,16 @@ export default function AppLayout() {
           <Outlet />
         </main>
         <footer className="py-2.5 px-6 text-center text-xs text-slate-400 border-t border-slate-200 bg-white/60">
-          Powered by Digital Solutions — SK ONLINE CSP Portal
+          Powered by{" "}
+          <a 
+            href="https://digitalsolution.biz" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="text-blue-600 hover:text-blue-500 hover:underline font-semibold"
+          >
+            Digital Solution
+          </a>{" "}
+          — SK ONLINE CSP Portal
         </footer>
       </div>
     </div>

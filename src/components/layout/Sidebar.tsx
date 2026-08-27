@@ -119,7 +119,17 @@ export default function Sidebar({ collapsed, onToggle, birthdayCount }: SidebarP
         </button>
 
         {!collapsed && (
-          <div className="px-3 py-2 text-[10px] text-slate-600 text-center">{POWERED_BY}</div>
+          <div className="px-3 py-2 text-[10px] text-slate-600 text-center">
+            Powered by{" "}
+            <a 
+              href="https://digitalsolution.biz" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-blue-450 hover:text-blue-300 hover:underline font-medium"
+            >
+              Digital Solution
+            </a>
+          </div>
         )}
       </div>
     </aside>

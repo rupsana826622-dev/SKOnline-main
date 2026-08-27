@@ -5,6 +5,7 @@ import { APP_NAME } from "@/constants";
 import { getCustomers } from "@/lib/storage";
 import { getDaysUntilBirthday } from "@/lib/utils";
 import type { Customer } from "@/types";
+import logoImg from "@/assets/sk-logo.png";
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -101,9 +102,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         </button>
 
         <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-slate-700 flex items-center justify-center text-white text-xs font-bold">
-            SK
-          </div>
+          <img src={logoImg} alt="SK ONLINE" className="w-8 h-8 rounded-lg object-cover" />
           <div className="hidden sm:block">
             <div className="text-xs font-semibold text-slate-800">{APP_NAME}</div>
             <div className="text-[10px] text-slate-500">Operator</div>
