@@ -66,9 +66,22 @@ const inlineStyles = `
 
   /* Interactive service cards shared styling */
   .service-card-premium {
+    position: relative;
     background-color: #FFFFFF;
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 1rem; /* rounded-2xl */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .service-card-premium:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  }
+  .icon-container-premium {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s, color 0.3s;
+  }
+  .service-card-premium:hover .icon-container-premium {
+    transform: scale(1.1);
   }
 `;
 
@@ -212,37 +225,37 @@ export default function Index() {
 
   const licOfferings = [
     {
-      title: "জীবন বীমা (Life Insurance)",
-      desc: "Comprehensive financial security coverage plans that protect your family in case of unforeseen circumstances.",
-      themeClass: "hover:border-[#2563EB]/40 hover:shadow-[0_12px_30px_-5px_rgba(37,99,235,0.08)] border-b-4 border-b-transparent hover:border-b-[#2563EB]",
+      title: "Life Insurance Protection",
+      desc: "Comprehensive financial security and family risk coverage.",
+      themeColor: "#2563EB",
       iconBg: "bg-blue-50 text-[#2563EB] border border-blue-100/60",
       btnClass: "text-[#2563EB] hover:text-[#1D4ED8]"
     },
     {
-      title: "সঞ্চয় পরিকল্পনা (Savings Plans)",
-      desc: "Guaranteed maturity return programs designed to systematically build your wealth and fulfill dreams.",
-      themeClass: "hover:border-[#D97706]/40 hover:shadow-[0_12px_30px_-5px_rgba(217,119,6,0.08)] border-b-4 border-b-transparent hover:border-b-[#D97706]",
+      title: "Guaranteed Savings & Wealth",
+      desc: "Structured maturity returns and systematic wealth creation plans.",
+      themeColor: "#D97706",
       iconBg: "bg-amber-50 text-[#D97706] border border-amber-100/60",
       btnClass: "text-[#D97706] hover:text-[#B45309]"
     },
     {
-      title: "অবসরকালীন পরিকল্পনা (Retirement Plans)",
-      desc: "Ensure regular life-long monthly pensions to support financial independence after retirement.",
-      themeClass: "hover:border-[#6366F1]/40 hover:shadow-[0_12px_30px_-5px_rgba(99,102,241,0.08)] border-b-4 border-b-transparent hover:border-b-[#6366F1]",
+      title: "Retirement & Pension Solutions",
+      desc: "Guaranteed life-long pensions for complete post-retirement independence.",
+      themeColor: "#6366F1",
       iconBg: "bg-indigo-50 text-[#6366F1] border border-indigo-100/60",
       btnClass: "text-[#6366F1] hover:text-[#4F46E5]"
     },
     {
-      title: "শিশু শিক্ষা ও ভবিষ্যৎ পরিকল্পনা (Child Future Plans)",
-      desc: "Fulfill educational milestones and marriage cost needs for your children with tailored investments.",
-      themeClass: "hover:border-[#0284C7]/40 hover:shadow-[0_12px_30px_-5px_rgba(2,132,199,0.08)] border-b-4 border-b-transparent hover:border-b-[#0284C7]",
+      title: "Child Education & Future Shield",
+      desc: "Targeted investment funds securing your child's higher education and marriage.",
+      themeColor: "#0284C7",
       iconBg: "bg-sky-50 text-[#0284C7] border border-sky-100/60",
       btnClass: "text-[#0284C7] hover:text-[#0369A1]"
     },
     {
-      title: "স্বাস্থ্য বীমা ও টার্ম প্ল্যান (Health & Term Plans)",
-      desc: "High-value life coverage policies and medical protection riders providing ultimate risk coverage.",
-      themeClass: "hover:border-[#059669]/40 hover:shadow-[0_12px_30px_-5px_rgba(5,150,105,0.08)] border-b-4 border-b-transparent hover:border-b-[#059669]",
+      title: "Health & Comprehensive Term Shield",
+      desc: "High-value critical coverage and modern financial protection riders.",
+      themeColor: "#059669",
       iconBg: "bg-emerald-50 text-[#059669] border border-emerald-100/60",
       btnClass: "text-[#059669] hover:text-[#047857]"
     }
@@ -250,42 +263,42 @@ export default function Index() {
 
   const coreServices = [
     {
-      title: "Dual Bank CSP Integration",
+      title: "Dual Bank CSP Banking Desk",
       tagline: "Bank of Baroda & Bank of India Authorized CSP",
-      description: "Direct customer service branch operations. Fully enabled for AEPS Aadhaar cash withdrawals, deposits, money transfers, and savings account opening.",
+      description: "Official branch banking, AEPS cash transactions, deposits, and new account openings.",
       icon: <Landmark className="w-5.5 h-5.5" />,
       badge: "BOB & BOI CSP",
-      themeClass: "hover:border-[#1E3A8A]/40 hover:shadow-[0_12px_30px_-5px_rgba(30,58,138,0.08)] border-b-4 border-b-transparent hover:border-b-[#1E3A8A]",
+      themeColor: "#1E3A8A",
       iconBg: "bg-blue-100/60 text-[#1E3A8A] border border-blue-200/50",
       btnClass: "text-[#1E3A8A] hover:text-[#172554]"
     },
     {
-      title: "Taxation & Compliance",
+      title: "Taxation, GST & ITR Filing",
       tagline: "GST & Income Tax Returns Office",
-      description: "Get end-to-end support for new GST registrations, monthly business return filings, and personal ITR calculation & submissions.",
+      description: "End-to-end support for business GST registration, monthly returns, and personal ITR filing.",
       icon: <FileText className="w-5.5 h-5.5" />,
       badge: "GST & ITR",
-      themeClass: "hover:border-[#E11D48]/40 hover:shadow-[0_12px_30px_-5px_rgba(225,29,72,0.08)] border-b-4 border-b-transparent hover:border-b-[#E11D48]",
+      themeColor: "#E11D48",
       iconBg: "bg-rose-50 text-[#E11D48] border border-rose-100/60",
       btnClass: "text-[#E11D48] hover:text-[#BE123C]"
     },
     {
-      title: "CSC & Tathya Mitra Kendra",
+      title: "CSC & Government Citizen Desk",
       tagline: "Authorized Digital Government Services",
-      description: "Official local hub for processing birth/death certificates, trade licenses, digital certificates, and applying for government schemes.",
+      description: "Authorized digital center for certificates, trade licenses, and government scheme applications.",
       icon: <Layers className="w-5.5 h-5.5" />,
       badge: "Digital India",
-      themeClass: "hover:border-[#0D9488]/40 hover:shadow-[0_12px_30px_-5px_rgba(13,148,136,0.08)] border-b-4 border-b-transparent hover:border-b-[#0D9488]",
+      themeColor: "#0D9488",
       iconBg: "bg-teal-50 text-[#0D9488] border border-teal-100/60",
       btnClass: "text-[#0D9488] hover:text-[#0F766E]"
     },
     {
-      title: "Travel & Ticketing Services",
+      title: "Travel & Ticketing Portal",
       tagline: "Railway & Flight E-Bookings",
-      description: "Instant online ticketing portal for flight bookings, hotel reservations, and official IRCTC Indian Railways train ticketing.",
+      description: "Instant booking desk for airline reservations and official IRCTC train e-ticketing.",
       icon: <Activity className="w-5.5 h-5.5" />,
       badge: "IRCTC Authorized",
-      themeClass: "hover:border-[#EA580C]/40 hover:shadow-[0_12px_30px_-5px_rgba(234,88,12,0.08)] border-b-4 border-b-transparent hover:border-b-[#EA580C]",
+      themeColor: "#EA580C",
       iconBg: "bg-orange-50 text-[#EA580C] border border-orange-100/60",
       btnClass: "text-[#EA580C] hover:text-[#C2410C]"
     }
@@ -417,11 +430,11 @@ export default function Index() {
               <div className="flex flex-wrap items-center gap-3 animate-fade-in-up">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-150 text-blue-700">
                   <ShieldCheck className="w-4 h-4 text-blue-600" />
-                  <span className="text-xs font-bold tracking-wide">Government Authorized Financial & Banking Hub</span>
+                  <span className="text-xs font-bold tracking-wide">Government Authorized Multi-Service Desk</span>
                 </div>
                 
                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/20 text-[#AA7C11]">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#AA7C11]" />
+                  <span className="text-xs">⭐</span>
                   <span className="text-[11px] font-bold tracking-wide">LIC Agent License: 16541-41A</span>
                 </div>
               </div>
@@ -432,7 +445,7 @@ export default function Index() {
               </h2>
               
               <p className="text-[#475569] text-sm sm:text-base md:text-lg font-normal leading-relaxed max-w-xl reveal-on-scroll active">
-                Consult with <strong>Alinur Sekh</strong>, a certified senior life insurance advisor, and access Bank of Baroda & Bank of India CSP services, GST submissions, and Tata Mitra citizen desk offerings.
+                Authorized Financial Advisory & Dual-Bank CSP Banking Services Managed by Alinur Sekh.
               </p>
 
               {/* LIC Agent Trust Card */}
@@ -479,12 +492,12 @@ export default function Index() {
                 {/* Visual back gold accent border offset */}
                 <div className="absolute -inset-1.5 rounded-[26px] bg-gradient-to-tr from-[#D4AF37]/30 to-[#003366]/20 blur-sm -z-10" />
                 
-                {/* Image Card Container with rounded-3xl and custom shadow */}
+                {/* Image Card Container with rounded-2xl and custom shadow */}
                 <div 
-                  className="bg-white rounded-[24px] p-2.5 border border-slate-200 overflow-hidden relative"
+                  className="bg-white rounded-2xl p-2.5 border-2 border-[#D4AF37] overflow-hidden relative"
                   style={{ boxShadow: "0 20px 40px -15px rgba(0, 51, 102, 0.15)" }}
                 >
-                  <div className="rounded-[18px] overflow-hidden border border-[#D4AF37]/20 aspect-[4/5] w-full h-[420px]">
+                  <div className="rounded-xl overflow-hidden border border-[#D4AF37]/40 aspect-[4/5] w-full h-[420px]">
                     <img 
                       src={agentPortrait} 
                       alt="Alinur Sekh Portrait" 
@@ -494,12 +507,12 @@ export default function Index() {
                   
                   {/* Floating verification badge */}
                   <div className="absolute bottom-5 left-5 right-5 bg-white/95 border border-slate-150 p-3 rounded-xl shadow-lg backdrop-blur-md flex items-center gap-3">
-                    <div className="w-8.5 h-8.5 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center flex-shrink-0">
-                      <Award className="w-4.5 h-4.5 text-emerald-600" />
+                    <div className="w-8.5 h-8.5 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm">🏆</span>
                     </div>
                     <div>
                       <div className="text-xs font-extrabold text-[#0F172A]">Alinur Sekh</div>
-                      <div className="text-[10px] text-slate-500 font-bold tracking-wide uppercase">Senior LIC Advisor & CSP Manager</div>
+                      <div className="text-[10px] text-slate-500 font-bold tracking-wide uppercase">10+ Years of Professional Excellence</div>
                     </div>
                   </div>
                 </div>
@@ -600,10 +613,15 @@ export default function Index() {
             {licOfferings.map((plan, idx) => (
               <div 
                 key={idx}
-                className={`service-card-premium rounded-2xl p-8 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 relative overflow-hidden flex flex-col justify-between group ${plan.themeClass}`}
+                className="service-card-premium p-8 relative overflow-hidden flex flex-col justify-between group"
               >
+                {/* Top accent indicator line */}
+                <div 
+                  className="absolute top-0 left-0 right-0 h-[3px]"
+                  style={{ background: `linear-gradient(to right, ${plan.themeColor}, ${plan.themeColor}CC)` }}
+                />
                 <div>
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-6 transition-colors ${plan.iconBg}`}>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-6 transition-colors icon-container-premium ${plan.iconBg}`}>
                     {idx === 0 && <ShieldCheck className="w-5.5 h-5.5" />}
                     {idx === 1 && <Award className="w-5.5 h-5.5" />}
                     {idx === 2 && <Calendar className="w-5.5 h-5.5" />}
@@ -646,9 +664,14 @@ export default function Index() {
             {coreServices.map((service, idx) => (
               <div 
                 key={idx}
-                className={`service-card-premium rounded-2xl p-8 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 flex flex-col sm:flex-row gap-6 items-start justify-between group ${service.themeClass}`}
+                className="service-card-premium p-8 relative overflow-hidden flex flex-col sm:flex-row gap-6 items-start justify-between group"
               >
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${service.iconBg}`}>
+                {/* Top accent indicator line */}
+                <div 
+                  className="absolute top-0 left-0 right-0 h-[3px]"
+                  style={{ background: `linear-gradient(to right, ${service.themeColor}, ${service.themeColor}CC)` }}
+                />
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 icon-container-premium ${service.iconBg}`}>
                   {service.icon}
                 </div>
                 <div className="space-y-2 flex-1">
@@ -762,7 +785,7 @@ export default function Index() {
 
             {/* Quick Contact Form (Right) */}
             <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6 sm:p-10 shadow-md reveal-on-scroll">
-              <h3 className="text-lg sm:text-xl font-extrabold text-[#0F172A] mb-2">Submit an Official Inquiry</h3>
+              <h3 className="text-lg sm:text-xl font-extrabold text-[#0F172A] mb-2">Schedule an Official Consultation</h3>
               <p className="text-xs sm:text-sm text-slate-500 mb-6">Complete the direct submission form below to forward your lead file directly to the operator console dashboard.</p>
 
               <form onSubmit={handleInquirySubmit} className="space-y-4">
@@ -798,11 +821,11 @@ export default function Index() {
                     onChange={e => setInquiryService(e.target.value)}
                     className="w-full bg-slate-50/50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-[#0056B3] focus:bg-white transition-all"
                   >
-                    <option value="LIC Advisory">LIC Life Insurance Advisory</option>
-                    <option value="Banking CSP">Banking CSP Counters (BOB/BOI)</option>
-                    <option value="GST & ITR">Taxation Desk (GST/ITR Filing)</option>
-                    <option value="CSC Services">CSC & Tathya Mitra Kendra</option>
-                    <option value="Travel & Tickets">Travel & Ticketing Services</option>
+                    <option value="LIC Advisory">LIC Life Insurance & Wealth Advisory</option>
+                    <option value="Banking CSP">Bank of India / Bank of Baroda CSP Banking</option>
+                    <option value="GST & ITR">GST Registration & ITR Filing</option>
+                    <option value="CSC Services">CSC Digital Government Services</option>
+                    <option value="Travel & Tickets">Flight & Train Ticket Bookings</option>
                   </select>
                 </div>
 
@@ -820,9 +843,10 @@ export default function Index() {
 
                 <button 
                   type="submit" 
-                  className="w-full bg-[#0056B3] hover:bg-[#003c80] text-white font-bold text-xs uppercase tracking-widest py-3 rounded-lg shadow-md transition-all duration-150"
+                  style={{ backgroundColor: '#1D4ED8' }}
+                  className="w-full hover:bg-[#1E40AF] text-white font-bold text-xs uppercase tracking-widest py-3 rounded-lg shadow-md transition-all duration-150"
                 >
-                  Submit Inquiry to Console
+                  Submit Official Inquiry
                 </button>
               </form>
             </div>
@@ -867,7 +891,7 @@ export default function Index() {
 
           <div className="flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-4">
             <div>
-              &copy; {new Date().getFullYear()} SK ONLINE. All rights reserved. Managed by Alinur Sekh.
+              © 2026 SK ONLINE. All rights reserved.
             </div>
             <div className="flex items-center gap-1">
               Powered by{" "}
