@@ -80,13 +80,33 @@ export async function downloadCombinedFormsPdf(
       allowTaint: true,
       backgroundColor: "#ffffff",
       windowWidth: 794,
+      scrollX: 0,
+      scrollY: 0,
       onclone: (clonedDoc) => {
+        const clonedPages = clonedDoc.querySelectorAll<HTMLElement>(".a4-page, .a4-page-container");
+        if (clonedPages.length > 0) {
+          clonedPages.forEach((p, idx) => {
+            if (idx === i) {
+              p.style.display = "block";
+              p.style.position = "static";
+              p.style.visibility = "visible";
+              p.style.opacity = "1";
+              p.style.margin = "0 auto";
+              p.style.boxShadow = "none";
+              p.style.border = "none";
+            } else {
+              p.style.display = "none";
+            }
+          });
+        }
+
         const bundle = clonedDoc.getElementById("bank-forms-bundle") || clonedDoc.querySelector("[data-print-id='bank-forms-bundle']");
         if (bundle) {
           (bundle as HTMLElement).style.position = "static";
           (bundle as HTMLElement).style.opacity = "1";
           (bundle as HTMLElement).style.left = "0";
           (bundle as HTMLElement).style.visibility = "visible";
+          (bundle as HTMLElement).style.width = "794px";
         }
       },
     });
@@ -136,6 +156,8 @@ export async function downloadSingleFormPdf(
     allowTaint: true,
     backgroundColor: "#ffffff",
     windowWidth: 794,
+    scrollX: 0,
+    scrollY: 0,
     onclone: (clonedDoc) => {
       const el = clonedDoc.getElementById(elementId) || (clonedDoc.querySelector(".ack-slip-print") as HTMLElement) || (clonedDoc.querySelector(".customer-receipt-container") as HTMLElement);
       if (el) {
@@ -145,8 +167,11 @@ export async function downloadSingleFormPdf(
           parent.style.opacity = "1";
           parent.style.left = "0";
           parent.style.visibility = "visible";
+          parent.style.width = "794px";
           parent = parent.parentElement;
         }
+        el.style.display = "flex";
+        el.style.position = "static";
         el.style.opacity = "1";
         el.style.visibility = "visible";
       }
