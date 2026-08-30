@@ -86,8 +86,8 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
     try {
       await printElement1to1("ack-slip-print", {
         pageSize: "A5",
-        orientation: "portrait",
-        margins: "8mm",
+        orientation: "landscape",
+        margins: "5mm",
         title: receiptFileName.replace(/\.pdf$/i, ""),
       });
     } catch (err: any) {
@@ -256,7 +256,7 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
           position: "fixed",
           left: "-99999px",
           top: "0",
-          width: "148mm",
+          width: "210mm",
           zIndex: -1,
           opacity: 0,
           pointerEvents: "none",

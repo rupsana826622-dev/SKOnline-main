@@ -118,11 +118,12 @@ export async function downloadSingleFormPdf(
 
   const isReceipt = elementId.includes("ack") || elementId.includes("receipt");
   const pageSize = isReceipt ? "a5" : "a4";
-  const pdfWidth = isReceipt ? 148 : 210;
-  const pdfHeight = isReceipt ? 210 : 297;
+  const orientation = isReceipt ? "landscape" : "portrait";
+  const pdfWidth = isReceipt ? 210 : 210;
+  const pdfHeight = isReceipt ? 148 : 297;
 
   const pdf = new jsPDF({
-    orientation: "portrait",
+    orientation: orientation,
     unit: "mm",
     format: pageSize,
     compress: true,
@@ -134,9 +135,9 @@ export async function downloadSingleFormPdf(
     logging: false,
     allowTaint: true,
     backgroundColor: "#ffffff",
-    windowWidth: isReceipt ? 559 : 794,
+    windowWidth: 794,
     onclone: (clonedDoc) => {
-      const el = clonedDoc.getElementById(elementId) || (clonedDoc.querySelector(".ack-slip-print") as HTMLElement);
+      const el = clonedDoc.getElementById(elementId) || (clonedDoc.querySelector(".ack-slip-print") as HTMLElement) || (clonedDoc.querySelector(".customer-receipt-container") as HTMLElement);
       if (el) {
         let parent = el.parentElement;
         while (parent && parent !== clonedDoc.body) {

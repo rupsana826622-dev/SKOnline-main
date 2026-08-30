@@ -7,7 +7,7 @@ interface AckSlipPrintProps {
   settings: AppSettings;
 }
 
-export default function AckSlipPrint({ customer, settings }: AckSlipPrintProps) {
+export function CustomerReceipt({ customer, settings }: AckSlipPrintProps) {
   const logo = settings.fiLogo || DEFAULT_BOI_LOGO;
   const now = new Date().toLocaleString("en-IN", {
     day: "2-digit",
@@ -205,4 +205,6 @@ export default function AckSlipPrint({ customer, settings }: AckSlipPrintProps) 
     </div>
   );
 }
+
+export default CustomerReceipt;
 
