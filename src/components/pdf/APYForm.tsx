@@ -98,7 +98,7 @@ export const APYForm: React.FC<APYFormProps> = ({ customer, settings }) => {
             <span className="font-bold">Email ID</span>
             <span className="border border-black px-2 py-0.5 font-medium text-xs min-w-[140px]">{customer.email || ""}</span>
             <span className="font-bold ml-2">Aadhaar*</span>
-            <CharacterGrid value={customer.pmjjbyKycId || "XXXXXXXXXXXX"} length={12} boxWidth="15px" boxHeight="17px" fontSize="10px" />
+            <CharacterGrid value={(customer.aadhaarNumber || customer.pmjjbyKycId || "").replace(/\s+/g, "")} length={12} boxWidth="15px" boxHeight="17px" fontSize="10px" />
           </div>
 
           {/* Marital Status & Spouse */}

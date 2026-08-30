@@ -98,13 +98,13 @@ export const PMSBYForm: React.FC<PMSBYFormProps> = ({ customer, settings }) => {
             <td className="border border-black p-1 font-bold bg-slate-50">Name of the KYC document submitted</td>
             <td className="border border-black p-1">{customer.pmsbyKycType || "Aadhaar Card"}</td>
             <td className="border border-black p-1 font-bold bg-slate-50">KYC*Id number</td>
-            <td className="border border-black p-1 font-mono">{customer.pmsbyKycId || "XXXXXXXXXXXX"}</td>
+            <td className="border border-black p-1 font-mono">{customer.pmsbyKycId || customer.aadhaarNumber || "—"}</td>
           </tr>
           <tr>
             <td className="border border-black p-1 font-bold bg-slate-50">PAN Number, if available**</td>
-            <td className="border border-black p-1 font-mono">{customer.panGir || ""}</td>
+            <td className="border border-black p-1 font-mono">{customer.panGir || "—"}</td>
             <td className="border border-black p-1 font-bold bg-slate-50">AADHAAR Number, if available**</td>
-            <td className="border border-black p-1 font-mono">{customer.pmsbyKycId || ""}</td>
+            <td className="border border-black p-1 font-mono">{customer.aadhaarNumber || customer.pmsbyKycId || "—"}</td>
           </tr>
           <tr>
             <td className="border border-black p-1 font-bold bg-slate-50">Date of birth**</td>

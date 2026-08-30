@@ -378,18 +378,27 @@ export default function CustomerProfileView({
             </div>
 
             <div>
-              <label className="form-label">Aadhaar / KYC ID</label>
+              <label className="form-label">Aadhaar Number</label>
               {isEditing ? (
                 <input
                   className="form-input font-mono"
-                  value={editForm.pmjjbyKycId || editForm.pmsbyKycId || ""}
+                  placeholder="XXXX XXXX XXXX"
+                  maxLength={14}
+                  value={editForm.aadhaarNumber || editForm.pmjjbyKycId || ""}
                   onChange={e => {
-                    handleInputChange("pmjjbyKycId", e.target.value);
-                    handleInputChange("pmsbyKycId", e.target.value);
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 12);
+                    const parts = [];
+                    for (let i = 0; i < digits.length; i += 4) {
+                      parts.push(digits.slice(i, i + 4));
+                    }
+                    const formatted = parts.join(" ");
+                    handleInputChange("aadhaarNumber", digits);
+                    handleInputChange("pmjjbyKycId", digits);
+                    handleInputChange("pmsbyKycId", digits);
                   }}
                 />
               ) : (
-                <div className="font-semibold text-slate-800 font-mono">{customer.pmjjbyKycId || customer.pmsbyKycId || "—"}</div>
+                <div className="font-semibold text-slate-800 font-mono">{customer.aadhaarNumber || customer.pmjjbyKycId || "—"}</div>
               )}
             </div>
           </div>

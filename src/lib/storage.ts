@@ -61,7 +61,7 @@ function mapCustomerToDb(c: Customer): Record<string, any> {
     category: c.category || "Gen",
     annual_income: c.annualIncome || c.annualIncomeTier || "",
     pan_number: c.panGir || "",
-    aadhaar_number: c.pmjjbyKycId || c.pmsbyKycId || c.apyNomineeAadhar || "",
+    aadhaar_number: sanitizeNullableString(c.aadhaarNumber) || sanitizeNullableString(c.pmjjbyKycId) || sanitizeNullableString(c.pmsbyKycId) || sanitizeNullableString(c.apyNomineeAadhar) || null,
     account_number: c.accountNumber || "",
     customer_id_cif: c.customerId || "",
     ifsc_code: c.ifscCode || "",
@@ -128,8 +128,12 @@ function mapPartialCustomerToDb(c: Partial<Customer>): Record<string, any> {
   if (c.enrollPMSBY !== undefined) db.include_pmsby = c.enrollPMSBY;
   if (c.enrollAPY !== undefined) db.include_apy = c.enrollAPY;
   
-  const aadhaar = c.pmjjbyKycId || c.pmsbyKycId || c.apyNomineeAadhar;
-  if (aadhaar !== undefined) db.aadhaar_number = aadhaar;
+  if (c.aadhaarNumber !== undefined) {
+    db.aadhaar_number = sanitizeNullableString(c.aadhaarNumber);
+  } else {
+    const aadhaar = c.pmjjbyKycId || c.pmsbyKycId || c.apyNomineeAadhar;
+    if (aadhaar !== undefined) db.aadhaar_number = sanitizeNullableString(aadhaar);
+  }
 
   if (c.refNumber !== undefined) db.pin_code = c.refNumber;
   if (c.accountOpeningDate !== undefined) db.account_opening_date = sanitizeNullableString(c.accountOpeningDate);
@@ -170,6 +174,7 @@ function mapDbToCustomer(row: any): Customer {
     annualIncome: row.annual_income || "",
     annualIncomeTier: row.annual_income || "",
     panGir: row.pan_number || "",
+    aadhaarNumber: row.aadhaar_number || "",
     mobile: row.mobile_number || "",
     email: row.email_id || "",
     accountNumber: row.account_number || "",
@@ -276,6 +281,8 @@ function mapSettingsToDb(s: AppSettings): Record<string, any> {
     bc_agent_name: s.operatorName || s.cspName || "Alinur Sekh",
     bc_agent_code: s.cspCode,
     bc_agent_mobile: s.operatorContact,
+    introducer_name: s.introducerName || s.operatorName || s.cspName || "",
+    introducer_account_no: s.introducerAccountNo || "",
     ckyc_logo_url: s.ckycLogo || null,
     sb_consent_logo_url: s.consentLogo || null,
     custom_logos: {
@@ -292,6 +299,8 @@ function mapSettingsToDb(s: AppSettings): Record<string, any> {
       cspName: s.cspName,
       branchCode: s.branchCode,
       zone: s.zone,
+      introducerName: s.introducerName || "",
+      introducerAccountNo: s.introducerAccountNo || "",
     }
   };
 }
@@ -309,6 +318,8 @@ function mapDbToSettings(row: any): AppSettings {
     cspBranchName: row.branch_name || "Main Market Branch",
     operatorName: row.bc_agent_name || "",
     operatorContact: row.bc_agent_mobile || "",
+    introducerName: row.introducer_name ?? custom.introducerName ?? "",
+    introducerAccountNo: row.introducer_account_no ?? custom.introducerAccountNo ?? "",
     accountPrefix: custom.accountPrefix || "190010",
     refPrefix: custom.refPrefix || "REF-2026-",
     waGatewayUrl: custom.waGatewayUrl || "https://graph.facebook.com/v17.0",
@@ -381,6 +392,8 @@ export function getSettings(): AppSettings {
     merged.ckycLogo = merged.ckycLogo || DEFAULT_SETTINGS.ckycLogo;
     merged.consentLogo = merged.consentLogo || DEFAULT_SETTINGS.consentLogo;
     merged.apyLogo = merged.apyLogo || DEFAULT_SETTINGS.apyLogo;
+    merged.introducerName = merged.introducerName !== undefined ? merged.introducerName : (merged.operatorName || merged.cspName || "");
+    merged.introducerAccountNo = merged.introducerAccountNo || "";
     
     merged.pmjjbyLogos = {
       left: merged.pmjjbyLogos?.left || DEFAULT_SETTINGS.pmjjbyLogos.left,

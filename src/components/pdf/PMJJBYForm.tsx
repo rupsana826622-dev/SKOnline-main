@@ -123,13 +123,13 @@ export const PMJJBYForm: React.FC<PMJJBYFormProps> = ({ customer, settings }) =>
             <td className="border border-black p-1 font-bold bg-slate-50">Name of the KYC document submitted</td>
             <td className="border border-black p-1">{customer.pmjjbyKycType || "Aadhaar Card"}</td>
             <td className="border border-black p-1 font-bold bg-slate-50">KYC*Id number</td>
-            <td className="border border-black p-1 font-mono">{customer.pmjjbyKycId || "XXXXXXXXXXXX"}</td>
+            <td className="border border-black p-1 font-mono">{customer.pmjjbyKycId || customer.aadhaarNumber || "—"}</td>
           </tr>
           <tr>
             <td className="border border-black p-1 font-bold bg-slate-50">PAN Number, if available**</td>
-            <td className="border border-black p-1 font-mono">{customer.panGir || ""}</td>
+            <td className="border border-black p-1 font-mono">{customer.panGir || "—"}</td>
             <td className="border border-black p-1 font-bold bg-slate-50">AADHAAR Number, if available**</td>
-            <td className="border border-black p-1 font-mono">{customer.pmjjbyKycId || ""}</td>
+            <td className="border border-black p-1 font-mono">{customer.aadhaarNumber || customer.pmjjbyKycId || "—"}</td>
           </tr>
           <tr>
             <td className="border border-black p-1 font-bold bg-slate-50">Date of birth**</td>

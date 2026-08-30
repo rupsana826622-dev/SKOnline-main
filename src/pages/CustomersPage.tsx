@@ -61,7 +61,8 @@ export default function CustomersPage() {
         c.refNumber.toLowerCase().includes(lower) ||
         (c.village || "").toLowerCase().includes(lower) ||
         (c.district || "").toLowerCase().includes(lower) ||
-        (c.customerId || "").toLowerCase().includes(lower);
+        (c.customerId || "").toLowerCase().includes(lower) ||
+        (c.aadhaarNumber || "").toLowerCase().includes(lower);
       const matchCat = categoryFilter === "All" || c.category === categoryFilter;
       return matchSearch && matchCat;
     });
@@ -95,6 +96,7 @@ export default function CustomersPage() {
       District: c.district, State: c.state,
       "Annual Income": c.annualIncome, "Income Tier": c.annualIncomeTier || "",
       "PAN/GIR": c.panGir,
+      "Aadhaar Number": c.aadhaarNumber || c.pmjjbyKycId || "",
       "Sol ID": c.solId || "", "Zone": c.zone || "",
       "Education": c.educationLevel || "", "Occupation": c.occupationType || "",
       "Risk Category": c.riskCategory || "",

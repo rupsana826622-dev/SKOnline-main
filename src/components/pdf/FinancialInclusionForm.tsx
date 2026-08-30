@@ -184,15 +184,15 @@ export const FinancialInclusionForm: React.FC<FinancialInclusionFormProps> = ({ 
         <div className="font-bold text-xs italic">Details of introduction</div>
         <div className="flex items-center">
           <span className="w-44 font-semibold flex-shrink-0">Name of the person introduced</span>
-          <CharacterGrid value={customer.introducerName} length={35} boxWidth="15px" boxHeight="17px" fontSize="10px" />
+          <CharacterGrid value={customer.introducerName || settings.introducerName || settings.operatorName || ""} length={35} boxWidth="15px" boxHeight="17px" fontSize="10px" />
         </div>
         <div className="flex items-center">
           <span className="w-44 font-semibold flex-shrink-0">A/c No.</span>
-          <CharacterGrid value={customer.introducerAccountNo} length={15} boxWidth="15px" boxHeight="17px" fontSize="10px" />
+          <CharacterGrid value={customer.introducerAccountNo || settings.introducerAccountNo || ""} length={15} boxWidth="15px" boxHeight="17px" fontSize="10px" />
         </div>
         <div className="flex items-center">
           <span className="w-44 font-semibold flex-shrink-0">Branch</span>
-          <CharacterGrid value={customer.introducerBranch || settings.cspBranchName} length={35} boxWidth="15px" boxHeight="17px" fontSize="10px" />
+          <CharacterGrid value={customer.introducerBranch || settings.cspBranchName || ""} length={35} boxWidth="15px" boxHeight="17px" fontSize="10px" />
         </div>
 
         <div className="flex justify-between items-end pt-1">

@@ -148,13 +148,18 @@ export default function SettingsPage() {
           </SectionCard>
 
           {/* CSP Details */}
-          <SectionCard title="CSP Details" icon={CreditCard}>
+          <SectionCard title="CSP & Introducer Details" icon={CreditCard}>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <Field2 label="CSP Name" k="cspName" settings={settings} set={set} placeholder="SK Financial Services" />
               <Field2 label="CSP Code" k="cspCode" settings={settings} set={set} placeholder="CSP-BOI-0721" mono />
               <Field2 label="CSP Branch Name" k="cspBranchName" settings={settings} set={set} placeholder="Main Market Branch" />
               <Field2 label="Operator Name" k="operatorName" settings={settings} set={set} placeholder="Alinur Sekh" />
               <Field2 label="Operator Contact" k="operatorContact" settings={settings} set={set} placeholder="9609080917" />
+              <Field2 label="Introducer Name (BC / Operator Name)" k="introducerName" settings={settings} set={set} placeholder={settings.operatorName || settings.cspName || "Alinur Sekh"} />
+              <Field2 label="Introducer Account Number (BC / CSP A/c No.)" k="introducerAccountNo" settings={settings} set={set} placeholder="e.g. 190010100012345" mono />
+            </div>
+            <div className="text-xs text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+              💡 <strong>Form Auto-Population:</strong> Introducer Name &amp; Account Number auto-fill into Bank A4 form templates (Details of Introduction section). If left blank, clean empty grid boxes are generated for manual handwriting.
             </div>
           </SectionCard>
 

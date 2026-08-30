@@ -79,7 +79,7 @@ export const OpeningConsentForm: React.FC<OpeningConsentFormProps> = ({ customer
             </td>
             <td className="p-2">
               <div className="text-[10px] text-slate-500 font-bold mb-0.5">AADHAAR No.</div>
-              <div className="font-mono font-bold text-black">{customer.pmjjbyKycId || ""}</div>
+              <div className="font-mono font-bold text-black">{customer.aadhaarNumber || customer.pmjjbyKycId || "—"}</div>
             </td>
           </tr>
 

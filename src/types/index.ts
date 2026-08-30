@@ -27,6 +27,7 @@ export interface Customer {
   annualIncome: string;
   annualIncomeTier: string;
   panGir: string;
+  aadhaarNumber?: string;
   mobile: string;
   email: string;
   // Nomination
@@ -125,6 +126,9 @@ export interface AppSettings {
   cspBranchName: string;
   operatorName: string;
   operatorContact: string;
+  // Introducer
+  introducerName?: string;
+  introducerAccountNo?: string;
   // Prefixes
   accountPrefix: string;
   refPrefix: string;

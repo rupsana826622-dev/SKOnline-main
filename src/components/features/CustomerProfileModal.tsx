@@ -374,6 +374,26 @@ export default function CustomerProfileModal({
                     </div>
 
                     <div>
+                      <label className="form-label">Aadhaar Number</label>
+                      {isEditing ? (
+                        <input
+                          className="form-input font-mono"
+                          placeholder="XXXX XXXX XXXX"
+                          maxLength={14}
+                          value={editForm.aadhaarNumber || editForm.pmjjbyKycId || ""}
+                          onChange={e => {
+                            const digits = e.target.value.replace(/\D/g, "").slice(0, 12);
+                            handleInputChange("aadhaarNumber", digits);
+                            handleInputChange("pmjjbyKycId", digits);
+                            handleInputChange("pmsbyKycId", digits);
+                          }}
+                        />
+                      ) : (
+                        <div className="font-semibold text-slate-900 font-mono">{customer.aadhaarNumber || customer.pmjjbyKycId || "—"}</div>
+                      )}
+                    </div>
+
+                    <div>
                       <label className="form-label">Profession / Occupation</label>
                       {isEditing ? (
                         <input

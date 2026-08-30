@@ -25,6 +25,8 @@ export const DEFAULT_SETTINGS = {
   cspBranchName: "Main Market Branch",
   operatorName: "",
   operatorContact: "",
+  introducerName: "",
+  introducerAccountNo: "",
   accountPrefix: "190010",
   refPrefix: "REF-2026-",
   waGatewayUrl: "https://graph.facebook.com/v17.0",

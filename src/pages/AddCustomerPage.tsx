@@ -136,11 +136,14 @@ function defaultForm(settings: ReturnType<typeof getSettings>) {
     // Address
     address: "", village: "", mandal: "", district: "North 24 Parganas", state: "West Bengal",
     // Financial & KYC
-    annualIncome: "", annualIncomeTier: "< ₹25,000", panGir: "", mobile: "", email: "",
+    annualIncome: "", annualIncomeTier: "< ₹25,000", panGir: "", aadhaarNumber: "", mobile: "", email: "",
     // Nomination
     sbAccountNo: "", nomineeName: "", nomineeRelationship: "", nomineeAge: "", nomineeDob: "", guardianName: "",
     // Introducer
-    introducerName: "", introducerAccountNo: "", introducerBranch: "", introducerYears: "",
+    introducerName: settings.introducerName || settings.operatorName || "",
+    introducerAccountNo: settings.introducerAccountNo || "",
+    introducerBranch: settings.cspBranchName || "",
+    introducerYears: "5",
     // CPS
     solId: settings.solId,
     zone: settings.zone,
@@ -301,6 +304,13 @@ export default function AddCustomerPage() {
     if (!form.village.trim()) errs.village = "Village is required";
     if (!form.district.trim()) errs.district = "District is required";
     if (!form.accountSuffix.trim()) errs.accountSuffix = "Account suffix is required";
+
+    if (form.aadhaarNumber && form.aadhaarNumber.trim()) {
+      const cleanAadhaar = form.aadhaarNumber.replace(/\D/g, "");
+      if (cleanAadhaar.length !== 12) {
+        errs.aadhaarNumber = "Aadhaar number must be exactly 12 digits";
+      }
+    }
     
     // PMJJBY validation
     if (enrollPMJJBY) {
@@ -363,7 +373,9 @@ export default function AddCustomerPage() {
       address: form.address, village: form.village, mandal: form.mandal,
       district: form.district, state: form.state,
       annualIncome: form.annualIncome, annualIncomeTier: form.annualIncomeTier,
-      panGir: form.panGir, mobile: form.mobile, email: form.email,
+      panGir: form.panGir,
+      aadhaarNumber: form.aadhaarNumber ? form.aadhaarNumber.replace(/\D/g, "") : "",
+      mobile: form.mobile, email: form.email,
       sbAccountNo: form.sbAccountNo, nomineeName: form.nomineeName,
       nomineeRelationship: form.nomineeRelationship, nomineeAge: form.nomineeAge,
       nomineeDob: form.nomineeDob, guardianName: form.guardianName,
@@ -579,15 +591,34 @@ export default function AddCustomerPage() {
               <Field label="GIR / PAN Number">
                 <Inp k="panGir" form={form} set={set} placeholder="ABCDE1234F" maxLength={12} uppercase mono />
               </Field>
+              <div id="field-aadhaarNumber">
+                <Field label="Aadhaar Number" error={errors.aadhaarNumber}>
+                  <input
+                    type="text"
+                    className="form-input font-mono"
+                    placeholder="XXXX XXXX XXXX"
+                    maxLength={14}
+                    value={form.aadhaarNumber || ""}
+                    onChange={e => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 12);
+                      const parts = [];
+                      for (let i = 0; i < digits.length; i += 4) {
+                        parts.push(digits.slice(i, i + 4));
+                      }
+                      set("aadhaarNumber", parts.join(" "));
+                    }}
+                  />
+                </Field>
+              </div>
               <div id="field-mobile">
                 <Field label="Mobile Number" required error={errors.mobile}>
                   <Inp k="mobile" form={form} set={set} type="tel" placeholder="10-digit mobile" maxLength={10} mono />
                 </Field>
               </div>
+              <Field label="Email (Optional)">
+                <Inp k="email" form={form} set={set} type="email" placeholder="email@example.com" />
+              </Field>
             </Grid>
-            <Field label="Email (Optional)">
-              <Inp k="email" form={form} set={set} type="email" placeholder="email@example.com" />
-            </Field>
           </div>
         </div>
 
