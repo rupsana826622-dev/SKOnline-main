@@ -33,9 +33,6 @@ jobs:
       - name: Build Production Assets
         run: npm run build
 
-      - name: Copy index.html to 404.html for Client-Side Routing
-        run: cp dist/index.html dist/404.html
-
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
