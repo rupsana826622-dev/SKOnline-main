@@ -4,7 +4,7 @@ import type { Customer } from "@/types";
 import { getSettings } from "@/lib/storage";
 import AckSlipPrint from "./AckSlipPrint";
 
-// Import pixel-perfect 1:1 templates for high-DPI PDF generation
+// Import pixel-perfect 1:1 templates for high-DPI PDF generation & printing
 import { FinancialInclusionForm } from "@/components/pdf/FinancialInclusionForm";
 import { CustomerProfileSheetForm } from "@/components/pdf/CustomerProfileSheetForm";
 import { CKYCDownloadConsentForm } from "@/components/pdf/CKYCDownloadConsentForm";
@@ -13,20 +13,14 @@ import { PMJJBYForm } from "@/components/pdf/PMJJBYForm";
 import { PMSBYForm } from "@/components/pdf/PMSBYForm";
 import { APYForm } from "@/components/pdf/APYForm";
 
-// Import PDF bundle generator functions
-import { downloadCombinedFormsPdf, downloadSingleFormPdf } from "@/lib/pdfGenerator";
+// Import separated PDF generator & print stream functions
+import { printElement1to1, downloadCombinedFormsPdf, downloadSingleFormPdf } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
 
 interface PrintModalProps {
   customer: Customer;
   onClose: () => void;
 }
-
-const PRINT_ACK_PAGE_STYLE = `
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; background: #fff; }
-  @page { size: A5; margin: 8mm; }
-`;
 
 export default function PrintModal({ customer, onClose }: PrintModalProps) {
   const settings = getSettings();
@@ -36,120 +30,70 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
   const schemeCount = [customer.enrollPMJJBY, customer.enrollPMSBY, customer.enrollAPY].filter(Boolean).length;
   const totalPages = 4 + schemeCount;
 
-  // Compile active form element IDs for PDF bundle
-  const getActiveElementIds = () => {
-    const ids = ["pdf-form-fi", "pdf-form-cps", "pdf-form-ckyc", "pdf-form-opening"];
-    if (customer.enrollPMJJBY) ids.push("pdf-form-pmjjby");
-    if (customer.enrollPMSBY) ids.push("pdf-form-pmsby");
-    if (customer.enrollAPY) ids.push("pdf-form-apy");
-    return ids;
-  };
+  // Clean customer file names
+  const safeCustomerName = (customer.name || "Customer").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+  const safeAccountNo = (customer.accountNumber || "Account").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+  const bundleFileName = `${safeCustomerName}_${safeAccountNo}_Bank_Forms.pdf`;
+  const receiptFileName = `${safeCustomerName}_${safeAccountNo}_Receipt.pdf`;
 
-  // High-DPI PDF generation for the A4 bundle
+  // 1. Direct PDF File Download for Multi-page A4 Bundle (No Browser Print Dialog)
   const handleDownloadA4Bundle = async () => {
     setGeneratingAOf(true);
-    toast.info("Generating high-resolution official A4 bank forms...");
+    toast.info("Generating Official Bank A4 forms bundle PDF...");
     try {
-      const ids = getActiveElementIds();
-      const filename = `${customer.name.replace(/\s+/g, "_")}_Official_A4_Forms_Bundle.pdf`;
-      await downloadCombinedFormsPdf(ids, filename);
-      toast.success("Official Bank A4 forms bundle downloaded successfully!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to generate combined A4 forms PDF.");
+      await downloadCombinedFormsPdf(["bank-forms-bundle"], bundleFileName);
+      toast.success("A4 Forms Bundle PDF downloaded successfully!");
+    } catch (err: any) {
+      console.error("PDF generation error:", err);
+      toast.error(`Failed to generate A4 PDF bundle: ${err?.message || "Render error"}`);
     } finally {
       setGeneratingAOf(false);
     }
   };
 
-  // High-DPI PDF generation for the customer A5 receipt
+  // 2. Direct PDF File Download for Customer A5 Receipt (No Browser Print Dialog)
   const handleDownloadReceipt = async () => {
     setGeneratingReceipt(true);
-    toast.info("Generating high-resolution customer receipt...");
+    toast.info("Generating Customer Receipt PDF...");
     try {
-      const filename = `${customer.name.replace(/\s+/g, "_")}_Acknowledgement_Receipt.pdf`;
-      await downloadSingleFormPdf("ack-slip-print", filename);
-      toast.success("Receipt PDF downloaded successfully!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to generate receipt PDF.");
+      await downloadSingleFormPdf("ack-slip-print", receiptFileName);
+      toast.success("Customer receipt PDF downloaded successfully!");
+    } catch (err: any) {
+      console.error("Receipt PDF error:", err);
+      toast.error(`Failed to generate receipt PDF: ${err?.message || "Render error"}`);
     } finally {
       setGeneratingReceipt(false);
     }
   };
 
-  // Reliable hidden iframe print helper to guarantee styles and rendering finishes
-  const printElementViaIframe = (elementId: string, customStyles: string = "") => {
-    const printContent = document.getElementById(elementId);
-    if (!printContent) return;
-
-    // Create a hidden iframe
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "0";
-    iframe.style.opacity = "0";
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow?.document;
-    if (!doc) {
-      document.body.removeChild(iframe);
-      return;
+  // 3. Native Browser Print Window for Bank A4 Forms
+  const printBankForm = async () => {
+    try {
+      await printElement1to1("bank-forms-bundle", {
+        pageSize: "A4",
+        orientation: "portrait",
+        margins: "6mm",
+        title: bundleFileName.replace(/\.pdf$/i, ""),
+      });
+    } catch (err: any) {
+      console.error("Print stream error:", err);
+      toast.error("Could not launch print stream.");
     }
-
-    doc.open();
-    doc.write(`<!DOCTYPE html><html><head><title>Print</title>`);
-    
-    // Copy stylesheets from parent window to print window so Tailwind applies correctly
-    Array.from(document.querySelectorAll("link[rel='stylesheet'], style")).forEach(styleEl => {
-      doc.write(styleEl.outerHTML);
-    });
-
-    // Add extra inline print styles
-    doc.write(`
-      <style>
-        body { background: #fff; margin: 0; padding: 0; }
-        .a4-page { page-break-after: always !important; break-after: page !important; margin: 0 auto !important; box-shadow: none !important; border: none !important; }
-        ${customStyles}
-      </style>
-    `);
-    
-    doc.write(`</head><body><div class="print-area">${printContent.innerHTML}</div></body></html>`);
-    doc.close();
-
-    let printed = false;
-    const triggerPrint = () => {
-      if (printed) return;
-      printed = true;
-      setTimeout(() => {
-        try {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
-        } catch (e) {
-          console.error("Iframe printing failed", e);
-        }
-        setTimeout(() => {
-          if (iframe.parentNode) {
-            document.body.removeChild(iframe);
-          }
-        }, 1000);
-      }, 300);
-    };
-
-    iframe.onload = triggerPrint;
-    // Fallback if onload is not fired by the browser
-    setTimeout(triggerPrint, 600);
   };
 
-  const printBankForm = () => {
-    printElementViaIframe("bank-forms-bundle");
-  };
-
-  const printAckSlip = () => {
-    printElementViaIframe("ack-slip-print", PRINT_ACK_PAGE_STYLE);
+  // 4. Native Browser Print Window for Customer Receipt
+  const printAckSlip = async () => {
+    try {
+      await printElement1to1("ack-slip-print", {
+        pageSize: "A5",
+        orientation: "portrait",
+        margins: "8mm",
+        title: receiptFileName.replace(/\.pdf$/i, ""),
+      });
+    } catch (err: any) {
+      console.error("Print stream error:", err);
+      toast.error("Could not launch print stream.");
+    }
   };
 
   return (
@@ -163,8 +107,8 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
           <div className="flex items-center gap-2">
             <FileCheck className="w-5 h-5 text-amber-400" />
             <div>
-              <div className="font-extrabold text-sm tracking-wide">Customer Saved Successfully</div>
-              <div className="text-[11px] text-blue-200 mt-0.5">{customer.name} · A/C Suffix: {customer.accountNumber.slice(-6)}</div>
+              <div className="font-extrabold text-sm tracking-wide">Customer Document Center</div>
+              <div className="text-[11px] text-blue-200 mt-0.5">{customer.name} · A/C: {customer.accountNumber}</div>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
@@ -175,9 +119,9 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
         {/* Content */}
         <div className="p-6 space-y-6">
           <div>
-            <h3 className="text-sm font-bold text-slate-800">Download Account Opening Documents</h3>
+            <h3 className="text-sm font-bold text-slate-800">Download Official Bank PDF Files</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Select an option below to generate and download official bank forms or customer receipt.
+              Directly download offline PDF files to your device or use native print below.
             </p>
           </div>
 
@@ -202,21 +146,24 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
             </div>
           </div>
 
-          {/* Primary Download Buttons */}
+          {/* Primary Download Buttons (Direct Offline PDF Generation) */}
           <div className="space-y-3">
             {/* Button 1: Download Official Bank A4 Forms (Bundle) */}
             <button
+              type="button"
               onClick={handleDownloadA4Bundle}
               disabled={generatingAOf}
-              className="w-full flex items-center justify-between p-4 bg-white hover:bg-slate-50 border border-slate-200 hover:border-[#0056B3]/35 rounded-xl shadow-sm hover:shadow transition-all group disabled:opacity-50"
+              className="w-full flex items-center justify-between p-4 bg-white hover:bg-slate-50 border border-slate-200 hover:border-[#0056B3]/40 rounded-xl shadow-sm hover:shadow transition-all group disabled:opacity-50 cursor-pointer"
             >
               <div className="flex items-center gap-3 text-left">
                 <div className="w-10 h-10 rounded-lg bg-blue-50 group-hover:bg-[#003366]/10 flex items-center justify-center text-[#003366] transition-colors">
-                  {generatingAOf ? <RefreshCw className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
+                  {generatingAOf ? <RefreshCw className="w-5 h-5 animate-spin text-blue-600" /> : <FileText className="w-5 h-5" />}
                 </div>
                 <div>
                   <div className="text-xs font-bold text-[#0F172A]">📄 Download Official Bank A4 Forms (Bundle)</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">Official A4 formats · 1:1 Layout · {totalPages} Pages</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    {generatingAOf ? "Rendering 1:1 Vector PDF..." : `Direct .pdf file · 1:1 Layout · ${totalPages} Pages`}
+                  </div>
                 </div>
               </div>
               <Download className="w-4 h-4 text-slate-400 group-hover:text-[#0056B3] transition-colors" />
@@ -224,28 +171,32 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
 
             {/* Button 2: Download Customer Receipt */}
             <button
+              type="button"
               onClick={handleDownloadReceipt}
               disabled={generatingReceipt}
-              className="w-full flex items-center justify-between p-4 bg-white hover:bg-slate-50 border border-slate-200 hover:border-emerald-500/35 rounded-xl shadow-sm hover:shadow transition-all group disabled:opacity-50"
+              className="w-full flex items-center justify-between p-4 bg-white hover:bg-slate-50 border border-slate-200 hover:border-emerald-500/40 rounded-xl shadow-sm hover:shadow transition-all group disabled:opacity-50 cursor-pointer"
             >
               <div className="flex items-center gap-3 text-left">
                 <div className="w-10 h-10 rounded-lg bg-emerald-50 group-hover:bg-emerald-500/10 flex items-center justify-center text-emerald-700 transition-colors">
-                  {generatingReceipt ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Receipt className="w-5 h-5" />}
+                  {generatingReceipt ? <RefreshCw className="w-5 h-5 animate-spin text-emerald-600" /> : <Receipt className="w-5 h-5" />}
                 </div>
                 <div>
                   <div className="text-xs font-bold text-[#0F172A]">🧾 Download Customer Receipt</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">A5 format · Acknowledgment slip receipt</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    {generatingReceipt ? "Rendering Receipt PDF..." : "Direct .pdf file · A5 format acknowledgment slip"}
+                  </div>
                 </div>
               </div>
               <Download className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 transition-colors" />
             </button>
           </div>
 
-          {/* Quick Direct Print Fallbacks (Settings preserved) */}
+          {/* Direct Print Options (Native Browser Print Window) */}
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Direct Print Options</span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Direct Print Stream</span>
             <div className="flex items-center gap-2">
               <button 
+                type="button"
                 onClick={printBankForm}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 rounded-lg text-slate-600 hover:text-slate-800 text-[11px] font-semibold transition-colors shadow-sm"
               >
@@ -253,6 +204,7 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
                 Print A4 Forms
               </button>
               <button 
+                type="button"
                 onClick={printAckSlip}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 rounded-lg text-slate-600 hover:text-slate-800 text-[11px] font-semibold transition-colors shadow-sm"
               >
@@ -266,6 +218,7 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
         {/* Footer */}
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
           <button
+            type="button"
             onClick={onClose}
             className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-slate-800 hover:bg-slate-200/50 rounded-lg transition-colors"
           >
@@ -275,7 +228,19 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
       </div>
 
       {/* Hidden high-fidelity templates for A4 PDF generator and standard printing */}
-      <div id="bank-forms-bundle" style={{ position: "absolute", left: "-9999px", top: 0, width: "210mm" }}>
+      <div
+        id="bank-forms-bundle"
+        data-print-id="bank-forms-bundle"
+        style={{
+          position: "fixed",
+          left: "-99999px",
+          top: "0",
+          width: "210mm",
+          zIndex: -1,
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      >
         <FinancialInclusionForm customer={customer} settings={settings} />
         <CustomerProfileSheetForm customer={customer} settings={settings} />
         <CKYCDownloadConsentForm customer={customer} settings={settings} />
@@ -285,11 +250,20 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
         {customer.enrollAPY && <APYForm customer={customer} settings={settings} />}
       </div>
 
-      {/* Hidden print targets — always in DOM for window.print() */}
-      <div style={{ position: "absolute", left: "-9999px", top: 0, width: "148mm" }}>
+      {/* Hidden print targets — always in DOM for window.print() & direct PDF download */}
+      <div
+        style={{
+          position: "fixed",
+          left: "-99999px",
+          top: "0",
+          width: "148mm",
+          zIndex: -1,
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      >
         <AckSlipPrint customer={customer} settings={settings} />
       </div>
     </div>
   );
 }
-

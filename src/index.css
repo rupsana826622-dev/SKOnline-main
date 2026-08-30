@@ -56,17 +56,34 @@
 }
 
 /* ============ PRINT STYLES ============ */
+@page {
+  size: A4 portrait;
+  margin: 6mm;
+}
+
 @media print {
-  body {
-    background: #ffffff !important;
-    color: #000000 !important;
+  body, html {
+    width: 210mm;
+    height: 297mm;
     margin: 0 !important;
     padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   .print-area {
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+  }
+  .a4-page-container {
+    width: 100% !important;
+    min-height: 285mm !important;
+    box-sizing: border-box !important;
+    padding: 4mm !important;
+    page-break-after: always !important;
+    break-after: page !important;
   }
   .no-print {
     display: none !important;

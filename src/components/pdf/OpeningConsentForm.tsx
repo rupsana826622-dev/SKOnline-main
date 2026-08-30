@@ -147,7 +147,7 @@ export const OpeningConsentForm: React.FC<OpeningConsentFormProps> = ({ customer
       {/* Bottom Date and Signature zone */}
       <div className="flex justify-between items-end mt-12 mb-4">
         <div className="text-xs font-bold text-slate-800 font-sans">
-          Date: __________________
+          Date: {customer.accountOpeningDate ? <span className="font-bold">{customer.accountOpeningDate}</span> : "__________________"}
         </div>
 
         {/* Signature Line */}

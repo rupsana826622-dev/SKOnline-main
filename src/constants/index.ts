@@ -124,3 +124,16 @@ export const KYC_DOC_TYPES = [
   "Aadhaar Card", "Voter ID", "PAN Card", "Passport",
   "Driving Licence", "NREGA Job Card", "Bank Passbook",
 ];
+
+export const NOMINEE_RELATIONSHIPS = [
+  "Mother",
+  "Father",
+  "Spouse (Husband / Wife)",
+  "Son",
+  "Daughter",
+  "Brother",
+  "Sister",
+  "Grandmother",
+  "Grandfather",
+  "Other (Relative / Legal Guardian)",
+] as const;

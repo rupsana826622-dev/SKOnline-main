@@ -146,7 +146,7 @@ export const PMSBYForm: React.FC<PMSBYFormProps> = ({ customer, settings }) => {
 
       <div className="flex justify-between items-end my-4 pt-4">
         <div className="text-xs font-bold">
-          Date: __________________
+          Date: {customer.accountOpeningDate ? <span className="font-bold">{customer.accountOpeningDate}</span> : "__________________"}
         </div>
         <div className="text-right text-xs font-bold space-y-6">
           <p className="pb-4">________________________________________</p>
@@ -158,7 +158,7 @@ export const PMSBYForm: React.FC<PMSBYFormProps> = ({ customer, settings }) => {
       <div className="border-t border-black pt-2 flex justify-between items-end my-3">
         <div className="text-[9.5px] max-w-[320px] space-y-4">
           <p>**Confirmed that the applicant's details and signature have been verified from the records available with this Bank.</p>
-          <p className="font-bold">Date: __________________</p>
+          <p className="font-bold">Date: {customer.accountOpeningDate ? <span className="font-bold">{customer.accountOpeningDate}</span> : "__________________"}</p>
         </div>
         <div className="text-right text-xs font-bold space-y-2">
           <p className="pb-8">________________________________________</p>

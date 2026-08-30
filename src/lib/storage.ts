@@ -20,54 +20,72 @@ export interface Inquiry {
   resolved: boolean;
 }
 
-// ─── MAPPERS ─────────────────────────────────────────────
+// ─── SANITIZERS & MAPPERS ─────────────────────────────────
+
+export function sanitizeNullableString(val?: string | null): string | null {
+  if (val === undefined || val === null) return null;
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  return String(val);
+}
+
+export function sanitizeTimestamp(val?: string | null, fallbackNow: boolean = false): string | null {
+  if (!val || typeof val !== "string" || !val.trim()) {
+    return fallbackNow ? new Date().toISOString() : null;
+  }
+  const trimmed = val.trim();
+  return trimmed.length > 0 ? trimmed : (fallbackNow ? new Date().toISOString() : null);
+}
 
 function mapCustomerToDb(c: Customer): Record<string, any> {
   return {
     id: c.id,
-    created_at: c.createdAt || new Date().toISOString(),
-    full_name: c.name,
-    father_name: c.fatherName,
-    mother_name: c.motherName,
-    spouse_name: c.spouseName,
-    address: c.address,
-    village: c.village,
-    tehsil: c.mandal,
-    district: c.district,
-    state: c.state,
+    created_at: sanitizeTimestamp(c.createdAt, true)!,
+    full_name: c.name || "",
+    father_name: c.fatherName || "",
+    mother_name: c.motherName || "",
+    spouse_name: c.spouseName || "",
+    address: c.address || "",
+    village: c.village || "",
+    tehsil: c.mandal || "",
+    district: c.district || "",
+    state: c.state || "",
     pin_code: c.refNumber || "",
-    gender: c.sex,
-    age: String(c.age),
-    dob: c.dob,
-    profession: c.profession,
-    category: c.category,
-    annual_income: c.annualIncome || c.annualIncomeTier,
-    pan_number: c.panGir,
-    aadhaar_number: c.pmjjbyKycId || c.pmsbyKycId || "",
-    account_number: c.accountNumber,
-    customer_id_cif: c.customerId,
+    account_opening_date: sanitizeNullableString(c.accountOpeningDate),
+    gender: c.sex || "Male",
+    age: String(c.age ?? 0),
+    dob: sanitizeNullableString(c.dob),
+    profession: c.profession || "",
+    category: c.category || "Gen",
+    annual_income: c.annualIncome || c.annualIncomeTier || "",
+    pan_number: c.panGir || "",
+    aadhaar_number: c.pmjjbyKycId || c.pmsbyKycId || c.apyNomineeAadhar || "",
+    account_number: c.accountNumber || "",
+    customer_id_cif: c.customerId || "",
     ifsc_code: c.ifscCode || "",
     branch_name: c.branchCode || "",
-    mobile_number: c.mobile,
-    email_id: c.email,
-    nominee_name: c.nomineeName,
-    nominee_dob: c.nomineeDob,
-    nominee_relation: c.nomineeRelationship,
-    nominee_age: c.nomineeAge,
-    guardian_details: c.guardianName,
+    mobile_number: c.mobile || "",
+    email_id: c.email || "",
+    nominee_name: c.nomineeName || "",
+    nominee_dob: sanitizeNullableString(c.nomineeDob),
+    nominee_relation: c.nomineeRelationship || "",
+    nominee_age: c.nomineeAge || "",
+    guardian_details: c.guardianName || "",
     guardian_relation: c.pmjjbyGuardianRelationship || c.pmsbyGuardianRelationship || c.apyGuardianRelationship || "",
-    include_pmjjby: c.enrollPMJJBY,
-    include_pmsby: c.enrollPMSBY,
-    include_apy: c.enrollAPY,
+    include_pmjjby: !!c.enrollPMJJBY,
+    include_pmsby: !!c.enrollPMSBY,
+    include_apy: !!c.enrollAPY,
     status: "Active",
-    passbook_issued: c.passbookIssued,
-    passbook_issued_at: c.passbookIssuedAt,
-    passbook_received: c.passbookReceived,
-    passbook_received_at: c.passbookReceivedAt,
-    atm_issued: c.atmIssued,
-    atm_issued_at: c.atmIssuedAt,
-    atm_received: c.atmReceived,
-    atm_received_at: c.atmReceivedAt
+    passbook_issued: !!c.passbookIssued,
+    passbook_issued_at: sanitizeTimestamp(c.passbookIssuedAt, false),
+    passbook_received: !!c.passbookReceived,
+    passbook_received_at: sanitizeTimestamp(c.passbookReceivedAt, false),
+    atm_issued: !!c.atmIssued,
+    atm_issued_at: sanitizeTimestamp(c.atmIssuedAt, false),
+    atm_received: !!c.atmReceived,
+    atm_received_at: sanitizeTimestamp(c.atmReceivedAt, false)
   };
 }
 
@@ -84,7 +102,7 @@ function mapPartialCustomerToDb(c: Partial<Customer>): Record<string, any> {
   if (c.state !== undefined) db.state = c.state;
   if (c.sex !== undefined) db.gender = c.sex;
   if (c.age !== undefined) db.age = String(c.age);
-  if (c.dob !== undefined) db.dob = c.dob;
+  if (c.dob !== undefined) db.dob = sanitizeNullableString(c.dob);
   if (c.profession !== undefined) db.profession = c.profession;
   if (c.category !== undefined) db.category = c.category;
   if (c.annualIncome !== undefined) db.annual_income = c.annualIncome;
@@ -98,7 +116,7 @@ function mapPartialCustomerToDb(c: Partial<Customer>): Record<string, any> {
   if (c.branchCode !== undefined) db.branch_name = c.branchCode;
   
   if (c.nomineeName !== undefined) db.nominee_name = c.nomineeName;
-  if (c.nomineeDob !== undefined) db.nominee_dob = c.nomineeDob;
+  if (c.nomineeDob !== undefined) db.nominee_dob = sanitizeNullableString(c.nomineeDob);
   if (c.nomineeRelationship !== undefined) db.nominee_relation = c.nomineeRelationship;
   if (c.nomineeAge !== undefined) db.nominee_age = c.nomineeAge;
   if (c.guardianName !== undefined) db.guardian_details = c.guardianName;
@@ -114,24 +132,27 @@ function mapPartialCustomerToDb(c: Partial<Customer>): Record<string, any> {
   if (aadhaar !== undefined) db.aadhaar_number = aadhaar;
 
   if (c.refNumber !== undefined) db.pin_code = c.refNumber;
+  if (c.accountOpeningDate !== undefined) db.account_opening_date = sanitizeNullableString(c.accountOpeningDate);
 
   if (c.passbookIssued !== undefined) db.passbook_issued = c.passbookIssued;
-  if (c.passbookIssuedAt !== undefined) db.passbook_issued_at = c.passbookIssuedAt;
+  if (c.passbookIssuedAt !== undefined) db.passbook_issued_at = sanitizeTimestamp(c.passbookIssuedAt, false);
   if (c.passbookReceived !== undefined) db.passbook_received = c.passbookReceived;
-  if (c.passbookReceivedAt !== undefined) db.passbook_received_at = c.passbookReceivedAt;
+  if (c.passbookReceivedAt !== undefined) db.passbook_received_at = sanitizeTimestamp(c.passbookReceivedAt, false);
   if (c.atmIssued !== undefined) db.atm_issued = c.atmIssued;
-  if (c.atmIssuedAt !== undefined) db.atm_issued_at = c.atmIssuedAt;
+  if (c.atmIssuedAt !== undefined) db.atm_issued_at = sanitizeTimestamp(c.atmIssuedAt, false);
   if (c.atmReceived !== undefined) db.atm_received = c.atmReceived;
-  if (c.atmReceivedAt !== undefined) db.atm_received_at = c.atmReceivedAt;
+  if (c.atmReceivedAt !== undefined) db.atm_received_at = sanitizeTimestamp(c.atmReceivedAt, false);
   
   return db;
 }
+
 
 function mapDbToCustomer(row: any): Customer {
   return {
     id: row.id,
     createdAt: row.created_at || new Date().toISOString(),
     refNumber: row.pin_code || "",
+    accountOpeningDate: row.account_opening_date || "",
     name: row.full_name || "",
     fatherName: row.father_name || "",
     motherName: row.mother_name || "",
@@ -390,6 +411,8 @@ export function saveSettings(settings: AppSettings): void {
     });
 }
 
+export { mapCustomerToDb, mapPartialCustomerToDb, mapDbToCustomer };
+
 // ─── CUSTOMERS ───────────────────────────────────────────
 export function getCustomers(): Customer[] {
   try {
@@ -404,6 +427,53 @@ export function saveCustomers(customers: Customer[]): void {
   localStorage.setItem(KEYS.customers, JSON.stringify(customers));
 }
 
+export async function fetchCustomersFromSupabase(): Promise<Customer[]> {
+  try {
+    const { data, error } = await supabase
+      .from("customers")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to fetch customers from Supabase:", error);
+      return getCustomers();
+    }
+
+    if (data) {
+      const mapped = data.map(mapDbToCustomer);
+      saveCustomers(mapped);
+      window.dispatchEvent(new Event("supabase-sync-complete"));
+      return mapped;
+    }
+    return getCustomers();
+  } catch (err) {
+    console.error("Error in fetchCustomersFromSupabase:", err);
+    return getCustomers();
+  }
+}
+
+export async function addCustomerAsync(customer: Customer): Promise<{ error: any; data?: any }> {
+  // Direct insert to Supabase
+  const payload = mapCustomerToDb(customer);
+  const { data, error } = await supabase.from("customers").insert([payload]).select();
+  
+  if (error) {
+    console.error("Error inserting customer to Supabase:", error);
+    return { error };
+  }
+
+  // Update local cache
+  const customers = getCustomers();
+  const exists = customers.some(c => c.id === customer.id);
+  if (!exists) {
+    customers.unshift(customer);
+    saveCustomers(customers);
+  }
+  window.dispatchEvent(new Event("supabase-sync-complete"));
+
+  return { error: null, data };
+}
+
 export function addCustomer(customer: Customer): void {
   const customers = getCustomers();
   customers.unshift(customer);
@@ -412,10 +482,35 @@ export function addCustomer(customer: Customer): void {
   // Write-through to Supabase
   supabase
     .from("customers")
-    .insert(mapCustomerToDb(customer))
+    .insert([mapCustomerToDb(customer)])
     .then(({ error }) => {
       if (error) console.error("Error inserting customer to Supabase:", error);
     });
+}
+
+export async function updateCustomerAsync(id: string, updates: Partial<Customer>): Promise<{ error: any; data?: any }> {
+  const payload = mapPartialCustomerToDb(updates);
+  const { data, error } = await supabase
+    .from("customers")
+    .update(payload)
+    .eq("id", id)
+    .select();
+
+  if (error) {
+    console.error("Error updating customer in Supabase:", error);
+    return { error };
+  }
+
+  // Update local cache
+  const customers = getCustomers();
+  const idx = customers.findIndex(c => c.id === id);
+  if (idx !== -1) {
+    customers[idx] = { ...customers[idx], ...updates };
+    saveCustomers(customers);
+    window.dispatchEvent(new Event("supabase-sync-complete"));
+  }
+
+  return { error: null, data };
 }
 
 export function updateCustomer(id: string, updates: Partial<Customer>): void {
@@ -434,6 +529,24 @@ export function updateCustomer(id: string, updates: Partial<Customer>): void {
         if (error) console.error("Error updating customer in Supabase:", error);
       });
   }
+}
+
+export async function deleteCustomerAsync(id: string): Promise<{ error: any }> {
+  const { error } = await supabase
+    .from("customers")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error deleting customer from Supabase:", error);
+    return { error };
+  }
+
+  const customers = getCustomers().filter(c => c.id !== id);
+  saveCustomers(customers);
+  window.dispatchEvent(new Event("supabase-sync-complete"));
+
+  return { error: null };
 }
 
 export function deleteCustomer(id: string): void {

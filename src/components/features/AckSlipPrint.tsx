@@ -26,7 +26,7 @@ export default function AckSlipPrint({ customer, settings }: AckSlipPrintProps) 
           <div style={{ fontSize: "8px", color: "#555", fontWeight: "600", letterSpacing: "0.3px" }}>CUSTOMER ACCOUNT ACKNOWLEDGEMENT SLIP</div>
         </div>
         <div style={{ fontSize: "8px", color: "#666", textAlign: "right" }}>
-          <div>{now}</div>
+          <div>{customer.accountOpeningDate || now}</div>
         </div>
       </div>
 

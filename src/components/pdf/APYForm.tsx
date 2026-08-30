@@ -193,7 +193,7 @@ export const APYForm: React.FC<APYFormProps> = ({ customer, settings }) => {
       {/* Subscriber Signature Block */}
       <div className="flex justify-between items-end my-2">
         <div className="text-xs space-y-1">
-          <div>Date : __________________</div>
+          <div>Date : {customer.accountOpeningDate ? <span className="font-bold">{customer.accountOpeningDate}</span> : "__________________"}</div>
           <div>Place : <span className="font-semibold">{customer.village || customer.district || "___________"}</span></div>
         </div>
 
@@ -228,7 +228,7 @@ export const APYForm: React.FC<APYFormProps> = ({ customer, settings }) => {
             <div>Name of the Bank: <span className="font-bold">{settings.bankName}</span></div>
             <div>Bank Branch: <span className="font-bold">{settings.cspBranchName}</span></div>
             <div>Receiving Officer's Name: <span className="font-semibold">{settings.operatorName || "CSP Operator"}</span></div>
-            <div>Date of Receipt of Application: __________________</div>
+            <div>Date of Receipt of Application: {customer.accountOpeningDate ? <span className="font-bold">{customer.accountOpeningDate}</span> : "__________________"}</div>
           </div>
 
           {/* Intentionally Blank Bank Stamp & Signature Box */}

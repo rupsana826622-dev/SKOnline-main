@@ -37,7 +37,7 @@ export const CKYCDownloadConsentForm: React.FC<CKYCDownloadConsentFormProps> = (
 
           {/* Date Row */}
           <div className="text-right text-xs font-bold mb-6">
-            Date: __________________
+            Date: {customer.accountOpeningDate ? <span className="font-bold">{customer.accountOpeningDate}</span> : "__________________"}
           </div>
 
           {/* Address Block */}
@@ -61,7 +61,7 @@ export const CKYCDownloadConsentForm: React.FC<CKYCDownloadConsentFormProps> = (
               I/We understand that my/our KYC details and documents may have been uploaded to Central KYC Registry maintained by CERSAI by other banking/regulatory entities and my/our CKYC/KIN number may have been generated in the same process, and the details may be searched and downloaded by {settings.bankName || "Bank of India"}.
             </p>
             <p>
-              Hence, with reference to my/our application dated __________________ for opening of savings / current account in your bank, I/We authorize {settings.bankName || "Bank of India"} to search for my/our KYC records in Central KYC Registry, and if my/our record is found, then download and store the KYC details and documents for the sole purpose of opening account and keeping in record for auditory/regulatory purpose.
+              Hence, with reference to my/our application dated {customer.accountOpeningDate ? <span className="font-bold">{customer.accountOpeningDate}</span> : "__________________"} for opening of savings / current account in your bank, I/We authorize {settings.bankName || "Bank of India"} to search for my/our KYC records in Central KYC Registry, and if my/our record is found, then download and store the KYC details and documents for the sole purpose of opening account and keeping in record for auditory/regulatory purpose.
             </p>
           </div>
         </div>

@@ -6,12 +6,14 @@ import {
   UserPlus, Save, AlertCircle, ChevronDown, ChevronUp,
   CheckSquare, Square, Info,
 } from "lucide-react";
-import { addCustomer, getSettings } from "@/lib/storage";
-import { generateId, generateRefNumber } from "@/lib/utils";
+import { addCustomerAsync, getSettings } from "@/lib/storage";
+import { generateId, generateRefNumber, calculateAgeFromDob } from "@/lib/utils";
 import {
   CATEGORIES, SEX_OPTIONS, STATES, EDUCATION_LEVELS, OCCUPATION_TYPES,
   ANNUAL_INCOME_TIERS, PMJJBY_PREMIUM_TIERS, APY_PENSION_SLABS, KYC_DOC_TYPES,
+  NOMINEE_RELATIONSHIPS,
 } from "@/constants";
+import DatePickerInput from "@/components/common/DatePickerInput";
 import PrintModal from "@/components/features/PrintModal";
 import type { Customer } from "@/types";
 import { toast } from "sonner";
@@ -115,17 +117,24 @@ function SchemeToggle({
 
 // ─── Default form state ───────────────────────────────────────────────────────
 function defaultForm(settings: ReturnType<typeof getSettings>) {
+  const today = new Date();
+  const d = String(today.getDate()).padStart(2, "0");
+  const m = String(today.getMonth() + 1).padStart(2, "0");
+  const y = today.getFullYear();
+  const todayFormatted = `${d}/${m}/${y}`;
+
   return {
     // Account Identification
     branchCode: settings.branchCode,
     customerId: "",
     accountSuffix: "",
     refNumber: generateRefNumber(settings.refPrefix),
+    accountOpeningDate: todayFormatted,
     // Personal
     name: "", fatherName: "", motherName: "", spouseName: "",
     sex: "Male", age: "", dob: "", profession: "", category: "OBC",
     // Address
-    address: "", village: "", mandal: "", district: "", state: "West Bengal",
+    address: "", village: "", mandal: "", district: "North 24 Parganas", state: "West Bengal",
     // Financial & KYC
     annualIncome: "", annualIncomeTier: "< ₹25,000", panGir: "", mobile: "", email: "",
     // Nomination
@@ -196,6 +205,7 @@ export default function AddCustomerPage() {
   const navigate = useNavigate();
   const settings = getSettings();
   const [form, setFormState] = useState<Record<string, string>>(defaultForm(settings));
+  const [districtMode, setDistrictMode] = useState<"preset" | "custom">("preset");
   const [enrollPMJJBY, setEnrollPMJJBY] = useState(false);
   const [enrollPMSBY, setEnrollPMSBY] = useState(false);
   const [enrollAPY, setEnrollAPY] = useState(false);
@@ -233,7 +243,29 @@ export default function AddCustomerPage() {
       const prevVal = form[k] ?? "";
       finalValue = formatDob(v.slice(0, 10), prevVal);
     }
-    setFormState(f => ({ ...f, [k]: finalValue }));
+
+    setFormState(f => {
+      const updated = { ...f, [k]: finalValue };
+
+      // Auto-Age Calculation for Applicant DOB
+      if (k === "dob") {
+        const calculatedAge = calculateAgeFromDob(finalValue);
+        if (calculatedAge) {
+          updated.age = calculatedAge;
+        }
+      }
+
+      // Auto-Age Calculation for Nominee DOB
+      if (k === "nomineeDob") {
+        const calculatedNomineeAge = calculateAgeFromDob(finalValue);
+        if (calculatedNomineeAge) {
+          updated.nomineeAge = calculatedNomineeAge;
+        }
+      }
+
+      return updated;
+    });
+
     setErrors(e => { const n = { ...e }; delete n[k]; return n; });
   };
 
@@ -316,7 +348,6 @@ export default function AddCustomerPage() {
       return;
     }
     setSubmitting(true);
-    await new Promise(r => setTimeout(r, 300));
 
     const customer: Customer = {
       id: generateId(),
@@ -324,6 +355,7 @@ export default function AddCustomerPage() {
       customerId: form.customerId,
       accountNumber: settings.accountPrefix + form.accountSuffix,
       refNumber: form.refNumber,
+      accountOpeningDate: form.accountOpeningDate || "",
       name: form.name, fatherName: form.fatherName, motherName: form.motherName,
       spouseName: form.spouseName, sex: form.sex as Customer["sex"],
       age: Number(form.age), dob: form.dob, profession: form.profession,
@@ -400,10 +432,20 @@ export default function AddCustomerPage() {
       createdAt: new Date().toISOString(),
     };
 
-    addCustomer(customer);
-    toast.success(`Customer "${customer.name}" registered successfully!`);
-    setPrintCustomer(customer);
-    setSubmitting(false);
+    try {
+      const { error } = await addCustomerAsync(customer);
+      if (error) {
+        toast.error(`Supabase cloud save failed: ${error.message || "Please check connection"}`);
+        setSubmitting(false);
+        return;
+      }
+      toast.success(`Customer "${customer.name}" registered and saved directly to Supabase!`);
+      setPrintCustomer(customer);
+    } catch (err: any) {
+      toast.error(`Failed to register customer: ${err.message || "Unknown error"}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const fullAccountNo = settings.accountPrefix + (form.accountSuffix || "______");
@@ -453,26 +495,37 @@ export default function AddCustomerPage() {
               <Inp k="refNumber" form={form} set={set} mono />
             </Field>
           </Grid>
-          <div className="mt-4" id="field-accountSuffix">
-            <Field label="Account Number" required error={errors.accountSuffix}
-              hint={`Full account = ${settings.accountPrefix} + suffix you type`}>
-              <div className="flex items-center gap-0">
-                <div className="px-3 py-2 bg-slate-100 border border-r-0 border-slate-200 rounded-l-lg text-sm font-mono text-slate-600 flex-shrink-0 h-10 flex items-center">
-                  {settings.accountPrefix}
-                </div>
-                <input
-                  className="form-input rounded-l-none font-mono flex-1"
-                  placeholder="remaining digits"
-                  value={form.accountSuffix}
-                  onChange={e => set("accountSuffix", e.target.value)}
-                />
+          <div className="mt-4">
+            <Grid cols={2}>
+              <div id="field-accountSuffix">
+                <Field label="Account Number" required error={errors.accountSuffix}
+                  hint={`Full account = ${settings.accountPrefix} + suffix you type`}>
+                  <div className="flex items-center gap-0">
+                    <div className="px-3 py-2 bg-slate-100 border border-r-0 border-slate-200 rounded-l-lg text-sm font-mono text-slate-600 flex-shrink-0 h-10 flex items-center">
+                      {settings.accountPrefix}
+                    </div>
+                    <input
+                      className="form-input rounded-l-none font-mono flex-1"
+                      placeholder="remaining digits"
+                      value={form.accountSuffix}
+                      onChange={e => set("accountSuffix", e.target.value)}
+                    />
+                  </div>
+                  {form.accountSuffix && (
+                    <p className="mt-1 text-xs text-blue-600 font-mono font-semibold">
+                      Full A/c: {fullAccountNo}
+                    </p>
+                  )}
+                </Field>
               </div>
-              {form.accountSuffix && (
-                <p className="mt-1 text-xs text-blue-600 font-mono font-semibold">
-                  Full A/c: {fullAccountNo}
-                </p>
-              )}
-            </Field>
+              <Field label="Account Opening Date" hint="Select current or backdate (DD/MM/YYYY)">
+                <DatePickerInput
+                  value={form.accountOpeningDate}
+                  onChange={val => set("accountOpeningDate", val)}
+                  placeholder="DD/MM/YYYY"
+                />
+              </Field>
+            </Grid>
           </div>
         </div>
 
@@ -558,7 +611,43 @@ export default function AddCustomerPage() {
               </Field>
               <div id="field-district">
                 <Field label="District" required error={errors.district}>
-                  <Inp k="district" form={form} set={set} placeholder="District name" uppercase />
+                  <div className="space-y-2">
+                    <select
+                      className="form-input"
+                      value={
+                        districtMode === "custom" || (form.district && form.district !== "North 24 Parganas" && form.district !== "South 24 Parganas")
+                          ? "Other"
+                          : (form.district || "North 24 Parganas")
+                      }
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === "Other") {
+                          setDistrictMode("custom");
+                          if (form.district === "North 24 Parganas" || form.district === "South 24 Parganas") {
+                            set("district", "");
+                          }
+                        } else {
+                          setDistrictMode("preset");
+                          set("district", val);
+                        }
+                      }}
+                    >
+                      <option value="North 24 Parganas">North 24 Parganas</option>
+                      <option value="South 24 Parganas">South 24 Parganas</option>
+                      <option value="Other">Other (Custom Entry)</option>
+                    </select>
+
+                    {(districtMode === "custom" || (form.district && form.district !== "North 24 Parganas" && form.district !== "South 24 Parganas")) && (
+                      <input
+                        type="text"
+                        className="form-input bg-blue-50/40 border-blue-200 animate-fade-in"
+                        placeholder="Type district name here..."
+                        value={form.district}
+                        onChange={e => set("district", e.target.value.toUpperCase())}
+                        autoFocus
+                      />
+                    )}
+                  </div>
                 </Field>
               </div>
               <Field label="State">
@@ -579,7 +668,7 @@ export default function AddCustomerPage() {
               <Inp k="nomineeName" form={form} set={set} placeholder="Nominee's full name" uppercase />
             </Field>
             <Field label="Relationship with Nominee">
-              <Inp k="nomineeRelationship" form={form} set={set} placeholder="e.g. Wife, Son, Father" />
+              <Sel k="nomineeRelationship" form={form} set={set} options={NOMINEE_RELATIONSHIPS} />
             </Field>
             <Field label="Nominee Age">
               <Inp k="nomineeAge" form={form} set={set} type="number" placeholder="Age" />
@@ -730,7 +819,7 @@ export default function AddCustomerPage() {
                         <Inp k="pmjjbyNomineeName" form={form} set={set} placeholder="Nominee full name" uppercase />
                       </Field>
                       <Field label="Nominee Relationship" error={errors.pmjjbyNomineeRelationship} required>
-                        <Inp k="pmjjbyNomineeRelationship" form={form} set={set} placeholder="e.g. Wife, Mother, Son" />
+                        <Sel k="pmjjbyNomineeRelationship" form={form} set={set} options={NOMINEE_RELATIONSHIPS} />
                       </Field>
                       <Field label="Nominee DOB / Age">
                         <Inp k="pmjjbyNomineeDob" form={form} set={set} placeholder="DD/MM/YYYY or Age" mono />
@@ -831,7 +920,7 @@ export default function AddCustomerPage() {
                         <Inp k="pmsbyNomineeName" form={form} set={set} placeholder="Nominee full name" uppercase />
                       </Field>
                       <Field label="Nominee Relationship" error={errors.pmsbyNomineeRelationship} required>
-                        <Inp k="pmsbyNomineeRelationship" form={form} set={set} placeholder="e.g. Wife, Mother, Son" />
+                        <Sel k="pmsbyNomineeRelationship" form={form} set={set} options={NOMINEE_RELATIONSHIPS} />
                       </Field>
                       <Field label="Nominee DOB / Age">
                         <Inp k="pmsbyNomineeDob" form={form} set={set} placeholder="DD/MM/YYYY or Age" mono />
@@ -938,7 +1027,7 @@ export default function AddCustomerPage() {
                         <Inp k="apyNomineeName" form={form} set={set} placeholder="Nominee full name" uppercase />
                       </Field>
                       <Field label="Nominee Relationship" error={errors.apyNomineeRelationship} required>
-                        <Inp k="apyNomineeRelationship" form={form} set={set} placeholder="e.g. Wife, Husband, Son" />
+                        <Sel k="apyNomineeRelationship" form={form} set={set} options={NOMINEE_RELATIONSHIPS} />
                       </Field>
                       <Field label="Nominee DOB / Age">
                         <Inp k="apyNomineeDob" form={form} set={set} placeholder="DD/MM/YYYY or Age" mono />

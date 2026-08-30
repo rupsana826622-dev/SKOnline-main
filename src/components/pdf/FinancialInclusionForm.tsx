@@ -163,7 +163,7 @@ export const FinancialInclusionForm: React.FC<FinancialInclusionFormProps> = ({ 
         <div className="text-[11px] space-y-2">
           <div>Telephone No: <span className="font-bold">{customer.mobile || "_________________"}</span></div>
           <div>Place : <span className="font-semibold">{customer.village || customer.district || "_________________"}</span></div>
-          <div>Date : _________________________</div>
+          <div>Date : {customer.accountOpeningDate ? <span className="font-bold">{customer.accountOpeningDate}</span> : "_________________________"}</div>
         </div>
 
         {/* Intentionally Blank Photo Attachment Box */}

@@ -38,10 +38,33 @@ export function generateId(): string {
 
 export function parseDob(dob: string): Date | null {
   if (!dob) return null;
-  const parts = dob.split("-");
+  const parts = dob.split(/[-/.]/);
   if (parts.length !== 3) return null;
-  const [day, month, year] = parts;
-  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  let day: number, month: number, year: number;
+  if (parts[0].length === 4) {
+    year = parseInt(parts[0], 10);
+    month = parseInt(parts[1], 10);
+    day = parseInt(parts[2], 10);
+  } else {
+    day = parseInt(parts[0], 10);
+    month = parseInt(parts[1], 10);
+    year = parseInt(parts[2], 10);
+  }
+  if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+  return new Date(year, month - 1, day);
+}
+
+export function calculateAgeFromDob(dob: string): string {
+  const birth = parseDob(dob);
+  if (!birth || isNaN(birth.getTime())) return "";
+  
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age >= 0 && age <= 130 ? String(age) : "";
 }
 
 export function getDaysUntilBirthday(dob: string): number {

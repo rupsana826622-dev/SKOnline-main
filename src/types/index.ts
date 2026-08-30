@@ -6,6 +6,7 @@ export interface Customer {
   customerId: string; // CIF
   accountNumber: string;
   refNumber: string;
+  accountOpeningDate?: string; // DD/MM/YYYY
   // Personal
   name: string;
   fatherName: string;
