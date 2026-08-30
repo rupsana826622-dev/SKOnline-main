@@ -231,6 +231,7 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
       <div
         id="bank-forms-bundle"
         data-print-id="bank-forms-bundle"
+        className="a4-print-bundle bank-forms-bundle"
         style={{
           position: "fixed",
           left: "-99999px",
