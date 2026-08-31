@@ -36,31 +36,31 @@ export default function PrintModal({ customer, onClose }: PrintModalProps) {
   const bundleFileName = `${safeCustomerName}_${safeAccountNo}_Bank_Forms.pdf`;
   const receiptFileName = `${safeCustomerName}_${safeAccountNo}_Receipt.pdf`;
 
-  // 1. Direct PDF File Download for Multi-page A4 Bundle (No Browser Print Dialog)
+  // 1. High-Fidelity 1:1 Vector Print / Save Stream for Multi-page A4 Bundle
   const handleDownloadA4Bundle = async () => {
     setGeneratingAOf(true);
-    toast.info("Generating Official Bank A4 forms bundle PDF...");
+    toast.info("Opening 1:1 Official Bank A4 forms bundle stream...");
     try {
       await downloadCombinedFormsPdf(["bank-forms-bundle"], bundleFileName);
-      toast.success("A4 Forms Bundle PDF downloaded successfully!");
+      toast.success("A4 Forms Bundle stream opened!");
     } catch (err: any) {
       console.error("PDF generation error:", err);
-      toast.error(`Failed to generate A4 PDF bundle: ${err?.message || "Render error"}`);
+      toast.error(`Failed to generate A4 bundle: ${err?.message || "Render error"}`);
     } finally {
       setGeneratingAOf(false);
     }
   };
 
-  // 2. Direct PDF File Download for Customer A5 Receipt (No Browser Print Dialog)
+  // 2. High-Fidelity 1:1 Vector Print / Save Stream for Customer A5 Receipt
   const handleDownloadReceipt = async () => {
     setGeneratingReceipt(true);
-    toast.info("Generating Customer Receipt PDF...");
+    toast.info("Opening Customer Receipt 1:1 stream...");
     try {
       await downloadSingleFormPdf("ack-slip-print", receiptFileName);
-      toast.success("Customer receipt PDF downloaded successfully!");
+      toast.success("Customer receipt stream opened!");
     } catch (err: any) {
       console.error("Receipt PDF error:", err);
-      toast.error(`Failed to generate receipt PDF: ${err?.message || "Render error"}`);
+      toast.error(`Failed to generate receipt: ${err?.message || "Render error"}`);
     } finally {
       setGeneratingReceipt(false);
     }

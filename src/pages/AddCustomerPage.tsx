@@ -131,7 +131,7 @@ function defaultForm(settings: ReturnType<typeof getSettings>) {
     refNumber: generateRefNumber(settings.refPrefix),
     accountOpeningDate: todayFormatted,
     // Personal
-    name: "", fatherName: "", motherName: "", spouseName: "",
+    name: "", fatherName: "", motherName: "", spouseName: "", spouseType: "Husband",
     sex: "Male", age: "", dob: "", profession: "", category: "OBC",
     // Address
     address: "", village: "", mandal: "", district: "North 24 Parganas", state: "West Bengal",
@@ -367,7 +367,7 @@ export default function AddCustomerPage() {
       refNumber: form.refNumber,
       accountOpeningDate: form.accountOpeningDate || "",
       name: form.name, fatherName: form.fatherName, motherName: form.motherName,
-      spouseName: form.spouseName, sex: form.sex as Customer["sex"],
+      spouseName: form.spouseName, spouseType: form.spouseType as Customer["spouseType"], sex: form.sex as Customer["sex"],
       age: Number(form.age), dob: form.dob, profession: form.profession,
       category: form.category as Customer["category"],
       address: form.address, village: form.village, mandal: form.mandal,
@@ -559,8 +559,26 @@ export default function AddCustomerPage() {
               <Field label="Mother's Name">
                 <Inp k="motherName" form={form} set={set} placeholder="Mother's full name" uppercase />
               </Field>
-              <Field label="Spouse Name">
-                <Inp k="spouseName" form={form} set={set} placeholder="Spouse's full name (if married)" uppercase />
+              <Field label={`Spouse Name (${form.spouseType || "Husband"})`}>
+                <div className="flex gap-2">
+                  <select
+                    className="form-input w-28 shrink-0 bg-slate-50 text-xs font-semibold"
+                    value={form.spouseType || "Husband"}
+                    onChange={e => set("spouseType", e.target.value)}
+                  >
+                    <option value="Husband">Husband</option>
+                    <option value="Wife">Wife</option>
+                  </select>
+                  <div className="flex-1">
+                    <Inp
+                      k="spouseName"
+                      form={form}
+                      set={set}
+                      placeholder={`${form.spouseType || "Spouse"}'s full name (if married)`}
+                      uppercase
+                    />
+                  </div>
+                </div>
               </Field>
             </Grid>
             <Grid cols={4}>

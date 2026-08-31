@@ -292,11 +292,22 @@ export default function CustomerProfileModal({
                     <div>
                       <label className="form-label">Spouse Name</label>
                       {isEditing ? (
-                        <input
-                          className="form-input"
-                          value={editForm.spouseName}
-                          onChange={e => handleInputChange("spouseName", e.target.value.toUpperCase())}
-                        />
+                        <div className="flex gap-2">
+                          <select
+                            className="form-input w-28 shrink-0 bg-slate-50 text-xs font-semibold"
+                            value={editForm.spouseType || "Husband"}
+                            onChange={e => handleInputChange("spouseType", e.target.value)}
+                          >
+                            <option value="Husband">Husband</option>
+                            <option value="Wife">Wife</option>
+                          </select>
+                          <input
+                            className="form-input flex-1"
+                            value={editForm.spouseName}
+                            onChange={e => handleInputChange("spouseName", e.target.value.toUpperCase())}
+                            placeholder={`${editForm.spouseType || "Spouse"}'s full name`}
+                          />
+                        </div>
                       ) : (
                         <div className="font-semibold text-slate-900">{customer.spouseName || "—"}</div>
                       )}

@@ -141,7 +141,7 @@ export const FinancialInclusionForm: React.FC<FinancialInclusionFormProps> = ({ 
           </thead>
           <tbody>
             <tr className="text-center font-medium h-10">
-              <td className="border border-black p-1">{customer.sbAccountNo || customer.accountNumber || ""}</td>
+              <td className="border border-black p-1">{customer.sbAccountNo || ""}</td>
               <td className="border border-black p-1">{customer.nomineeName || ""}</td>
               <td className="border border-black p-1">{customer.nomineeRelationship || ""}</td>
               <td className="border border-black p-1">{customer.nomineeAge || ""}</td>

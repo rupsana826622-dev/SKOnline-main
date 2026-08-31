@@ -183,7 +183,7 @@ function mapDbToCustomer(row: any): Customer {
     branchCode: row.branch_name || "",
     
     // Nomination
-    sbAccountNo: row.account_number || "",
+    sbAccountNo: row.sb_account_no || "",
     nomineeName: row.nominee_name || "",
     nomineeDob: row.nominee_dob || "",
     nomineeRelationship: row.nominee_relation || "",
