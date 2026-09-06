@@ -2,23 +2,50 @@ import type { Customer, AppSettings, WhatsAppMessage } from "@/types";
 import { DEFAULT_SETTINGS } from "@/constants";
 import { supabase } from "./supabase";
 
-const KEYS = {
+// ─── TENANT CONFIG ───────────────────────────────────────
+
+export interface TenantSession {
+  username: string;
+  tenantCode: string;
+  tenantId: string;
+  bankName: string;
+}
+
+// Registered tenants — credentials verified application-side
+export const TENANTS: Record<string, { password: string; tenantCode: string; tenantId: string; bankName: string }> = {
+  skonline: {
+    password: "Skonline@1234",
+    tenantCode: "boi_csp",
+    tenantId: "boi_csp",
+    bankName: "Bank of India",
+  },
+  abul: {
+    password: "abul",
+    tenantCode: "new_csp",
+    tenantId: "new_csp",
+    bankName: "CSP Hub",
+  },
+};
+
+// ─── NAMESPACED STORAGE KEYS ─────────────────────────────
+
+function makeKeys(tenantCode: string) {
+  return {
+    customers: `sk_online_customers_${tenantCode}`,
+    settings: `sk_online_settings_${tenantCode}`,
+    waMessages: `sk_online_wa_messages_${tenantCode}`,
+    inquiries: `sk_online_inquiries_${tenantCode}`,
+  };
+}
+
+// Legacy (pre-multi-tenant) key names — for boi_csp backward migration
+const LEGACY_KEYS = {
   customers: "sk_online_customers",
   settings: "sk_online_settings",
   waMessages: "sk_online_wa_messages",
-  auth: "sk_online_auth",
   inquiries: "customerInquiries",
+  auth: "sk_online_auth",
 };
-
-export interface Inquiry {
-  id: string;
-  name: string;
-  mobile: string;
-  service: string;
-  message: string;
-  timestamp: string;
-  resolved: boolean;
-}
 
 // ─── SANITIZERS & MAPPERS ─────────────────────────────────
 
@@ -39,8 +66,8 @@ export function sanitizeTimestamp(val?: string | null, fallbackNow: boolean = fa
   return trimmed.length > 0 ? trimmed : (fallbackNow ? new Date().toISOString() : null);
 }
 
-function mapCustomerToDb(c: Customer): Record<string, any> {
-  return {
+function mapCustomerToDb(c: Customer, tenantCode?: string): Record<string, any> {
+  const row: Record<string, any> = {
     id: c.id,
     created_at: sanitizeTimestamp(c.createdAt, true)!,
     full_name: c.name || "",
@@ -85,8 +112,13 @@ function mapCustomerToDb(c: Customer): Record<string, any> {
     atm_issued: !!c.atmIssued,
     atm_issued_at: sanitizeTimestamp(c.atmIssuedAt, false),
     atm_received: !!c.atmReceived,
-    atm_received_at: sanitizeTimestamp(c.atmReceivedAt, false)
+    atm_received_at: sanitizeTimestamp(c.atmReceivedAt, false),
   };
+  // Attach tenant_code for non-boi_csp rows (boi_csp rows stay untagged for backward compat)
+  if (tenantCode && tenantCode !== "boi_csp") {
+    row.tenant_code = tenantCode;
+  }
+  return row;
 }
 
 function mapPartialCustomerToDb(c: Partial<Customer>): Record<string, any> {
@@ -114,20 +146,20 @@ function mapPartialCustomerToDb(c: Partial<Customer>): Record<string, any> {
   if (c.customerId !== undefined) db.customer_id_cif = c.customerId;
   if (c.ifscCode !== undefined) db.ifsc_code = c.ifscCode;
   if (c.branchCode !== undefined) db.branch_name = c.branchCode;
-  
+
   if (c.nomineeName !== undefined) db.nominee_name = c.nomineeName;
   if (c.nomineeDob !== undefined) db.nominee_dob = sanitizeNullableString(c.nomineeDob);
   if (c.nomineeRelationship !== undefined) db.nominee_relation = c.nomineeRelationship;
   if (c.nomineeAge !== undefined) db.nominee_age = c.nomineeAge;
   if (c.guardianName !== undefined) db.guardian_details = c.guardianName;
-  
+
   const relation = c.pmjjbyGuardianRelationship || c.pmsbyGuardianRelationship || c.apyGuardianRelationship;
   if (relation !== undefined) db.guardian_relation = relation;
-  
+
   if (c.enrollPMJJBY !== undefined) db.include_pmjjby = c.enrollPMJJBY;
   if (c.enrollPMSBY !== undefined) db.include_pmsby = c.enrollPMSBY;
   if (c.enrollAPY !== undefined) db.include_apy = c.enrollAPY;
-  
+
   if (c.aadhaarNumber !== undefined) {
     db.aadhaar_number = sanitizeNullableString(c.aadhaarNumber);
   } else {
@@ -146,7 +178,7 @@ function mapPartialCustomerToDb(c: Partial<Customer>): Record<string, any> {
   if (c.atmIssuedAt !== undefined) db.atm_issued_at = sanitizeTimestamp(c.atmIssuedAt, false);
   if (c.atmReceived !== undefined) db.atm_received = c.atmReceived;
   if (c.atmReceivedAt !== undefined) db.atm_received_at = sanitizeTimestamp(c.atmReceivedAt, false);
-  
+
   return db;
 }
 
@@ -181,7 +213,7 @@ function mapDbToCustomer(row: any): Customer {
     customerId: row.customer_id_cif || "",
     ifscCode: row.ifsc_code || "",
     branchCode: row.branch_name || "",
-    
+
     // Nomination
     sbAccountNo: row.sb_account_no || "",
     nomineeName: row.nominee_name || "",
@@ -189,13 +221,13 @@ function mapDbToCustomer(row: any): Customer {
     nomineeRelationship: row.nominee_relation || "",
     nomineeAge: row.nominee_age || "",
     guardianName: row.guardian_details || "",
-    
+
     // Introducer (keep blank or default)
     introducerName: "",
     introducerAccountNo: "",
     introducerBranch: "",
     introducerYears: "",
-    
+
     // CPS
     solId: "",
     zone: "",
@@ -205,7 +237,7 @@ function mapDbToCustomer(row: any): Customer {
     turnoverType: "Actual",
     turnoverAmount: "",
     riskCategory: "Low",
-    
+
     // PMJJBY
     enrollPMJJBY: row.include_pmjjby || false,
     pmjjbyPremiumTier: "",
@@ -222,7 +254,7 @@ function mapDbToCustomer(row: any): Customer {
     pmjjbyGuardianRelationship: row.guardian_relation || "",
     pmjjbyGuardianMobile: "",
     pmjjbyAadharConsent: true,
-    
+
     // PMSBY
     enrollPMSBY: row.include_pmsby || false,
     pmsbyDisability: "No",
@@ -238,7 +270,7 @@ function mapDbToCustomer(row: any): Customer {
     pmsbyGuardianRelationship: row.guardian_relation || "",
     pmsbyGuardianMobile: "",
     pmsbyAadharConsent: true,
-    
+
     // APY
     enrollAPY: row.include_apy || false,
     apyMaritalStatus: "Single",
@@ -258,7 +290,7 @@ function mapDbToCustomer(row: any): Customer {
     apyGuardianMobile: "",
     apyGuardianRelationship: row.guardian_relation || "",
     apyAutodebitConsent: true,
-    
+
     // Delivery
     passbookIssued: row.passbook_issued || false,
     passbookIssuedAt: row.passbook_issued_at || "",
@@ -271,9 +303,11 @@ function mapDbToCustomer(row: any): Customer {
   };
 }
 
-function mapSettingsToDb(s: AppSettings): Record<string, any> {
+function mapSettingsToDb(s: AppSettings, tenantCode: string): Record<string, any> {
+  // Each tenant gets its own settings row keyed by tenant-specific id
+  const settingsId = tenantCode === "boi_csp" ? "global_config" : `${tenantCode}_config`;
   return {
-    id: "global_config",
+    id: settingsId,
     bank_name: s.bankName,
     branch_name: s.cspBranchName,
     sol_id: s.solId,
@@ -335,6 +369,16 @@ function mapDbToSettings(row: any): AppSettings {
   };
 }
 
+export interface Inquiry {
+  id: string;
+  name: string;
+  mobile: string;
+  service: string;
+  message: string;
+  timestamp: string;
+  resolved: boolean;
+}
+
 function mapInquiryToDb(inq: Inquiry): Record<string, any> {
   return {
     id: inq.id,
@@ -360,33 +404,58 @@ function mapDbToInquiry(row: any): Inquiry {
 }
 
 // ─── AUTH ────────────────────────────────────────────────
-export function getSession(): { username: string } | null {
+
+export function getSession(): TenantSession | null {
   try {
-    const raw = localStorage.getItem(KEYS.auth);
-    return raw ? JSON.parse(raw) : null;
+    const raw = localStorage.getItem(LEGACY_KEYS.auth);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === "object" && parsed !== null) {
+      // Upgrade legacy session (username-only) to full TenantSession for boi_csp
+      if (!parsed.tenantCode) {
+        return {
+          username: parsed.username || "skonline",
+          tenantCode: "boi_csp",
+          tenantId: "boi_csp",
+          bankName: "Bank of India",
+        };
+      }
+      return parsed as TenantSession;
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
-export function setSession(username: string): void {
-  localStorage.setItem(KEYS.auth, JSON.stringify({ username }));
+export function setSession(session: TenantSession): void {
+  localStorage.setItem(LEGACY_KEYS.auth, JSON.stringify(session));
 }
 
 export function clearSession(): void {
-  localStorage.removeItem(KEYS.auth);
+  localStorage.removeItem(LEGACY_KEYS.auth);
+}
+
+export function getTenantCode(): string {
+  return getSession()?.tenantCode ?? "boi_csp";
 }
 
 // ─── SETTINGS ────────────────────────────────────────────
+
 export function getSettings(): AppSettings {
+  const tenantCode = getTenantCode();
+  const KEYS = makeKeys(tenantCode);
+
   try {
-    const raw = localStorage.getItem(KEYS.settings);
+    // For boi_csp: also check the legacy key as fallback for existing stored settings
+    let raw = localStorage.getItem(KEYS.settings);
+    if (!raw && tenantCode === "boi_csp") {
+      raw = localStorage.getItem(LEGACY_KEYS.settings);
+    }
     const parsed = raw ? JSON.parse(raw) : {};
-    
-    // Merge with defaults
+
     const merged = { ...DEFAULT_SETTINGS, ...parsed };
-    
-    // Ensure all logo fields fallback to default values if falsy
+
     merged.fiLogo = merged.fiLogo || DEFAULT_SETTINGS.fiLogo;
     merged.cpsLogo = merged.cpsLogo || DEFAULT_SETTINGS.cpsLogo;
     merged.ckycLogo = merged.ckycLogo || DEFAULT_SETTINGS.ckycLogo;
@@ -394,19 +463,19 @@ export function getSettings(): AppSettings {
     merged.apyLogo = merged.apyLogo || DEFAULT_SETTINGS.apyLogo;
     merged.introducerName = merged.introducerName !== undefined ? merged.introducerName : (merged.operatorName || merged.cspName || "");
     merged.introducerAccountNo = merged.introducerAccountNo || "";
-    
+
     merged.pmjjbyLogos = {
       left: merged.pmjjbyLogos?.left || DEFAULT_SETTINGS.pmjjbyLogos.left,
       center: merged.pmjjbyLogos?.center || DEFAULT_SETTINGS.pmjjbyLogos.center,
       right: merged.pmjjbyLogos?.right || DEFAULT_SETTINGS.pmjjbyLogos.right,
     };
-    
+
     merged.pmsbyLogos = {
       left: merged.pmsbyLogos?.left || DEFAULT_SETTINGS.pmsbyLogos.left,
       center: merged.pmsbyLogos?.center || DEFAULT_SETTINGS.pmsbyLogos.center,
       right: merged.pmsbyLogos?.right || DEFAULT_SETTINGS.pmsbyLogos.right,
     };
-    
+
     return merged;
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -414,11 +483,12 @@ export function getSettings(): AppSettings {
 }
 
 export function saveSettings(settings: AppSettings): void {
+  const tenantCode = getTenantCode();
+  const KEYS = makeKeys(tenantCode);
   localStorage.setItem(KEYS.settings, JSON.stringify(settings));
-  // Write-through to Supabase
   supabase
     .from("system_settings")
-    .upsert(mapSettingsToDb(settings))
+    .upsert(mapSettingsToDb(settings, tenantCode))
     .then(({ error }) => {
       if (error) console.error("Error writing settings to Supabase:", error);
     });
@@ -427,9 +497,20 @@ export function saveSettings(settings: AppSettings): void {
 export { mapCustomerToDb, mapPartialCustomerToDb, mapDbToCustomer };
 
 // ─── CUSTOMERS ───────────────────────────────────────────
+
 export function getCustomers(): Customer[] {
+  const tenantCode = getTenantCode();
+  const KEYS = makeKeys(tenantCode);
   try {
-    const raw = localStorage.getItem(KEYS.customers);
+    let raw = localStorage.getItem(KEYS.customers);
+    // For boi_csp: fall back to legacy key so existing data is preserved
+    if (!raw && tenantCode === "boi_csp") {
+      raw = localStorage.getItem(LEGACY_KEYS.customers);
+      // Migrate legacy data into namespaced key
+      if (raw) {
+        localStorage.setItem(KEYS.customers, raw);
+      }
+    }
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -437,15 +518,25 @@ export function getCustomers(): Customer[] {
 }
 
 export function saveCustomers(customers: Customer[]): void {
+  const tenantCode = getTenantCode();
+  const KEYS = makeKeys(tenantCode);
   localStorage.setItem(KEYS.customers, JSON.stringify(customers));
 }
 
 export async function fetchCustomersFromSupabase(): Promise<Customer[]> {
+  const tenantCode = getTenantCode();
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("customers")
       .select("*")
       .order("created_at", { ascending: false });
+
+    // For new_csp: filter by tenant_code column (gracefully handled if column is absent)
+    if (tenantCode !== "boi_csp") {
+      query = (query as any).eq("tenant_code", tenantCode);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Failed to fetch customers from Supabase:", error);
@@ -466,16 +557,15 @@ export async function fetchCustomersFromSupabase(): Promise<Customer[]> {
 }
 
 export async function addCustomerAsync(customer: Customer): Promise<{ error: any; data?: any }> {
-  // Direct insert to Supabase
-  const payload = mapCustomerToDb(customer);
+  const tenantCode = getTenantCode();
+  const payload = mapCustomerToDb(customer, tenantCode);
   const { data, error } = await supabase.from("customers").insert([payload]).select();
-  
+
   if (error) {
     console.error("Error inserting customer to Supabase:", error);
     return { error };
   }
 
-  // Update local cache
   const customers = getCustomers();
   const exists = customers.some(c => c.id === customer.id);
   if (!exists) {
@@ -488,14 +578,14 @@ export async function addCustomerAsync(customer: Customer): Promise<{ error: any
 }
 
 export function addCustomer(customer: Customer): void {
+  const tenantCode = getTenantCode();
   const customers = getCustomers();
   customers.unshift(customer);
   saveCustomers(customers);
 
-  // Write-through to Supabase
   supabase
     .from("customers")
-    .insert([mapCustomerToDb(customer)])
+    .insert([mapCustomerToDb(customer, tenantCode)])
     .then(({ error }) => {
       if (error) console.error("Error inserting customer to Supabase:", error);
     });
@@ -514,7 +604,6 @@ export async function updateCustomerAsync(id: string, updates: Partial<Customer>
     return { error };
   }
 
-  // Update local cache
   const customers = getCustomers();
   const idx = customers.findIndex(c => c.id === id);
   if (idx !== -1) {
@@ -533,7 +622,6 @@ export function updateCustomer(id: string, updates: Partial<Customer>): void {
     customers[idx] = { ...customers[idx], ...updates };
     saveCustomers(customers);
 
-    // Write-through to Supabase
     supabase
       .from("customers")
       .update(mapPartialCustomerToDb(updates))
@@ -566,7 +654,6 @@ export function deleteCustomer(id: string): void {
   const customers = getCustomers().filter(c => c.id !== id);
   saveCustomers(customers);
 
-  // Write-through to Supabase
   supabase
     .from("customers")
     .delete()
@@ -577,9 +664,16 @@ export function deleteCustomer(id: string): void {
 }
 
 // ─── INQUIRIES ───────────────────────────────────────────
+
 export function getInquiries(): Inquiry[] {
+  const tenantCode = getTenantCode();
+  const KEYS = makeKeys(tenantCode);
   try {
-    const raw = localStorage.getItem(KEYS.inquiries);
+    let raw = localStorage.getItem(KEYS.inquiries);
+    if (!raw && tenantCode === "boi_csp") {
+      raw = localStorage.getItem(LEGACY_KEYS.inquiries);
+      if (raw) localStorage.setItem(KEYS.inquiries, raw);
+    }
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -587,11 +681,12 @@ export function getInquiries(): Inquiry[] {
 }
 
 export function addInquiry(inquiry: Inquiry): void {
+  const tenantCode = getTenantCode();
+  const KEYS = makeKeys(tenantCode);
   const inquiries = getInquiries();
   inquiries.unshift(inquiry);
   localStorage.setItem(KEYS.inquiries, JSON.stringify(inquiries));
 
-  // Write-through to Supabase
   supabase
     .from("customer_inquiries")
     .insert(mapInquiryToDb(inquiry))
@@ -601,13 +696,14 @@ export function addInquiry(inquiry: Inquiry): void {
 }
 
 export function resolveInquiry(id: string): void {
+  const tenantCode = getTenantCode();
+  const KEYS = makeKeys(tenantCode);
   const inquiries = getInquiries();
   const idx = inquiries.findIndex(inq => inq.id === id);
   if (idx !== -1) {
     inquiries[idx].resolved = true;
     localStorage.setItem(KEYS.inquiries, JSON.stringify(inquiries));
 
-    // Write-through to Supabase
     supabase
       .from("customer_inquiries")
       .update({ status: "Resolved" })
@@ -619,10 +715,11 @@ export function resolveInquiry(id: string): void {
 }
 
 export function deleteInquiryLocal(id: string): void {
+  const tenantCode = getTenantCode();
+  const KEYS = makeKeys(tenantCode);
   const inquiries = getInquiries().filter(inq => inq.id !== id);
   localStorage.setItem(KEYS.inquiries, JSON.stringify(inquiries));
 
-  // Write-through to Supabase
   supabase
     .from("customer_inquiries")
     .delete()
@@ -633,9 +730,10 @@ export function deleteInquiryLocal(id: string): void {
 }
 
 export function clearAllInquiries(): void {
+  const tenantCode = getTenantCode();
+  const KEYS = makeKeys(tenantCode);
   localStorage.setItem(KEYS.inquiries, JSON.stringify([]));
 
-  // Write-through to Supabase
   supabase
     .from("customer_inquiries")
     .delete()
@@ -646,9 +744,16 @@ export function clearAllInquiries(): void {
 }
 
 // ─── WHATSAPP MESSAGES ───────────────────────────────────
+
 export function getWaMessages(): WhatsAppMessage[] {
+  const tenantCode = getTenantCode();
+  const KEYS = makeKeys(tenantCode);
   try {
-    const raw = localStorage.getItem(KEYS.waMessages);
+    let raw = localStorage.getItem(KEYS.waMessages);
+    if (!raw && tenantCode === "boi_csp") {
+      raw = localStorage.getItem(LEGACY_KEYS.waMessages);
+      if (raw) localStorage.setItem(KEYS.waMessages, raw);
+    }
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -656,19 +761,26 @@ export function getWaMessages(): WhatsAppMessage[] {
 }
 
 export function addWaMessage(msg: WhatsAppMessage): void {
+  const tenantCode = getTenantCode();
+  const KEYS = makeKeys(tenantCode);
   const messages = getWaMessages();
   messages.unshift(msg);
   localStorage.setItem(KEYS.waMessages, JSON.stringify(messages));
 }
 
 // ─── SUPABASE CLOUD DATABASE SYNC ────────────────────────
-export async function syncFromSupabase(): Promise<void> {
+
+export async function syncFromSupabase(tenantCode?: string): Promise<void> {
+  const tc = tenantCode ?? getTenantCode();
+  const KEYS = makeKeys(tc);
+
   try {
-    // 1. Sync Settings
+    // 1. Sync Settings — each tenant has its own settings row
+    const settingsId = tc === "boi_csp" ? "global_config" : `${tc}_config`;
     const { data: settingsData, error: settingsError } = await supabase
       .from("system_settings")
       .select("*")
-      .eq("id", "global_config")
+      .eq("id", settingsId)
       .maybeSingle();
 
     if (!settingsError && settingsData) {
@@ -676,15 +788,26 @@ export async function syncFromSupabase(): Promise<void> {
       localStorage.setItem(KEYS.settings, JSON.stringify(mapped));
     }
 
-    // 2. Sync Customers
-    const { data: customersData, error: customersError } = await supabase
+    // 2. Sync Customers — scoped to tenant
+    let customersQuery = supabase
       .from("customers")
       .select("*")
       .order("created_at", { ascending: false });
 
+    // Non-boi_csp tenants: filter by tenant_code column
+    if (tc !== "boi_csp") {
+      customersQuery = (customersQuery as any).eq("tenant_code", tc);
+    }
+
+    const { data: customersData, error: customersError } = await customersQuery;
+
     if (!customersError && customersData) {
       const mapped = customersData.map(mapDbToCustomer);
       localStorage.setItem(KEYS.customers, JSON.stringify(mapped));
+      // Keep legacy key in sync for boi_csp to prevent any stale reads
+      if (tc === "boi_csp") {
+        localStorage.setItem(LEGACY_KEYS.customers, JSON.stringify(mapped));
+      }
     }
 
     // 3. Sync Inquiries
@@ -698,7 +821,6 @@ export async function syncFromSupabase(): Promise<void> {
       localStorage.setItem(KEYS.inquiries, JSON.stringify(mapped));
     }
 
-    // Trigger local updates
     window.dispatchEvent(new Event("supabase-sync-complete"));
   } catch (err) {
     console.error("Failed to run Supabase sync:", err);

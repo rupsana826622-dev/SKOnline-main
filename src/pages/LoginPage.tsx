@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, ShieldCheck, Lock, User, AlertCircle, ArrowLeft } from "lucide-react";
-import { setSession, getSession } from "@/lib/storage";
+import { setSession, getSession, TENANTS } from "@/lib/storage";
 import { APP_NAME, APP_TAGLINE } from "@/constants";
 import logoImg from "@/assets/sk-logo.png";
 import SEO from "@/components/common/SEO";
@@ -23,10 +23,17 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     await new Promise(r => setTimeout(r, 600));
-    
-    // Case-sensitive password verification for operator account
-    if (username.trim() === "skonline" && password === "Skonline@1234") {
-      setSession(username.trim());
+
+    // Multi-tenant credential verification
+    const user = username.trim().toLowerCase();
+    const tenant = TENANTS[user];
+    if (tenant && password === tenant.password) {
+      setSession({
+        username: user,
+        tenantCode: tenant.tenantCode,
+        tenantId: tenant.tenantId,
+        bankName: tenant.bankName,
+      });
       navigate("/dashboard", { replace: true });
     } else {
       setError("Invalid credentials. Please check your username and password.");

@@ -2,7 +2,7 @@ import { Bell, Search, Menu } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { APP_NAME } from "@/constants";
-import { getCustomers } from "@/lib/storage";
+import { getCustomers, getSession } from "@/lib/storage";
 import { getDaysUntilBirthday } from "@/lib/utils";
 import type { Customer } from "@/types";
 import logoImg from "@/assets/sk-logo.png";
@@ -17,6 +17,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   const [results, setResults] = useState<Customer[]>([]);
   const [showResults, setShowResults] = useState(false);
   const navigate = useNavigate();
+  const session = getSession();
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -105,7 +106,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
           <img src={logoImg} alt="SK ONLINE" className="w-8 h-8 rounded-lg object-cover" />
           <div className="hidden sm:block">
             <div className="text-xs font-semibold text-slate-800">{APP_NAME}</div>
-            <div className="text-[10px] text-slate-500">Operator</div>
+            <div className="text-[10px] text-slate-500">{session?.bankName || "Operator"}</div>
           </div>
         </div>
       </div>

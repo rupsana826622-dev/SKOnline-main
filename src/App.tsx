@@ -14,12 +14,12 @@ import FamilyMappingPage from "@/pages/FamilyMappingPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import Index from "@/pages/Index";
 import InquiriesPage from "./pages/InquiriesPage";
-import { syncFromSupabase } from "@/lib/storage";
+import { syncFromSupabase, getTenantCode } from "@/lib/storage";
 
 export default function App() {
   useEffect(() => {
-    // Sync settings, customers, and inquiries from Supabase
-    syncFromSupabase();
+    // Sync settings, customers, and inquiries from Supabase (scoped to active tenant)
+    syncFromSupabase(getTenantCode());
   }, []);
 
   return (
