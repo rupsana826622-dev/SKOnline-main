@@ -3,14 +3,9 @@
 
 User-agent: *
 Allow: /
-Disallow: /dashboard/
-Disallow: /customers/
-Disallow: /add-customer/
-Disallow: /delivery/
-Disallow: /whatsapp/
-Disallow: /inquiries/
-Disallow: /settings/
-Disallow: /family-mapping/
+Disallow: /customers
+Disallow: /dashboard
+Disallow: /settings
 
 # Allow social media bots and search bots to scrape preview tags
 User-agent: Twitterbot
@@ -19,5 +14,5 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
-# Reference the correct Canonical XML Sitemap
+# Reference Sitemap
 Sitemap: https://skonline.in.net/sitemap.xml

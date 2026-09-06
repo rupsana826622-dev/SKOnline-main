@@ -170,7 +170,7 @@ export const CustomerProfileSheetForm: React.FC<CustomerProfileSheetFormProps> =
       <div className="mt-8 pt-4 border-t-2 border-black flex justify-between items-end">
         <div className="space-y-4 text-xs font-bold">
           <div>Sign. of A/C opening official: ______________________</div>
-          <div>Name: <span className="font-semibold">{settings.operatorName || "_______________________"}</span></div>
+          <div>Name: _______________________</div>
           <div>P.F. No. _______________________</div>
         </div>
 
