@@ -68,6 +68,17 @@ export default function CustomersPage() {
     });
   }, [customers, search, categoryFilter]);
 
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const an = a.customer_number;
+      const bn = b.customer_number;
+      if (an !== undefined && an !== null && bn !== undefined && bn !== null) return an - bn;
+      if (an !== undefined && an !== null) return -1;
+      if (bn !== undefined && bn !== null) return 1;
+      return 0;
+    });
+  }, [filtered]);
+
   const handleDelete = async (id: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm(`Permanently delete customer "${name}" from Supabase Cloud? This cannot be undone.`)) return;
@@ -232,8 +243,11 @@ export default function CustomersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(c => {
+              {sorted.map((c) => {
                 const bdays = getDaysUntilBirthday(c.dob);
+                const serialLabel = c.customer_number !== undefined && c.customer_number !== null
+                  ? String(c.customer_number)
+                  : null;
                 return (
                   <tr
                     key={c.id}
@@ -243,7 +257,9 @@ export default function CustomersPage() {
                     <td>
                       <div className="flex items-center gap-2.5 min-w-[170px]">
                         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-slate-700 text-white flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
-                          {c.name.charAt(0).toUpperCase()}
+                          {serialLabel !== null ? serialLabel : (
+                            <span className="text-slate-300 text-base font-black">#</span>
+                          )}
                         </div>
                         <div className="min-w-0">
                           <div className="font-bold text-slate-900 text-sm truncate max-w-[140px]">{c.name}</div>

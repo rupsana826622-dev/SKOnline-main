@@ -230,6 +230,25 @@ export default function CustomerProfileView({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 text-xs">
             <div>
+              <label className="form-label">Customer No. / Serial No.</label>
+              {isEditing ? (
+                <input
+                  type="number"
+                  className="form-input"
+                  placeholder="e.g. 1, 2, 3"
+                  value={editForm.customer_number ?? ""}
+                  onChange={e => handleInputChange("customer_number", e.target.value ? Number(e.target.value) : undefined)}
+                />
+              ) : (
+                <div className="font-bold text-slate-900 text-sm">
+                  {customer.customer_number !== undefined && customer.customer_number !== null
+                    ? String(customer.customer_number)
+                    : "—"}
+                </div>
+              )}
+            </div>
+
+            <div>
               <label className="form-label">Full Name</label>
               {isEditing ? (
                 <input

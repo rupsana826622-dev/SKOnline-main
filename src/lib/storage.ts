@@ -113,6 +113,9 @@ function mapCustomerToDb(c: Customer, tenantCode?: string): Record<string, any> 
     atm_issued_at: sanitizeTimestamp(c.atmIssuedAt, false),
     atm_received: !!c.atmReceived,
     atm_received_at: sanitizeTimestamp(c.atmReceivedAt, false),
+    customer_number: c.customer_number ?? null,
+    spouse_type: c.spouseType || null,
+    family_id: c.familyId || null,
   };
   // Attach tenant_code for non-boi_csp rows (boi_csp rows stay untagged for backward compat)
   if (tenantCode && tenantCode !== "boi_csp") {
@@ -178,6 +181,9 @@ function mapPartialCustomerToDb(c: Partial<Customer>): Record<string, any> {
   if (c.atmIssuedAt !== undefined) db.atm_issued_at = sanitizeTimestamp(c.atmIssuedAt, false);
   if (c.atmReceived !== undefined) db.atm_received = c.atmReceived;
   if (c.atmReceivedAt !== undefined) db.atm_received_at = sanitizeTimestamp(c.atmReceivedAt, false);
+  if (c.customer_number !== undefined) db.customer_number = c.customer_number ?? null;
+  if (c.spouseType !== undefined) db.spouse_type = c.spouseType || null;
+  if (c.familyId !== undefined) db.family_id = c.familyId || null;
 
   return db;
 }
@@ -300,6 +306,9 @@ function mapDbToCustomer(row: any): Customer {
     atmIssuedAt: row.atm_issued_at || "",
     atmReceived: row.atm_received || false,
     atmReceivedAt: row.atm_received_at || "",
+    customer_number: row.customer_number ?? undefined,
+    spouseType: (row.spouse_type as Customer["spouseType"]) || undefined,
+    familyId: row.family_id || undefined,
   };
 }
 

@@ -128,7 +128,8 @@ function defaultForm(settings: ReturnType<typeof getSettings>) {
     branchCode: settings.branchCode,
     customerId: "",
     accountSuffix: "",
-    refNumber: generateRefNumber(settings.refPrefix),
+    refNumber: settings.refPrefix,
+    customer_number: "",
     accountOpeningDate: todayFormatted,
     // Personal
     name: "", fatherName: "", motherName: "", spouseName: "", spouseType: "Husband",
@@ -442,6 +443,7 @@ export default function AddCustomerPage() {
       passbookReceived: false, passbookReceivedAt: "",
       atmIssued: false, atmIssuedAt: "", atmReceived: false, atmReceivedAt: "",
       createdAt: new Date().toISOString(),
+      customer_number: form.customer_number ? Number(form.customer_number) : undefined,
     };
 
     try {
@@ -503,8 +505,11 @@ export default function AddCustomerPage() {
             <Field label="Customer ID (CIF)">
               <Inp k="customerId" form={form} set={set} placeholder="CIF12345678" mono />
             </Field>
-            <Field label="Reference Number" hint="Auto-generated — editable">
+            <Field label="Reference Number" hint="Prefix pre-filled — type remaining digits">
               <Inp k="refNumber" form={form} set={set} mono />
+            </Field>
+            <Field label="Customer No. / Serial No." hint="Physical register serial number">
+              <Inp k="customer_number" form={form} set={set} type="number" placeholder="e.g. 1, 2, 3" />
             </Field>
           </Grid>
           <div className="mt-4">

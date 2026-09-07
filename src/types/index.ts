@@ -112,6 +112,7 @@ export interface Customer {
   // Meta
   createdAt: string;
   familyId?: string;
+  customer_number?: number;
 }
 
 export interface AppSettings {
