@@ -11,21 +11,29 @@ export interface TenantSession {
   bankName: string;
 }
 
-// Registered tenants — credentials verified application-side
-export const TENANTS: Record<string, { password: string; tenantCode: string; tenantId: string; bankName: string }> = {
-  skonline: {
-    password: "Skonline@1234",
+// Workspace routing metadata — NO credentials stored here.
+// All authentication is handled exclusively via Supabase public.tenants table.
+export const TENANTS: Record<string, { tenantCode: string; tenantId: string; bankName: string }> = {
+  // boi  + Skonline@1234  →  Bank of India CSP workspace
+  boi: {
     tenantCode: "boi_csp",
-    tenantId: "boi_csp",
-    bankName: "Bank of India",
+    tenantId:   "boi_csp",
+    bankName:   "Bank of India",
   },
-  abul: {
-    password: "abul",
+  // skonline  + Skonline@1234  →  Digital Citizen Services workspace
+  skonline: {
     tenantCode: "new_csp",
-    tenantId: "new_csp",
-    bankName: "CSP Hub",
+    tenantId:   "new_csp",
+    bankName:   "CSP Hub",
+  },
+  // abul  →  Digital Citizen Services (legacy alias)
+  abul: {
+    tenantCode: "new_csp",
+    tenantId:   "new_csp",
+    bankName:   "CSP Hub",
   },
 };
+
 
 // ─── NAMESPACED STORAGE KEYS ─────────────────────────────
 

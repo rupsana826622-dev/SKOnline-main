@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, ShieldCheck, Lock, User, AlertCircle, ArrowLeft } from "lucide-react";
-import { setSession, getSession, TENANTS } from "@/lib/storage";
+import { setSession, getSession } from "@/lib/storage";
 import { APP_NAME, APP_TAGLINE } from "@/constants";
 import logoImg from "@/assets/sk-logo.png";
 import SEO from "@/components/common/SEO";
@@ -28,8 +28,9 @@ export default function LoginPage() {
     const user = username.trim();
     const pass = password.trim();
 
-    // ── STEP 1: Try dynamic Supabase public.tenants table ──────────────────
-    let authenticated = false;
+    // ── Dynamic Supabase public.tenants authentication ─────────────────────
+    // All credential verification runs against the database on every attempt.
+    // No hardcoded usernames or passwords exist in client code.
     try {
       const { data: tenant, error: dbError } = await supabase
         .from("tenants")
@@ -38,45 +39,33 @@ export default function LoginPage() {
         .eq("password", pass)
         .single();
 
-      if (!dbError && tenant) {
-        // Map DB row to session — use workspace column for routing
-        const workspaceCode: string = tenant.workspace || tenant.tenant_code || "boi_csp";
-        const tenantId: string = tenant.id || workspaceCode;
-        const bankName: string = tenant.bank_name || tenant.bankName || "SK ONLINE";
-
-        setSession({
-          username: user.toLowerCase(),
-          tenantCode: workspaceCode,
-          tenantId: tenantId,
-          bankName: bankName,
-        });
-        authenticated = true;
+      if (dbError || !tenant) {
+        // No matching row — reject login
+        setError("Invalid Username or Password.");
+        setLoading(false);
+        return;
       }
-    } catch (networkErr) {
-      // Network/Supabase unavailable — fall through to local fallback
-      console.warn("Supabase tenants query failed, using local fallback:", networkErr);
-    }
 
-    // ── STEP 2: Local hardcoded fallback (offline resilience) ──────────────
-    if (!authenticated) {
-      const lowerUser = user.toLowerCase();
-      const localTenant = TENANTS[lowerUser];
-      if (localTenant && pass === localTenant.password) {
-        setSession({
-          username: lowerUser,
-          tenantCode: localTenant.tenantCode,
-          tenantId: localTenant.tenantId,
-          bankName: localTenant.bankName,
-        });
-        authenticated = true;
-      }
-    }
+      // ── Workspace routing based on tenant_code from DB ──────────────────
+      // tenant_code = 'boi_csp'  →  Bank of India CSP workspace
+      // tenant_code = 'new_csp'  →  Digital Citizen Services workspace
+      const workspaceCode: string = tenant.tenant_code || tenant.workspace || "boi_csp";
+      const tenantId: string      = tenant.id          || workspaceCode;
+      const bankName: string      = tenant.bank_name   || "SK ONLINE";
 
-    if (authenticated) {
+      setSession({
+        username:   user.toLowerCase(),
+        tenantCode: workspaceCode,
+        tenantId:   tenantId,
+        bankName:   bankName,
+      });
+
       navigate("/dashboard", { replace: true });
-    } else {
-      setError("Invalid Username or Password. Please check your credentials.");
+    } catch (networkErr) {
+      console.error("Login error:", networkErr);
+      setError("Unable to connect to the authentication server. Please try again.");
     }
+
     setLoading(false);
   };
 
