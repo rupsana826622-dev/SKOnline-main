@@ -9,6 +9,7 @@ import { exportToCSV, formatDateTime, getDaysUntilBirthday } from "@/lib/utils";
 import PrintModal from "@/components/features/PrintModal";
 import CustomerProfileView from "@/components/features/CustomerProfileView";
 import CitizenCustomersPage from "@/components/citizen/CitizenCustomersPage";
+import BobCustomersPage from "@/components/bob/BobCustomersPage";
 import type { Customer } from "@/types";
 import { CATEGORIES } from "@/constants";
 import { toast } from "sonner";
@@ -17,6 +18,11 @@ import SEO from "@/components/common/SEO";
 export default function CustomersPage() {
   const session = getSession();
   const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
+  const isBobTenant = session?.tenantCode === "bob_csp" || session?.username === "bob";
+
+  if (isBobTenant) {
+    return <BobCustomersPage />;
+  }
 
   if (isCitizenTenant) {
     return <CitizenCustomersPage />;

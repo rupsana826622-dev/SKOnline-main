@@ -8,12 +8,18 @@ import { getCustomers, getSession } from "@/lib/storage";
 import { getDaysUntilBirthday, exportToCSV, formatDateTime } from "@/lib/utils";
 import BirthdayReminder from "@/components/features/BirthdayReminder";
 import CitizenDashboard from "@/components/citizen/CitizenDashboard";
+import BobDashboard from "@/components/bob/BobDashboard";
 import type { Customer } from "@/types";
 import SEO from "@/components/common/SEO";
 
 export default function DashboardPage() {
   const session = getSession();
   const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
+  const isBobTenant = session?.tenantCode === "bob_csp" || session?.username === "bob";
+
+  if (isBobTenant) {
+    return <BobDashboard />;
+  }
 
   if (isCitizenTenant) {
     return <CitizenDashboard />;

@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, UserPlus, Truck, MessageSquare,
   Settings, Map, LogOut, ChevronLeft, ChevronRight, ShieldCheck, Printer, ClipboardList,
-  Sparkles, CreditCard,
+  Sparkles, CreditCard, Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { clearSession, getSession, getTenantCode } from "@/lib/storage";
@@ -37,11 +37,24 @@ const citizenNavItems = [
   { label: "Services Settings", path: "/settings", icon: Settings },
 ];
 
+const bobNavItems = [
+  { label: "BOB Dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { label: "BOB Customers", path: "/customers", icon: Users },
+  { label: "Add BOB Customer", path: "/add-customer", icon: UserPlus },
+  { label: "Delivery Tracker", path: "/delivery", icon: Truck },
+  { label: "WB-SMS / WhatsApp", path: "/whatsapp", icon: MessageSquare },
+  { label: "📋 Inquiries", path: "/inquiries", icon: ClipboardList },
+  { label: "Settings", path: "/settings", icon: Settings },
+];
+
 export default function Sidebar({ collapsed, onToggle, birthdayCount }: SidebarProps) {
   const navigate = useNavigate();
   const session = getSession();
   const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
-  const navItems = isCitizenTenant ? citizenNavItems : boiNavItems;
+  const isBobTenant = session?.tenantCode === "bob_csp" || session?.username === "bob";
+
+  const navItems = isCitizenTenant ? citizenNavItems : isBobTenant ? bobNavItems : boiNavItems;
+  const activeColor = isBobTenant ? "bg-orange-600 text-white shadow-md" : "bg-blue-600 text-white shadow-md";
 
   const handleLogout = () => {
     clearSession();
@@ -61,12 +74,25 @@ export default function Sidebar({ collapsed, onToggle, birthdayCount }: SidebarP
         "flex items-center border-b border-slate-800 flex-shrink-0",
         collapsed ? "justify-center px-2 py-4" : "px-4 py-4 gap-3"
       )}>
-        <img src={logoImg} alt="SK ONLINE" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+        {isBobTenant ? (
+          <div className="w-9 h-9 rounded-lg bg-orange-600 text-white font-black text-sm flex items-center justify-center flex-shrink-0 shadow-md">
+            BOB
+          </div>
+        ) : (
+          <img src={logoImg} alt="SK ONLINE" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+        )}
         {!collapsed && (
           <div className="min-w-0">
-            <div className="font-extrabold text-base text-white tracking-tight leading-none">{APP_NAME}</div>
+            <div className="font-extrabold text-base text-white tracking-tight leading-none">
+              {isBobTenant ? "BANK OF BARODA" : APP_NAME}
+            </div>
             <div className="text-xs text-slate-400 font-medium mt-0.5 flex items-center gap-1">
-              {isCitizenTenant ? (
+              {isBobTenant ? (
+                <>
+                  <Building2 size={10} className="text-orange-400" />
+                  <span className="text-orange-400 font-semibold">BOB CSP Portal</span>
+                </>
+              ) : isCitizenTenant ? (
                 <>
                   <Sparkles size={10} className="text-amber-400" />
                   <span className="text-blue-300 font-semibold">Citizen Hub</span>
@@ -74,7 +100,7 @@ export default function Sidebar({ collapsed, onToggle, birthdayCount }: SidebarP
               ) : (
                 <>
                   <ShieldCheck size={10} />
-                  <span>CSP Portal</span>
+                  <span>BOI CSP Portal</span>
                 </>
               )}
             </div>
@@ -92,7 +118,7 @@ export default function Sidebar({ collapsed, onToggle, birthdayCount }: SidebarP
               cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 group relative",
                 isActive
-                  ? "bg-blue-600 text-white shadow-md"
+                  ? activeColor
                   : "text-slate-300 hover:bg-slate-800 hover:text-white",
                 collapsed && "justify-center px-2"
               )
@@ -102,7 +128,7 @@ export default function Sidebar({ collapsed, onToggle, birthdayCount }: SidebarP
               <>
                 <Icon size={18} className={cn("flex-shrink-0", isActive ? "text-white" : "text-slate-400 group-hover:text-white")} />
                 {!collapsed && <span className="truncate">{label}</span>}
-                {!collapsed && !isCitizenTenant && path === "/dashboard" && birthdayCount > 0 && (
+                {!collapsed && !isCitizenTenant && !isBobTenant && path === "/dashboard" && birthdayCount > 0 && (
                   <span className="ml-auto bg-amber-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                     {birthdayCount}
                   </span>

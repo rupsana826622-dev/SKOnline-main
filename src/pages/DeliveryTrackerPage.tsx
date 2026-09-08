@@ -129,11 +129,22 @@ function DeliveryToggle({
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 import CitizenDeliveryTracker from "@/components/citizen/CitizenDeliveryTracker";
+import BobDeliveryTracker from "@/components/bob/BobDeliveryTracker";
 import { getSession } from "@/lib/storage";
 
 export default function DeliveryTrackerPage() {
   const session = getSession();
   const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
+  const isBobTenant = session?.tenantCode === "bob_csp" || session?.username === "bob";
+
+  if (isBobTenant) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-6">
+        <SEO title="Bank of Baroda Delivery Tracker — SK Online" />
+        <BobDeliveryTracker />
+      </div>
+    );
+  }
 
   if (isCitizenTenant) {
     return (

@@ -55,11 +55,17 @@ const Field2 = ({
 );
 
 import CitizenSettingsPage from "@/components/citizen/CitizenSettingsPage";
+import BobSettingsPage from "@/components/bob/BobSettingsPage";
 import { getSession } from "@/lib/storage";
 
 export default function SettingsPage() {
   const session = getSession();
   const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
+  const isBobTenant = session?.tenantCode === "bob_csp" || session?.username === "bob";
+
+  if (isBobTenant) {
+    return <BobSettingsPage />;
+  }
 
   if (isCitizenTenant) {
     return <CitizenSettingsPage />;

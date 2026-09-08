@@ -206,12 +206,26 @@ function defaultForm(settings: ReturnType<typeof getSettings>) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 import CitizenServiceForm from "@/components/citizen/CitizenServiceForm";
+import BobCustomerForm from "@/components/bob/BobCustomerForm";
 import { getSession } from "@/lib/storage";
 
 export default function AddCustomerPage() {
   const navigate = useNavigate();
   const session = getSession();
   const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
+  const isBobTenant = session?.tenantCode === "bob_csp" || session?.username === "bob";
+
+  if (isBobTenant) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-4">
+        <SEO title="New Bank of Baroda Customer Registration — SK Online" />
+        <BobCustomerForm
+          onSuccess={() => {}}
+          onCancel={() => navigate("/customers")}
+        />
+      </div>
+    );
+  }
 
   if (isCitizenTenant) {
     return (

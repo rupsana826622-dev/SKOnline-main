@@ -16,11 +16,19 @@ import NotFoundPage from "@/pages/NotFoundPage";
 import Index from "@/pages/Index";
 import InquiriesPage from "./pages/InquiriesPage";
 import { syncFromSupabase, getTenantCode } from "@/lib/storage";
+import { syncBobFromSupabase } from "@/lib/bobStorage";
+import { syncCitizenFromSupabase } from "@/lib/citizenStorage";
 
 export default function App() {
   useEffect(() => {
-    // Sync settings, customers, and inquiries from Supabase (scoped to active tenant)
-    syncFromSupabase(getTenantCode());
+    const tc = getTenantCode();
+    if (tc === "bob_csp") {
+      syncBobFromSupabase();
+    } else if (tc === "new_csp") {
+      syncCitizenFromSupabase();
+    } else {
+      syncFromSupabase(tc);
+    }
   }, []);
 
   return (

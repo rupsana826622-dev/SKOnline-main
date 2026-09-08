@@ -32,6 +32,12 @@ export const TENANTS: Record<string, { tenantCode: string; tenantId: string; ban
     tenantId:   "new_csp",
     bankName:   "CSP Hub",
   },
+  // bob  + Skonline@1234  →  Bank of Baroda CSP workspace
+  bob: {
+    tenantCode: "bob_csp",
+    tenantId:   "bob_csp",
+    bankName:   "Bank of Baroda",
+  },
 };
 
 

@@ -1,18 +1,18 @@
 import React from "react";
 import { X, Printer } from "lucide-react";
-import CitizenReceipt, { printCitizenReceipt } from "./CitizenReceipt";
-import type { CitizenServiceRecord } from "@/types/citizen";
+import BobReceipt, { printBobReceipt } from "./BobReceipt";
+import type { BobCustomerRecord } from "@/types/bob";
 
-interface CitizenReceiptModalProps {
-  record: CitizenServiceRecord | null;
+interface BobReceiptModalProps {
+  record: BobCustomerRecord | null;
   onClose: () => void;
 }
 
-export default function CitizenReceiptModal({ record, onClose }: CitizenReceiptModalProps) {
+export default function BobReceiptModal({ record, onClose }: BobReceiptModalProps) {
   if (!record) return null;
 
   const handlePrint = () => {
-    printCitizenReceipt(record);
+    printBobReceipt(record);
   };
 
   return (
@@ -22,17 +22,17 @@ export default function CitizenReceiptModal({ record, onClose }: CitizenReceiptM
         <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
           <div>
             <h2 className="text-base font-bold text-slate-900">
-              Customer Acknowledgement Slip — SL #{record.serialNo}
+              Bank of Baroda CSP Acknowledgement Slip — SL #{record.slNo}
             </h2>
-            <p className="text-xs text-slate-500">Half-A4 printable format for {record.customerName}</p>
+            <p className="text-xs text-slate-500">Official printable format for {record.customerName}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-lg shadow transition-colors"
             >
               <Printer size={14} />
-              Print
+              Print Slip
             </button>
             <button
               onClick={onClose}
@@ -45,7 +45,7 @@ export default function CitizenReceiptModal({ record, onClose }: CitizenReceiptM
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto custom-scroll flex justify-center">
-          <CitizenReceipt record={record} onPrint={handlePrint} showPrintButton={false} />
+          <BobReceipt record={record} onPrint={handlePrint} showPrintButton={false} />
         </div>
       </div>
     </div>

@@ -1,15 +1,18 @@
-import { Bell, Search, Menu, Settings, Sparkles } from "lucide-react";
+import { Bell, Search, Menu, Settings, Sparkles, Building2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { APP_NAME } from "@/constants";
 import { getCustomers, getSession } from "@/lib/storage";
 import { getCitizenRecords } from "@/lib/citizenStorage";
+import { getBobCustomers } from "@/lib/bobStorage";
 import { getDaysUntilBirthday } from "@/lib/utils";
 import type { Customer } from "@/types";
 import type { CitizenServiceRecord } from "@/types/citizen";
+import type { BobCustomerRecord } from "@/types/bob";
 import logoImg from "@/assets/sk-logo.png";
 import CitizenSettingsModal from "@/components/citizen/CitizenSettingsModal";
 import CitizenReceiptModal from "@/components/citizen/CitizenReceiptModal";
+import BobReceiptModal from "@/components/bob/BobReceiptModal";
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -20,24 +23,38 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   const [search, setSearch] = useState("");
   const [boiResults, setBoiResults] = useState<Customer[]>([]);
   const [citizenResults, setCitizenResults] = useState<CitizenServiceRecord[]>([]);
+  const [bobResults, setBobResults] = useState<BobCustomerRecord[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
-  const [selectedReceipt, setSelectedReceipt] = useState<CitizenServiceRecord | null>(null);
+  const [selectedCitizenReceipt, setSelectedCitizenReceipt] = useState<CitizenServiceRecord | null>(null);
+  const [selectedBobReceipt, setSelectedBobReceipt] = useState<BobCustomerRecord | null>(null);
   const navigate = useNavigate();
   const session = getSession();
   const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
+  const isBobTenant = session?.tenantCode === "bob_csp" || session?.username === "bob";
 
   const handleSearch = (val: string) => {
     setSearch(val);
     if (val.trim().length < 2) {
       setBoiResults([]);
       setCitizenResults([]);
+      setBobResults([]);
       setShowResults(false);
       return;
     }
     const lower = val.toLowerCase();
 
-    if (isCitizenTenant) {
+    if (isBobTenant) {
+      const records = getBobCustomers();
+      const found = records.filter(r =>
+        r.customerName.toLowerCase().includes(lower) ||
+        r.mobile.includes(val) ||
+        r.accountNo.toLowerCase().includes(lower) ||
+        r.cifNo.toLowerCase().includes(lower) ||
+        String(r.slNo).includes(val)
+      ).slice(0, 6);
+      setBobResults(found);
+    } else if (isCitizenTenant) {
       const records = getCitizenRecords();
       const found = records.filter(r =>
         r.customerName.toLowerCase().includes(lower) ||
@@ -61,7 +78,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
     setShowResults(true);
   };
 
-  const upcomingBirthdays = !isCitizenTenant
+  const upcomingBirthdays = !isCitizenTenant && !isBobTenant
     ? getCustomers().filter(c => getDaysUntilBirthday(c.dob) <= 3).length
     : 0;
 
@@ -75,13 +92,59 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         <Search size={16} className="absolute left-3 text-slate-400 pointer-events-none" />
         <input
           type="text"
-          placeholder={isCitizenTenant ? "Search applicant, mobile, ID, serial no..." : "Search customer, account, mobile, ref..."}
+          placeholder={
+            isBobTenant
+              ? "Search BOB customer, account, mobile, CIF..."
+              : isCitizenTenant
+              ? "Search applicant, mobile, ID, serial no..."
+              : "Search customer, account, mobile, ref..."
+          }
           value={search}
           onChange={e => handleSearch(e.target.value)}
           onBlur={() => setTimeout(() => setShowResults(false), 250)}
           onFocus={() => search.length >= 2 && setShowResults(true)}
-          className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
+          className={`w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 ${
+            isBobTenant
+              ? "focus:ring-orange-500/30 focus:border-orange-500"
+              : "focus:ring-blue-500/30 focus:border-blue-500"
+          } transition-all`}
         />
+
+        {/* BOB Search Results Dropdown */}
+        {showResults && isBobTenant && bobResults.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-slate-200 shadow-elevated z-50 overflow-hidden">
+            {bobResults.map(r => (
+              <button
+                key={r.id}
+                onClick={() => {
+                  setShowResults(false);
+                  setSearch("");
+                  setSelectedBobReceipt(r);
+                }}
+                className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-orange-50/50 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                    {r.customerName.charAt(0)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-800 truncate">
+                      {r.customerName}
+                    </div>
+                    <div className="text-xs text-slate-500 truncate">
+                      SL #{r.slNo} · A/C: {r.accountNo || "PENDING"} · {r.mobile}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-800">
+                    BOB SLIP
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Citizen Search Results Dropdown */}
         {showResults && isCitizenTenant && citizenResults.length > 0 && (
@@ -92,7 +155,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                 onClick={() => {
                   setShowResults(false);
                   setSearch("");
-                  setSelectedReceipt(r);
+                  setSelectedCitizenReceipt(r);
                 }}
                 className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors text-left"
               >
@@ -120,7 +183,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         )}
 
         {/* BOI Search Results Dropdown */}
-        {showResults && !isCitizenTenant && boiResults.length > 0 && (
+        {showResults && !isCitizenTenant && !isBobTenant && boiResults.length > 0 && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-slate-200 shadow-elevated z-50 overflow-hidden">
             {boiResults.map(r => (
               <button
@@ -144,11 +207,17 @@ export default function Header({ onMenuToggle }: HeaderProps) {
           </div>
         )}
 
-        {showResults && search.length >= 2 && (isCitizenTenant ? citizenResults.length === 0 : boiResults.length === 0) && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-slate-200 shadow-elevated z-50 p-4 text-sm text-slate-500 text-center">
-            No matching record found
-          </div>
-        )}
+        {showResults &&
+          search.length >= 2 &&
+          (isBobTenant
+            ? bobResults.length === 0
+            : isCitizenTenant
+            ? citizenResults.length === 0
+            : boiResults.length === 0) && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-slate-200 shadow-elevated z-50 p-4 text-sm text-slate-500 text-center">
+              No matching record found
+            </div>
+          )}
       </div>
 
       <div className="ml-auto flex items-center gap-3">
@@ -164,7 +233,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         )}
 
         {/* Birthday Bell for BOI CSP */}
-        {!isCitizenTenant && (
+        {!isCitizenTenant && !isBobTenant && (
           <button
             onClick={() => navigate("/dashboard")}
             className="relative p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
@@ -178,11 +247,19 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         )}
 
         <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
-          <img src={logoImg} alt="SK ONLINE" className="w-8 h-8 rounded-lg object-cover" />
+          {isBobTenant ? (
+            <div className="w-8 h-8 rounded-lg bg-orange-600 text-white font-black text-xs flex items-center justify-center shadow-sm">
+              BOB
+            </div>
+          ) : (
+            <img src={logoImg} alt="SK ONLINE" className="w-8 h-8 rounded-lg object-cover" />
+          )}
           <div className="hidden sm:block">
-            <div className="text-xs font-semibold text-slate-800">{APP_NAME}</div>
+            <div className="text-xs font-semibold text-slate-800">
+              {isBobTenant ? "BANK OF BARODA" : APP_NAME}
+            </div>
             <div className="text-[10px] text-slate-500">
-              {isCitizenTenant ? "Digital Citizen Hub" : (session?.bankName || "Operator")}
+              {isBobTenant ? "CSP Workspace" : isCitizenTenant ? "Digital Citizen Hub" : (session?.bankName || "Operator")}
             </div>
           </div>
         </div>
@@ -197,10 +274,18 @@ export default function Header({ onMenuToggle }: HeaderProps) {
       )}
 
       {/* Citizen Receipt Modal */}
-      {selectedReceipt && (
+      {selectedCitizenReceipt && (
         <CitizenReceiptModal
-          record={selectedReceipt}
-          onClose={() => setSelectedReceipt(null)}
+          record={selectedCitizenReceipt}
+          onClose={() => setSelectedCitizenReceipt(null)}
+        />
+      )}
+
+      {/* BOB Receipt Modal */}
+      {selectedBobReceipt && (
+        <BobReceiptModal
+          record={selectedBobReceipt}
+          onClose={() => setSelectedBobReceipt(null)}
         />
       )}
     </header>

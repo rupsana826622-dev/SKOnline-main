@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Search, PlusCircle, Filter, Download, Printer,
   Trash2, Edit, CheckCircle, Clock, AlertCircle, RefreshCw,
-  Tag, CreditCard
+  Tag, CreditCard, ArrowLeft
 } from "lucide-react";
 import type { CitizenServiceRecord } from "@/types/citizen";
 import { getCitizenRecords, deleteCitizenRecord, syncCitizenFromSupabase, getCitizenSettings } from "@/lib/citizenStorage";
@@ -101,16 +101,35 @@ export default function CitizenCustomersPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete application for "${name}"?`)) return;
+    if (!confirm(`Are you sure you want to permanently delete application for "${name}"?`)) return;
+    
+    // Immediately remove from UI state
     setRecords(prev => prev.filter(r => r.id !== id));
-    await deleteCitizenRecord(id);
-    toast.success(`Application for "${name}" deleted successfully.`);
+    
+    try {
+      await deleteCitizenRecord(id);
+      toast.success(`Application for "${name}" deleted successfully.`);
+    } catch (err: any) {
+      toast.error(`Error deleting record: ${err?.message || "Unknown error"}`);
+    }
   };
 
   if (editingRecord) {
     return (
       <div className="max-w-4xl mx-auto space-y-4">
         <SEO title={`Edit Application — SL #${editingRecord.serialNo}`} />
+        <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+          <button
+            onClick={() => setEditingRecord(null)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <ArrowLeft size={14} />
+            Back to Application List
+          </button>
+          <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
+            Editing SL #{editingRecord.serialNo}
+          </span>
+        </div>
         <CitizenServiceForm
           initialRecord={editingRecord}
           onSuccess={() => setEditingRecord(null)}
@@ -225,7 +244,7 @@ export default function CitizenCustomersPage() {
                 <th className="py-3 px-4 text-right">Due (₹)</th>
                 <th className="py-3 px-4 text-center">Payment</th>
                 <th className="py-3 px-4 text-center">Delivery Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
@@ -283,29 +302,37 @@ export default function CitizenCustomersPage() {
                       </span>
                     )}
                   </td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
+                  <td className="py-3 px-4">
+                    {/* Direct Row Actions Side by Side */}
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      {/* 1. Receipt Print */}
                       <button
                         onClick={() => setSelectedReceiptRecord(r)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 shadow-2xs"
                         title="Print Half-A4 Receipt"
                       >
                         <Printer size={13} />
-                        <span>Slip</span>
+                        <span>Receipt</span>
                       </button>
+
+                      {/* 2. Direct Edit */}
                       <button
                         onClick={() => setEditingRecord(r)}
-                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"
-                        title="Edit Application"
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-300 shadow-2xs"
+                        title="Directly Edit Application Details"
                       >
-                        <Edit size={14} />
+                        <Edit size={13} />
+                        <span>Edit</span>
                       </button>
+
+                      {/* 3. Direct Delete */}
                       <button
                         onClick={() => handleDelete(r.id, r.customerName)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete record"
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200 shadow-2xs"
+                        title="Delete application record"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
+                        <span>Delete</span>
                       </button>
                     </div>
                   </td>
