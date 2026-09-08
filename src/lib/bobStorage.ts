@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import type { BobCustomerRecord, BobSettings } from "@/types/bob";
 import { DEFAULT_BOB_SETTINGS } from "@/types/bob";
 import { getSession } from "./storage";
+import { toast } from "sonner";
 
 const STORAGE_KEYS = {
   records: "sk_online_bob_customers_bob_csp",
@@ -30,29 +31,28 @@ export function getBobSettings(): BobSettings {
 }
 
 export function saveBobSettings(settings: BobSettings): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
-    window.dispatchEvent(new Event("bob-settings-updated"));
+  localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
+  window.dispatchEvent(new Event("bob-settings-updated"));
 
-    // Sync to Supabase system_settings row for bob_csp
-    supabase
-      .from("system_settings")
-      .upsert({
-        id: "bob_csp_config",
-        bank_name: "Bank of Baroda",
-        branch_name: settings.branchName || "Bank of Baroda CSP",
-        bc_agent_name: settings.operatorName || "CSP Operator",
-        bc_agent_mobile: settings.operatorContact || "",
-        custom_logos: {
-          bob_settings: settings,
-        },
-      })
-      .then(({ error }) => {
-        if (error) console.warn("Error saving BOB settings to Supabase:", error);
-      });
-  } catch (err) {
-    console.error("Error in saveBobSettings:", err);
-  }
+  // Sync to Supabase system_settings row for bob_csp
+  supabase
+    .from("system_settings")
+    .upsert({
+      id: "bob_csp_config",
+      bank_name: "Bank of Baroda",
+      branch_name: settings.branchName || "Bank of Baroda CSP",
+      bc_agent_name: settings.operatorName || "CSP Operator",
+      bc_agent_mobile: settings.operatorContact || "",
+      custom_logos: {
+        bob_settings: settings,
+      },
+    })
+    .then(({ error }) => {
+      if (error) {
+        console.error("Error saving BOB settings to Supabase:", error);
+        toast.error(`Settings Save Error: ${error.message}`);
+      }
+    });
 }
 
 // ─── BOB CUSTOMER RECORDS ─────────────────────────────────────
@@ -73,7 +73,7 @@ export function saveBobCustomers(records: BobCustomerRecord[]): void {
     localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(records));
     window.dispatchEvent(new Event("bob-data-updated"));
   } catch (err) {
-    console.error("Error saving BOB records to local storage:", err);
+    console.error("Error writing BOB records to local cache:", err);
   }
 }
 
@@ -84,295 +84,225 @@ export function getNextBobSerialNo(): number {
   return max + 1;
 }
 
-// Map BobCustomerRecord to Supabase bob_customers / customers table row
-export function mapBobCustomerToDb(r: BobCustomerRecord, tenantId: string = "bob_csp"): Record<string, any> {
-  return {
-    id: r.id,
-    created_at: r.createdAt || new Date().toISOString(),
-    full_name: r.customerName || "",
-    father_name: r.guardianName || "",
-    dob: r.dob || null,
-    mobile_number: r.mobile || "",
-    address: r.address || "",
-    aadhaar_number: r.aadhaarNo ? r.aadhaarNo.replace(/\D/g, "") : null,
-    account_number: r.accountNo || "",
-    customer_id_cif: r.cifNo || "",
-    pin_code: r.refNo || "",
-    account_opening_date: r.accountOpeningDate || null,
-    customer_number: r.slNo,
-    include_apy: !!r.enrollAPY,
-    include_pmsby: !!r.enrollPMSBY,
-    include_pmjjby: !!r.enrollPMJJBY,
-
-    // 4-Stage Delivery Tracking fields
-    passbook_issued: !!r.passbookIssued,
-    passbook_issued_at: r.passbookIssuedAt || null,
-    passbook_issued_date: r.passbookIssuedAt ? r.passbookIssuedAt.slice(0, 10) : null,
-
-    passbook_received: !!r.passbookDelivered,
-    passbook_received_at: r.passbookDeliveredAt || null,
-    passbook_delivered_date: r.passbookDeliveredAt ? r.passbookDeliveredAt.slice(0, 10) : null,
-
-    atm_issued: !!r.atmIssued,
-    atm_issued_at: r.atmIssuedAt || null,
-    atm_issued_date: r.atmIssuedAt ? r.atmIssuedAt.slice(0, 10) : null,
-
-    atm_received: !!r.atmDelivered,
-    atm_received_at: r.atmDeliveredAt || null,
-    atm_delivered_date: r.atmDeliveredAt ? r.atmDeliveredAt.slice(0, 10) : null,
-
-    notes: r.notes || "",
-    tenant_code: "bob_csp",
-    tenant_id: tenantId,
-    family_id: JSON.stringify({
-      slNo: r.slNo,
-      guardianName: r.guardianName,
-      refNo: r.refNo,
-      cifNo: r.cifNo,
-      enrollAPY: r.enrollAPY,
-      enrollPMSBY: r.enrollPMSBY,
-      enrollPMJJBY: r.enrollPMJJBY,
-      passbookIssued: r.passbookIssued,
-      passbookIssuedAt: r.passbookIssuedAt,
-      passbookDelivered: r.passbookDelivered,
-      passbookDeliveredAt: r.passbookDeliveredAt,
-      atmIssued: r.atmIssued,
-      atmIssuedAt: r.atmIssuedAt,
-      atmDelivered: r.atmDelivered,
-      atmDeliveredAt: r.atmDeliveredAt,
-    }),
-  };
-}
-
 export function mapDbToBobCustomer(row: any): BobCustomerRecord {
-  let extra: any = {};
-  if (row.family_id) {
-    try {
-      extra = JSON.parse(row.family_id);
-    } catch {
-      extra = {};
-    }
-  }
-
-  const pbIssued = row.passbook_issued !== undefined ? !!row.passbook_issued : !!extra.passbookIssued;
-  const pbIssuedAt = row.passbook_issued_date || row.passbook_issued_at || extra.passbookIssuedAt || (pbIssued ? row.created_at : null);
-
-  const pbDelivered = row.passbook_delivered_date
-    ? true
-    : row.passbook_received !== undefined
-    ? !!row.passbook_received
-    : !!extra.passbookDelivered;
-  const pbDeliveredAt = row.passbook_delivered_date || row.passbook_received_at || extra.passbookDeliveredAt || null;
-
-  const atmIssued = row.atm_issued !== undefined ? !!row.atm_issued : !!extra.atmIssued;
-  const atmIssuedAt = row.atm_issued_date || row.atm_issued_at || extra.atmIssuedAt || (atmIssued ? row.created_at : null);
-
-  const atmDelivered = row.atm_delivered_date
-    ? true
-    : row.atm_received !== undefined
-    ? !!row.atm_received
-    : !!extra.atmDelivered;
-  const atmDeliveredAt = row.atm_delivered_date || row.atm_received_at || extra.atmDeliveredAt || null;
-
   return {
     id: row.id,
-    slNo: Number(row.customer_number || extra.slNo || 1001),
+    slNo: Number(row.sl_no || row.customer_number || 1001),
     accountOpeningDate: row.account_opening_date || row.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-    customerName: row.full_name || "",
-    guardianName: row.father_name || extra.guardianName || "",
+    customerName: row.customer_name || row.full_name || "",
+    guardianName: row.care_of || row.father_name || "",
     dob: row.dob || "",
-    mobile: row.mobile_number || "",
+    mobile: row.mobile || row.mobile_number || "",
     address: row.address || "",
-    aadhaarNo: row.aadhaar_number || "",
-    refNo: row.pin_code || extra.refNo || "",
-    cifNo: row.customer_id_cif || extra.cifNo || "",
-    accountNo: row.account_number || "",
-    enrollAPY: row.include_apy !== undefined ? !!row.include_apy : !!extra.enrollAPY,
-    enrollPMSBY: row.include_pmsby !== undefined ? !!row.include_pmsby : !!extra.enrollPMSBY,
-    enrollPMJJBY: row.include_pmjjby !== undefined ? !!row.include_pmjjby : !!extra.enrollPMJJBY,
+    aadhaarNo: row.aadhaar_no || row.aadhaar_number || "",
+    refNo: row.reference_no || row.pin_code || "",
+    cifNo: row.cif_no || row.customer_id_cif || "",
+    accountNo: row.account_no || row.account_number || "",
+    enrollAPY: row.has_apy !== undefined ? !!row.has_apy : !!row.include_apy,
+    enrollPMSBY: row.has_pmsby !== undefined ? !!row.has_pmsby : !!row.include_pmsby,
+    enrollPMJJBY: row.has_pmjjby !== undefined ? !!row.has_pmjjby : !!row.include_pmjjby,
 
-    passbookIssued: pbIssued,
-    passbookIssuedAt: pbIssuedAt,
-    passbookDelivered: pbDelivered,
-    passbookDeliveredAt: pbDeliveredAt,
+    passbookIssued: !!row.passbook_issued,
+    passbookIssuedAt: row.passbook_issued_date || row.passbook_issued_at || (row.passbook_issued ? row.created_at : null),
+    passbookDelivered: !!row.passbook_delivered || !!row.passbook_received,
+    passbookDeliveredAt: row.passbook_delivered_date || row.passbook_received_at || null,
 
-    atmIssued: atmIssued,
-    atmIssuedAt: atmIssuedAt,
-    atmDelivered: atmDelivered,
-    atmDeliveredAt: atmDeliveredAt,
+    atmIssued: !!row.atm_issued,
+    atmIssuedAt: row.atm_issued_date || row.atm_issued_at || (row.atm_issued ? row.created_at : null),
+    atmDelivered: !!row.atm_delivered || !!row.atm_received,
+    atmDeliveredAt: row.atm_delivered_date || row.atm_received_at || null,
 
     notes: row.notes || "",
     createdAt: row.created_at || new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
     tenant_code: "bob_csp",
     tenant_id: row.tenant_id || "bob_csp",
   };
 }
 
-export async function addBobCustomer(record: BobCustomerRecord): Promise<{ error: any; data?: any }> {
-  const currentTenantId = getCurrentTenantId();
-  const records = getBobCustomers();
-  const existsIdx = records.findIndex(r => r.id === record.id);
-  if (existsIdx >= 0) {
-    records[existsIdx] = record;
-  } else {
-    records.unshift(record);
-  }
-  saveBobCustomers(records);
-
-  try {
-    const payload = mapBobCustomerToDb(record, currentTenantId);
-
-    // 1. Primary insert to public.bob_customers with tenant_id
-    let dbSuccess = false;
-    try {
-      const { data, error } = await (supabase as any)
-        .from("bob_customers")
-        .upsert([payload])
-        .select();
-
-      if (!error && data) {
-        dbSuccess = true;
-      } else if (error) {
-        console.warn("bob_customers insert notice:", error.message);
-      }
-    } catch (e) {
-      console.warn("bob_customers query error:", e);
-    }
-
-    // 2. Also sync to customers table scoped to tenant_code: 'bob_csp'
-    try {
-      const { error: custErr } = await supabase.from("customers").upsert([payload]);
-      if (!custErr) dbSuccess = true;
-    } catch (dbErr) {
-      console.warn("customers table upsert error:", dbErr);
-    }
-
-    return { error: null, data: payload };
-  } catch (err: any) {
-    console.error("Error saving BOB customer to Supabase:", err);
-    return { error: err };
-  }
-}
-
-export async function updateBobCustomer(id: string, updates: Partial<BobCustomerRecord>): Promise<{ error: any }> {
-  const currentTenantId = getCurrentTenantId();
-  const records = getBobCustomers();
-  const idx = records.findIndex(r => r.id === id);
-  if (idx === -1) return { error: "Record not found" };
-
-  const updated: BobCustomerRecord = {
-    ...records[idx],
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  };
-
-  records[idx] = updated;
-  saveBobCustomers(records);
-
-  try {
-    const payload = mapBobCustomerToDb(updated, currentTenantId);
-
-    // Update bob_customers scoped to tenant_id
-    try {
-      await (supabase as any)
-        .from("bob_customers")
-        .update(payload)
-        .eq("id", id)
-        .eq("tenant_id", currentTenantId);
-    } catch (e) {
-      console.warn("bob_customers update error:", e);
-    }
-
-    // Update customers table
-    try {
-      await supabase
-        .from("customers")
-        .update(payload)
-        .eq("id", id);
-    } catch (e) {
-      console.warn("customers table update error:", e);
-    }
-
-    return { error: null };
-  } catch (err) {
-    console.error("Error syncing BOB update to Supabase:", err);
-    return { error: err };
-  }
-}
-
-export async function deleteBobCustomer(id: string): Promise<{ error: any }> {
-  const currentTenantId = getCurrentTenantId();
-  // Optimistically remove from local storage immediately
-  const records = getBobCustomers().filter(r => r.id !== id);
-  saveBobCustomers(records);
-
-  try {
-    // Delete from bob_customers scoped to tenant_id and customers
-    await Promise.allSettled([
-      (supabase as any)
-        .from("bob_customers")
-        .delete()
-        .eq("id", id)
-        .eq("tenant_id", currentTenantId),
-      supabase
-        .from("customers")
-        .delete()
-        .eq("id", id)
-        .eq("tenant_code", "bob_csp"),
-    ]);
-
-    return { error: null };
-  } catch (err: any) {
-    console.error("Error deleting BOB record from Supabase:", err);
-    return { error: err };
-  }
-}
-
+/**
+ * Fetch records strictly from Supabase bob_customers scoped to tenant_id
+ */
 export async function fetchBobCustomersFromSupabase(): Promise<BobCustomerRecord[]> {
   const currentTenantId = getCurrentTenantId();
+
   try {
-    let recordsData: any[] | null = null;
+    const { data, error } = await (supabase as any)
+      .from("bob_customers")
+      .select("*")
+      .eq("tenant_id", currentTenantId)
+      .order("created_at", { ascending: false });
 
-    // 1. Fetch from bob_customers strictly scoped to tenant_id
-    try {
-      const res = await (supabase as any)
-        .from("bob_customers")
-        .select("*")
-        .eq("tenant_id", currentTenantId)
-        .order("created_at", { ascending: false });
-
-      if (!res.error && res.data && res.data.length > 0) {
-        recordsData = res.data;
-      }
-    } catch {
-      // Fallback
+    if (error) {
+      console.error("Supabase BOB Select Error:", error);
+      // If table error, show alert so operator is informed
+      toast.error(`Database Error: ${error.message} (Code: ${error.code || "SELECT_ERR"})`);
+      saveBobCustomers([]);
+      return [];
     }
 
-    // 2. Fallback to customers table
-    if (!recordsData || recordsData.length === 0) {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("*")
-        .eq("tenant_code", "bob_csp")
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        recordsData = data;
-      }
-    }
-
-    if (recordsData && recordsData.length > 0) {
-      const mapped = recordsData.map(mapDbToBobCustomer);
-      saveBobCustomers(mapped);
-      return mapped;
-    }
-
-    return getBobCustomers();
-  } catch (err) {
-    console.error("Failed to fetch BOB data from Supabase:", err);
-    return getBobCustomers();
+    const mapped = (data || []).map(mapDbToBobCustomer);
+    saveBobCustomers(mapped);
+    return mapped;
+  } catch (err: any) {
+    console.error("Unexpected error in fetchBobCustomersFromSupabase:", err);
+    saveBobCustomers([]);
+    return [];
   }
+}
+
+/**
+ * Insert new BOB customer directly into Supabase public.bob_customers
+ */
+export async function addBobCustomer(formData: {
+  account_opening_date: string;
+  sl_no: number | string;
+  customer_name: string;
+  care_of: string;
+  dob?: string | null;
+  mobile: string;
+  address: string;
+  aadhaar_no: string;
+  reference_no: string;
+  cif_no: string;
+  account_no: string;
+  has_apy: boolean;
+  has_pmsby: boolean;
+  has_pmjjby: boolean;
+  passbook_issued?: boolean;
+  passbook_issued_date?: string | null;
+  passbook_delivered?: boolean;
+  passbook_delivered_date?: string | null;
+  atm_issued?: boolean;
+  atm_issued_date?: string | null;
+  atm_delivered?: boolean;
+  atm_delivered_date?: string | null;
+}): Promise<{ data: BobCustomerRecord | null; error: any }> {
+  const currentTenantId = getCurrentTenantId();
+
+  const payload: Record<string, any> = {
+    tenant_id: currentTenantId,
+    account_opening_date: formData.account_opening_date,
+    sl_no: formData.sl_no ? parseInt(String(formData.sl_no), 10) : null,
+    customer_name: formData.customer_name,
+    care_of: formData.care_of,
+    dob: formData.dob || null,
+    mobile: formData.mobile,
+    address: formData.address,
+    aadhaar_no: formData.aadhaar_no,
+    reference_no: formData.reference_no,
+    cif_no: formData.cif_no,
+    account_no: formData.account_no,
+    has_apy: !!formData.has_apy,
+    has_pmsby: !!formData.has_pmsby,
+    has_pmjjby: !!formData.has_pmjjby,
+    passbook_issued: !!formData.passbook_issued,
+    passbook_issued_date: formData.passbook_issued_date || null,
+    passbook_delivered: !!formData.passbook_delivered,
+    passbook_delivered_date: formData.passbook_delivered_date || null,
+    atm_issued: !!formData.atm_issued,
+    atm_issued_date: formData.atm_issued_date || null,
+    atm_delivered: !!formData.atm_delivered,
+    atm_delivered_date: formData.atm_delivered_date || null,
+  };
+
+  const { data, error } = await (supabase as any)
+    .from("bob_customers")
+    .insert([payload])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Supabase BOB Insert Error:", error);
+    const errorMsg = `Database Save Failed: ${error.message} (Code: ${error.code || "ERR"})`;
+    alert(errorMsg);
+    toast.error(errorMsg);
+    throw error;
+  }
+
+  const mapped = mapDbToBobCustomer(data);
+  // Re-fetch all records live from Supabase
+  await fetchBobCustomersFromSupabase();
+  return { data: mapped, error: null };
+}
+
+/**
+ * Update BOB customer directly in Supabase public.bob_customers
+ */
+export async function updateBobCustomer(
+  id: string,
+  updates: Partial<BobCustomerRecord>
+): Promise<{ error: any }> {
+  const currentTenantId = getCurrentTenantId();
+
+  const payload: Record<string, any> = {};
+  if (updates.accountOpeningDate !== undefined) payload.account_opening_date = updates.accountOpeningDate;
+  if (updates.slNo !== undefined) payload.sl_no = Number(updates.slNo);
+  if (updates.customerName !== undefined) payload.customer_name = updates.customerName;
+  if (updates.guardianName !== undefined) payload.care_of = updates.guardianName;
+  if (updates.dob !== undefined) payload.dob = updates.dob || null;
+  if (updates.mobile !== undefined) payload.mobile = updates.mobile;
+  if (updates.address !== undefined) payload.address = updates.address;
+  if (updates.aadhaarNo !== undefined) payload.aadhaar_no = updates.aadhaarNo;
+  if (updates.refNo !== undefined) payload.reference_no = updates.refNo;
+  if (updates.cifNo !== undefined) payload.cif_no = updates.cifNo;
+  if (updates.accountNo !== undefined) payload.account_no = updates.accountNo;
+  if (updates.enrollAPY !== undefined) payload.has_apy = !!updates.enrollAPY;
+  if (updates.enrollPMSBY !== undefined) payload.has_pmsby = !!updates.enrollPMSBY;
+  if (updates.enrollPMJJBY !== undefined) payload.has_pmjjby = !!updates.enrollPMJJBY;
+
+  if (updates.passbookIssued !== undefined) payload.passbook_issued = !!updates.passbookIssued;
+  if (updates.passbookIssuedAt !== undefined) payload.passbook_issued_date = updates.passbookIssuedAt;
+  if (updates.passbookDelivered !== undefined) payload.passbook_delivered = !!updates.passbookDelivered;
+  if (updates.passbookDeliveredAt !== undefined) payload.passbook_delivered_date = updates.passbookDeliveredAt;
+
+  if (updates.atmIssued !== undefined) payload.atm_issued = !!updates.atmIssued;
+  if (updates.atmIssuedAt !== undefined) payload.atm_issued_date = updates.atmIssuedAt;
+  if (updates.atmDelivered !== undefined) payload.atm_delivered = !!updates.atmDelivered;
+  if (updates.atmDeliveredAt !== undefined) payload.atm_delivered_date = updates.atmDeliveredAt;
+
+  const { error } = await (supabase as any)
+    .from("bob_customers")
+    .update(payload)
+    .eq("id", id)
+    .eq("tenant_id", currentTenantId);
+
+  if (error) {
+    console.error("Supabase BOB Update Error:", error);
+    const errorMsg = `Database Update Failed: ${error.message} (Code: ${error.code || "ERR"})`;
+    alert(errorMsg);
+    toast.error(errorMsg);
+    throw error;
+  }
+
+  // Re-fetch all records live from Supabase
+  await fetchBobCustomersFromSupabase();
+  return { error: null };
+}
+
+/**
+ * Delete BOB customer directly from Supabase public.bob_customers
+ */
+export async function deleteBobCustomer(id: string): Promise<{ error: any }> {
+  const currentTenantId = getCurrentTenantId();
+
+  const { error } = await (supabase as any)
+    .from("bob_customers")
+    .delete()
+    .eq("id", id)
+    .eq("tenant_id", currentTenantId);
+
+  if (error) {
+    console.error("Supabase BOB Delete Error:", error);
+    const errorMsg = `Database Delete Failed: ${error.message} (Code: ${error.code || "ERR"})`;
+    alert(errorMsg);
+    toast.error(errorMsg);
+    throw error;
+  }
+
+  // Re-fetch all records live from Supabase
+  await fetchBobCustomersFromSupabase();
+  return { error: null };
 }
 
 export async function syncBobFromSupabase(): Promise<void> {

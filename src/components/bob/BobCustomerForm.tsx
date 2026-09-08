@@ -91,54 +91,75 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
     setIsSubmitting(true);
 
     try {
-      const recordPayload: BobCustomerRecord = {
-        id: initialRecord?.id || generateId(),
-        slNo: Number(slNo) || 1001,
-        accountOpeningDate: accountOpeningDate || todayStr,
-        customerName: customerName.trim(),
-        guardianName: guardianName.trim(),
-        dob: dob.trim(),
+      const formData = {
+        account_opening_date: accountOpeningDate || todayStr,
+        sl_no: slNo ? parseInt(String(slNo), 10) : null,
+        customer_name: customerName.trim(),
+        care_of: guardianName.trim(),
+        dob: dob.trim() || null,
         mobile: mobile.trim(),
         address: address.trim(),
-        aadhaarNo: aadhaarNo.trim(),
-        refNo: refNo.trim(),
-        cifNo: cifNo.trim(),
-        accountNo: accountNo.trim(),
-        enrollAPY,
-        enrollPMSBY,
-        enrollPMJJBY,
-        passbookIssued: initialRecord?.passbookIssued || false,
-        passbookIssuedAt: initialRecord?.passbookIssuedAt || null,
-        passbookDelivered: initialRecord?.passbookDelivered || false,
-        passbookDeliveredAt: initialRecord?.passbookDeliveredAt || null,
-        atmIssued: initialRecord?.atmIssued || false,
-        atmIssuedAt: initialRecord?.atmIssuedAt || null,
-        atmDelivered: initialRecord?.atmDelivered || false,
-        atmDeliveredAt: initialRecord?.atmDeliveredAt || null,
-        notes: notes.trim(),
-        createdAt: initialRecord?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        tenant_code: "bob_csp",
-        tenant_id: "bob_csp",
+        aadhaar_no: aadhaarNo.trim(),
+        reference_no: refNo.trim(),
+        cif_no: cifNo.trim(),
+        account_no: accountNo.trim(),
+        has_apy: !!enrollAPY,
+        has_pmsby: !!enrollPMSBY,
+        has_pmjjby: !!enrollPMJJBY,
+        passbook_issued: initialRecord?.passbookIssued || false,
+        passbook_issued_date: initialRecord?.passbookIssuedAt || null,
+        passbook_delivered: initialRecord?.passbookDelivered || false,
+        passbook_delivered_date: initialRecord?.passbookDeliveredAt || null,
+        atm_issued: initialRecord?.atmIssued || false,
+        atm_issued_date: initialRecord?.atmIssuedAt || null,
+        atm_delivered: initialRecord?.atmDelivered || false,
+        atm_delivered_date: initialRecord?.atmDeliveredAt || null,
       };
 
+      let savedRecord: BobCustomerRecord;
+
       if (initialRecord) {
-        const res = await updateBobCustomer(initialRecord.id, recordPayload);
-        if (res.error) {
-          toast.error("Warning: Saved locally, but failed to sync to Supabase.");
-        } else {
-          toast.success(`Bank of Baroda account SL #${recordPayload.slNo} updated successfully!`);
-        }
+        await updateBobCustomer(initialRecord.id, {
+          accountOpeningDate: accountOpeningDate || todayStr,
+          slNo: Number(slNo) || 1001,
+          customerName: customerName.trim(),
+          guardianName: guardianName.trim(),
+          dob: dob.trim(),
+          mobile: mobile.trim(),
+          address: address.trim(),
+          aadhaarNo: aadhaarNo.trim(),
+          refNo: refNo.trim(),
+          cifNo: cifNo.trim(),
+          accountNo: accountNo.trim(),
+          enrollAPY,
+          enrollPMSBY,
+          enrollPMJJBY,
+        });
+        savedRecord = {
+          ...initialRecord,
+          accountOpeningDate: accountOpeningDate || todayStr,
+          slNo: Number(slNo) || 1001,
+          customerName: customerName.trim(),
+          guardianName: guardianName.trim(),
+          dob: dob.trim(),
+          mobile: mobile.trim(),
+          address: address.trim(),
+          aadhaarNo: aadhaarNo.trim(),
+          refNo: refNo.trim(),
+          cifNo: cifNo.trim(),
+          accountNo: accountNo.trim(),
+          enrollAPY,
+          enrollPMSBY,
+          enrollPMJJBY,
+        };
+        toast.success(`Bank of Baroda account SL #${slNo} updated successfully!`);
       } else {
-        const res = await addBobCustomer(recordPayload);
-        if (res.error) {
-          toast.error("Warning: Saved locally, but failed to sync to Supabase.");
-        } else {
-          toast.success(`New Bank of Baroda account SL #${recordPayload.slNo} registered!`);
-        }
+        const res = await addBobCustomer(formData);
+        savedRecord = res.data!;
+        toast.success(`New Bank of Baroda account SL #${savedRecord.slNo} registered and saved to Supabase!`);
       }
 
-      setSubmittedRecord(recordPayload);
+      setSubmittedRecord(savedRecord);
       setReceiptModalOpen(true);
 
       if (!initialRecord) {
@@ -146,10 +167,11 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
       }
 
       if (onSuccess) {
-        onSuccess(recordPayload);
+        onSuccess(savedRecord);
       }
     } catch (err: any) {
-      toast.error(`Error saving account: ${err?.message || "Unknown error"}`);
+      console.error("Error saving BOB account:", err);
+      // Explicit error is already alerted in addBobCustomer/updateBobCustomer
     } finally {
       setIsSubmitting(false);
     }
