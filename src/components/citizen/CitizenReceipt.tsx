@@ -1,7 +1,7 @@
 import React from "react";
 import type { CitizenServiceRecord, CitizenSettings } from "@/types/citizen";
 import { getCitizenSettings } from "@/lib/citizenStorage";
-import { Printer, CheckCircle, Clock, Sparkles, MapPin, Phone } from "lucide-react";
+import { Printer, CheckCircle, Clock, Sparkles, Building2, Phone, MapPin } from "lucide-react";
 
 interface CitizenReceiptProps {
   record: CitizenServiceRecord;
@@ -11,8 +11,8 @@ interface CitizenReceiptProps {
 }
 
 /**
- * Robust print helper for Citizen Service Acknowledgement Slip (Half-A4).
- * Creates an isolated printable iframe/window with all styles inlined to avoid browser blank white preview bugs.
+ * Standalone isolated print engine for Digital Citizen Services Acknowledgement Slip.
+ * Inlines full typography, layout styling, and eco-friendly white background borders to guarantee flawless print.
  */
 export function printCitizenReceipt(record: CitizenServiceRecord, customSettings?: CitizenSettings) {
   const settings = customSettings || getCitizenSettings();
@@ -21,10 +21,8 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
     month: "short",
     year: "numeric",
   });
+
   const isFullPaid = (record.dueAmount ?? 0) <= 0;
-  const promoText =
-    settings.promotionalText ||
-    "SK ONLINE & CYBER ZONE — All online works, Tax/ITR Filing, Trade License, Bank CSP, LIC Advisory done with precision.";
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -54,8 +52,7 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
     .receipt-container {
       width: 100%;
       max-width: 190mm;
-      min-height: 125mm;
-      max-height: 140mm;
+      min-height: 130mm;
       margin: 0 auto;
       padding: 16px 20px;
       background: #ffffff;
@@ -67,7 +64,7 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
     }
     .top-accent {
       height: 4px;
-      background: linear-gradient(to right, #2563eb, #4f46e5, #f59e0b);
+      background: linear-gradient(to right, #1e3a8a, #2563eb, #38bdf8);
       margin: -16px -20px 14px -20px;
       border-radius: 8px 8px 0 0;
     }
@@ -87,7 +84,7 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
     .logo-badge {
       width: 44px;
       height: 44px;
-      background: #1d4ed8;
+      background: #0f172a;
       color: #ffffff;
       border-radius: 8px;
       display: flex;
@@ -105,7 +102,7 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
       margin: 0;
       line-height: 1.1;
     }
-    .center-tagline {
+    .tagline {
       font-size: 10px;
       font-weight: 700;
       color: #1d4ed8;
@@ -123,7 +120,7 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
     }
     .serial-badge {
       display: inline-block;
-      background: #0f172a;
+      background: #1e40af;
       color: #ffffff;
       font-size: 11px;
       font-weight: 800;
@@ -182,9 +179,12 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
       display: inline-block;
       margin-top: 2px;
     }
+    
+    /* ─── ECO-FRIENDLY INK-SAVING PAYMENT CARD ─── */
     .payment-card {
-      background: #0f172a;
-      color: #ffffff;
+      background: #ffffff;
+      color: #0f172a;
+      border: 1px solid #cbd5e1;
       border-radius: 8px;
       padding: 10px 14px;
       margin-bottom: 12px;
@@ -201,24 +201,26 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
       font-size: 9px;
       font-weight: 700;
       text-transform: uppercase;
-      color: #94a3b8;
+      color: #64748b;
       letter-spacing: 0.5px;
     }
     .amount-item .val {
       font-size: 15px;
       font-weight: 900;
-      color: #ffffff;
+      color: #0f172a;
+      font-family: monospace;
     }
     .amount-item .val.adv {
-      color: #34d399;
+      color: #047857;
     }
     .amount-item .val.due {
-      color: #fbbf24;
+      color: #b45309;
+      font-weight: 900;
     }
     .divider-v {
       width: 1px;
       height: 24px;
-      background: #334155;
+      background: #cbd5e1;
     }
     .badge-pill {
       display: inline-block;
@@ -230,59 +232,44 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
       letter-spacing: 0.5px;
     }
     .badge-paid {
-      background: #059669;
-      color: #ffffff;
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
     }
     .badge-due {
-      background: #d97706;
-      color: #ffffff;
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fde68a;
     }
     .badge-mode {
-      background: #334155;
-      color: #cbd5e1;
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
       margin-right: 6px;
     }
     .footer-row {
       display: grid;
-      grid-template-columns: 2fr 1fr;
+      grid-template-columns: 1.4fr 1fr 1fr;
       gap: 12px;
       align-items: flex-end;
       border-top: 1px solid #e2e8f0;
       padding-top: 8px;
     }
     .promo-box {
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      border-radius: 6px;
-      padding: 6px 10px;
       font-size: 10px;
-      color: #1e3a8a;
-      font-weight: 500;
+      color: #475569;
       line-height: 1.35;
     }
-    .promo-title {
-      font-size: 9px;
-      font-weight: 800;
-      text-transform: uppercase;
-      color: #1e40af;
-      margin-bottom: 2px;
-    }
-    .stamp-col {
-      text-align: right;
+    .sig-box {
+      text-align: center;
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
+      align-items: center;
       justify-content: flex-end;
     }
-    .stamp-img {
-      max-height: 48px;
-      max-width: 100px;
-      object-contain: fit;
-      margin-bottom: 3px;
-    }
     .stamp-placeholder {
-      height: 38px;
-      width: 90px;
+      height: 40px;
+      width: 100px;
       border: 1px dashed #cbd5e1;
       border-radius: 4px;
       display: flex;
@@ -290,7 +277,13 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
       justify-content: center;
       font-size: 9px;
       color: #94a3b8;
-      margin-bottom: 3px;
+      margin-bottom: 4px;
+    }
+    .stamp-img {
+      max-height: 45px;
+      max-width: 100px;
+      object-fit: contain;
+      margin-bottom: 4px;
     }
     .sign-line {
       font-size: 9px;
@@ -314,9 +307,9 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
         <div class="logo-badge">SK</div>
         <div>
           <h1 class="center-name">${settings.centerName || "SK ONLINE & CYBER ZONE"}</h1>
-          <div class="center-tagline">${settings.tagline || "Customer Service Acknowledgement Slip"}</div>
+          <div class="tagline">${settings.tagline || "Customer Service Acknowledgement Slip"}</div>
           <div class="center-meta">
-            ${settings.centerAddress ? settings.centerAddress + " · " : ""}Ph: ${settings.centerContact || "9876543210"}
+            ${settings.centerAddress ? settings.centerAddress + " · " : ""}Ph: <strong>${settings.centerContact || "9876543210"}</strong>
           </div>
         </div>
       </div>
@@ -329,28 +322,24 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
     <!-- 2. Customer & Service Details -->
     <div class="details-grid">
       <div class="detail-col left">
-        <div class="section-title">Customer Details</div>
+        <div class="section-title">Customer Information</div>
         <div class="cust-name">${record.customerName || "—"}</div>
-        <div>Mobile: <strong style="font-family: monospace;">${record.contactNo || "—"}</strong></div>
-        ${record.address ? `<div style="color: #475569; font-size: 10px; margin-top: 2px;">Address: ${record.address}</div>` : ""}
+        <div>Contact: <strong>${record.contactNo || "—"}</strong></div>
+        ${record.address ? `<div>Address: <strong>${record.address}</strong></div>` : ""}
       </div>
       <div class="detail-col">
         <div class="section-title">Service Applied For</div>
         <div class="service-name">${record.serviceType || "Digital Citizen Service"}</div>
-        <div style="margin-top: 2px;">
-          App / User ID: <span class="app-number">${record.appNumber || "PENDING"}</span>
-        </div>
-        <div style="font-size: 10px; color: #64748b; margin-top: 2px;">
-          Applied On: ${record.applicationDate || receiptDate}
-        </div>
+        <div>App ID: <span class="app-number">${record.appNumber || "PENDING"}</span></div>
+        <div>Applied: <strong>${record.applicationDate || receiptDate}</strong></div>
       </div>
     </div>
 
-    <!-- 3. Payment & Accounting -->
+    <!-- 3. Eco-Friendly Ink-Saving Payment Summary Card -->
     <div class="payment-card">
       <div class="amount-group">
         <div class="amount-item">
-          <div class="lbl">Total Amount</div>
+          <div class="lbl">Total Fee</div>
           <div class="val">₹${Number(record.totalAmount || 0).toLocaleString("en-IN")}</div>
         </div>
         <div class="divider-v"></div>
@@ -360,27 +349,38 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
         </div>
         <div class="divider-v"></div>
         <div class="amount-item">
-          <div class="lbl">Balance Due</div>
-          <div class="val due">₹${Number(record.dueAmount || 0).toLocaleString("en-IN")}</div>
+          <div class="lbl">Due Balance</div>
+          <div class="val ${record.dueAmount > 0 ? "due" : ""}">₹${Number(record.dueAmount || 0).toLocaleString("en-IN")}</div>
         </div>
       </div>
       <div>
         <span class="badge-pill badge-mode">Mode: ${record.paymentMode || "Cash"}</span>
-        ${
-          isFullPaid
-            ? `<span class="badge-pill badge-paid">✓ Full Paid</span>`
-            : `<span class="badge-pill badge-due">⏳ Payment Due</span>`
-        }
+        <span class="badge-pill ${isFullPaid ? "badge-paid" : "badge-due"}">
+          ${isFullPaid ? "✓ FULL PAID" : "DUE ₹" + record.dueAmount}
+        </span>
       </div>
     </div>
 
-    <!-- 4. Footer Section -->
+    <!-- 4. Footer -->
     <div class="footer-row">
       <div class="promo-box">
-        <div class="promo-title">Services Offered</div>
-        ${promoText}
+        <div style="font-weight: 800; color: #0f172a; margin-bottom: 2px;">Notice & Info:</div>
+        <div>
+          ${
+            settings.promotionalText ||
+            "All Online Works, Tax/ITR Filing, Trade License, Bank CSP, LIC Advisory done with precision."
+          }
+        </div>
       </div>
-      <div class="stamp-col">
+
+      <div class="sig-box">
+        <div class="stamp-placeholder" style="height: 36px; width: 100px; border: 1px dashed #cbd5e1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #94a3b8; margin-bottom: 4px;">
+          Applicant Sign
+        </div>
+        <div class="sign-line">Customer Signature</div>
+      </div>
+
+      <div class="sig-box">
         ${
           settings.stampSignatureUrl
             ? `<img src="${settings.stampSignatureUrl}" alt="Stamp" class="stamp-img" />`
@@ -400,7 +400,7 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
 </html>
 `;
 
-  // Create isolated invisible iframe for flawless printing
+  // Create isolated invisible iframe for printing
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
   iframe.style.right = "0";
@@ -416,7 +416,6 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
     doc.write(htmlContent);
     doc.close();
 
-    // Clean up iframe after print dialog closes
     setTimeout(() => {
       try {
         document.body.removeChild(iframe);
@@ -425,7 +424,6 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
       }
     }, 60000);
   } else {
-    // Fallback if iframe blocked
     const win = window.open("", "_blank");
     if (win) {
       win.document.open();
@@ -462,7 +460,7 @@ export default function CitizenReceipt({
 
   return (
     <div className="citizen-receipt-wrapper w-full flex flex-col items-center">
-      {/* Print Trigger Button (Hidden in Print) */}
+      {/* Print Trigger Button */}
       {showPrintButton && (
         <div className="no-print mb-4 w-full flex justify-end gap-2 max-w-[210mm]">
           <button
@@ -470,32 +468,30 @@ export default function CitizenReceipt({
             className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg transition-all"
           >
             <Printer size={16} />
-            Print Receipt (Half-A4)
+            Print Acknowledgement Slip
           </button>
         </div>
       )}
 
-      {/* ─── HALF-A4 / A5 LANDSCAPE RECEIPT CANVAS ─── */}
+      {/* ─── ECO-FRIENDLY HALF-A4 / A5 LANDSCAPE RECEIPT CANVAS ─── */}
       <div
         id="citizen-receipt-area"
         className="citizen-receipt-container bg-white border border-slate-300 rounded-xl shadow-lg p-6 w-full max-w-[210mm] text-slate-900 select-text relative"
       >
         {/* Top Accent Stripe */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-amber-500 rounded-t-lg -mt-6 -mx-6 mb-5 px-6" />
+        <div className="h-1.5 w-full bg-gradient-to-r from-blue-900 via-blue-600 to-sky-400 rounded-t-lg -mt-6 -mx-6 mb-5 px-6" />
 
         {/* 1. Header Section */}
-        <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-4 gap-4">
+        <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4 mb-4 gap-4">
           <div className="flex items-start gap-3">
-            <div className="w-12 h-12 rounded-xl bg-blue-700 text-white flex items-center justify-center font-black text-xl shadow-md flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xl shadow-md flex-shrink-0">
               SK
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-tight">
-                  {settings.centerName || "SK ONLINE & CYBER ZONE"}
-                </h1>
-              </div>
-              <p className="text-[11px] font-semibold text-blue-700 tracking-wider uppercase mt-0.5">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-tight">
+                {settings.centerName || "SK ONLINE & CYBER ZONE"}
+              </h1>
+              <p className="text-[11px] font-bold text-blue-700 tracking-wider uppercase mt-0.5">
                 {settings.tagline || "Customer Service Acknowledgement Slip"}
               </p>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 mt-1">
@@ -515,7 +511,7 @@ export default function CitizenReceipt({
 
           {/* Right Header: Slip Badge & Serial No */}
           <div className="text-right flex-shrink-0">
-            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-900 text-white text-xs font-bold uppercase tracking-wider mb-1">
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-700 text-white text-xs font-bold uppercase tracking-wider mb-1 shadow-sm">
               <span>SL #{record.serialNo}</span>
             </div>
             <div className="text-[11px] text-slate-500 font-medium">
@@ -524,18 +520,18 @@ export default function CitizenReceipt({
           </div>
         </div>
 
-        {/* 2. Customer & Service Details (2-Column Grid) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/80 rounded-xl p-4 border border-slate-200 mb-4">
+        {/* 2. Customer & Service Details Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 rounded-xl p-4 border border-slate-200 mb-4">
           {/* Customer Details */}
           <div className="space-y-1.5 border-b sm:border-b-0 sm:border-r border-slate-200 sm:pr-4 pb-3 sm:pb-0">
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
-              <span>Customer Details</span>
+              <span>Customer Information</span>
             </div>
-            <div className="text-sm font-bold text-slate-900 leading-tight">
+            <div className="text-sm font-extrabold text-slate-900 leading-tight">
               {record.customerName || "—"}
             </div>
-            <div className="text-xs text-slate-600 font-medium">
-              Mobile: <span className="font-mono text-slate-900">{record.contactNo || "—"}</span>
+            <div className="text-xs text-slate-600">
+              Contact: <span className="font-mono font-bold text-slate-900">{record.contactNo || "—"}</span>
             </div>
             {record.address && (
               <div className="text-xs text-slate-600 leading-snug">
@@ -565,24 +561,24 @@ export default function CitizenReceipt({
           </div>
         </div>
 
-        {/* 3. Payment & Accounting Summary Card */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-xl p-4 mb-4 shadow-sm">
+        {/* 3. Eco-Friendly Ink-Saving Payment & Accounting Summary Card */}
+        <div className="bg-white border border-slate-300 rounded-xl p-4 mb-4 shadow-2xs">
           <div className="flex flex-wrap items-center justify-between gap-4">
             {/* Amount Breakdown */}
             <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
               <div>
-                <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Amount</div>
-                <div className="text-lg font-black text-white">₹{Number(record.totalAmount || 0).toLocaleString("en-IN")}</div>
+                <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Amount</div>
+                <div className="text-lg font-black text-slate-900">₹{Number(record.totalAmount || 0).toLocaleString("en-IN")}</div>
               </div>
-              <div className="h-8 w-px bg-slate-700 hidden sm:block" />
+              <div className="h-8 w-px bg-slate-200 hidden sm:block" />
               <div>
-                <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Advance Paid</div>
-                <div className="text-lg font-bold text-emerald-400">₹{Number(record.advancePaid || 0).toLocaleString("en-IN")}</div>
+                <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Advance Paid</div>
+                <div className="text-lg font-bold text-emerald-700">₹{Number(record.advancePaid || 0).toLocaleString("en-IN")}</div>
               </div>
-              <div className="h-8 w-px bg-slate-700 hidden sm:block" />
+              <div className="h-8 w-px bg-slate-200 hidden sm:block" />
               <div>
-                <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Balance Due</div>
-                <div className={`text-lg font-black ${record.dueAmount > 0 ? "text-amber-400" : "text-slate-300"}`}>
+                <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Balance Due</div>
+                <div className={`text-lg font-black ${record.dueAmount > 0 ? "text-rose-600" : "text-emerald-700"}`}>
                   ₹{Number(record.dueAmount || 0).toLocaleString("en-IN")}
                 </div>
               </div>
@@ -590,31 +586,31 @@ export default function CitizenReceipt({
 
             {/* Payment Mode & Status Badges */}
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded bg-slate-700 text-slate-200 text-xs font-bold tracking-wide">
+              <span className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-300 text-xs font-bold tracking-wide">
                 Mode: {record.paymentMode || "Cash"}
               </span>
               {isFullPaid ? (
-                <span className="flex items-center gap-1 px-3 py-1 rounded-md bg-emerald-600 text-white text-xs font-extrabold tracking-wider uppercase shadow">
-                  <CheckCircle size={13} />
+                <span className="flex items-center gap-1 px-3 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-extrabold tracking-wider uppercase">
+                  <CheckCircle size={13} className="text-emerald-600" />
                   FULL PAID
                 </span>
               ) : (
-                <span className="flex items-center gap-1 px-3 py-1 rounded-md bg-amber-500 text-slate-950 text-xs font-extrabold tracking-wider uppercase shadow">
-                  <Clock size={13} />
-                  PAYMENT DUE
+                <span className="flex items-center gap-1 px-3 py-1 rounded-md bg-amber-50 text-amber-800 border border-amber-300 text-xs font-extrabold tracking-wider uppercase">
+                  <Clock size={13} className="text-amber-600" />
+                  DUE ₹{record.dueAmount}
                 </span>
               )}
             </div>
           </div>
         </div>
 
-        {/* 4. Footer Section: Stamp & Promotional Branding */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end pt-2 border-t border-slate-200">
-          {/* Promotional Text Box */}
-          <div className="sm:col-span-2 bg-blue-50/70 border border-blue-200/80 rounded-lg p-3">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-900 uppercase tracking-wide mb-1">
-              <Sparkles size={12} className="text-amber-500" />
-              <span>Services Offered</span>
+        {/* 4. Promotional Tagline & Signatures */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end pt-3 border-t border-slate-200">
+          {/* Left: Promotional & Center Notice */}
+          <div className="sm:col-span-1 text-xs text-slate-600 space-y-1">
+            <div className="flex items-center gap-1 text-[10px] font-extrabold uppercase text-blue-700 tracking-wider">
+              <Sparkles size={11} />
+              <span>Available Services</span>
             </div>
             <p className="text-[11px] text-slate-700 font-medium leading-relaxed">
               {settings.promotionalText ||
@@ -622,17 +618,27 @@ export default function CitizenReceipt({
             </p>
           </div>
 
-          {/* Authorized Signature & Stamp */}
+          {/* Center: Customer Signature */}
+          <div className="sm:col-span-1 flex flex-col items-center justify-end text-center pt-2 sm:pt-0">
+            <div className="h-10 w-28 border border-dashed border-slate-300 rounded flex items-center justify-center text-[9px] text-slate-400 mb-1">
+              Applicant Sign
+            </div>
+            <div className="text-[10px] font-extrabold text-slate-800 uppercase tracking-wider border-t border-slate-400 pt-1 w-28 text-center">
+              Customer Sign
+            </div>
+          </div>
+
+          {/* Right: Center Stamp & Signature */}
           <div className="sm:col-span-1 flex flex-col items-center sm:items-end justify-end text-center sm:text-right pt-2 sm:pt-0">
             {settings.stampSignatureUrl ? (
               <img
                 src={settings.stampSignatureUrl}
                 alt="Authorized Stamp"
-                className="max-h-16 max-w-[120px] object-contain mb-1"
+                className="max-h-12 max-w-[100px] object-contain mb-1"
               />
             ) : (
-              <div className="h-12 w-28 border border-dashed border-slate-300 rounded flex items-center justify-center text-[10px] text-slate-400 mb-1">
-                Official Stamp
+              <div className="h-10 w-28 border border-dashed border-slate-300 rounded flex items-center justify-center text-[9px] text-slate-400 mb-1">
+                Center Seal
               </div>
             )}
             <div className="text-[10px] font-extrabold text-slate-800 uppercase tracking-wider border-t border-slate-400 pt-1 w-32 text-center">

@@ -106,6 +106,8 @@ function mapCitizenRecordToDb(r: CitizenServiceRecord): Record<string, any> {
     annual_income: String(r.totalAmount || 0),
     profession: r.paymentMode || "Cash",
     category: r.paymentStatus || (r.dueAmount === 0 ? "Full Paid" : "Partial"),
+    tenant_code: "new_csp",
+    tenant_id: "new_csp",
     family_id: JSON.stringify({
       totalAmount: r.totalAmount,
       advancePaid: r.advancePaid,
@@ -114,8 +116,9 @@ function mapCitizenRecordToDb(r: CitizenServiceRecord): Record<string, any> {
       paymentStatus: r.paymentStatus,
       portalPassword: r.portalPassword,
       notes: r.notes,
+      issuedDate: r.issuedDate,
+      deliveredDate: r.deliveredDate,
     }),
-    tenant_code: "new_csp",
   };
 }
 
@@ -151,8 +154,8 @@ function mapDbToCitizenRecord(row: any): CitizenServiceRecord {
     paymentMode,
     paymentStatus,
     status: (row.status as any) || (row.passbook_issued ? "Delivered" : row.passbook_received ? "Issued" : "Applied"),
-    issuedDate: row.passbook_received_at || null,
-    deliveredDate: row.passbook_issued_at || null,
+    issuedDate: extra.issuedDate || row.passbook_received_at || null,
+    deliveredDate: extra.deliveredDate || row.passbook_issued_at || null,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     notes: extra.notes || "",
@@ -172,20 +175,24 @@ export async function addCitizenRecord(record: CitizenServiceRecord): Promise<{ 
 
   try {
     const payload = mapCitizenRecordToDb(record);
-    // Insert into customers table (scoped to tenant_code: 'new_csp')
-    await supabase.from("customers").insert([payload]);
-    
-    // Also insert into citizen_services table if table exists
+
+    // 1. Insert into customers table (scoped to tenant_code: 'new_csp')
+    const { error: custErr } = await supabase.from("customers").upsert([payload]);
+    if (custErr) {
+      console.warn("customers table upsert error:", custErr);
+    }
+
+    // 2. Also insert into citizen_services table if table exists
     try {
       await (supabase as any).from("citizen_services").upsert([payload]);
-    } catch {
-      // Ignored if citizen_services table is not created in Supabase
+    } catch (e) {
+      // Ignored
     }
-    
+
     return { error: null, data: payload };
   } catch (err: any) {
-    console.warn("Network error syncing citizen record to Supabase:", err);
-    return { error: null };
+    console.error("Network error syncing citizen record to Supabase:", err);
+    return { error: err };
   }
 }
 
@@ -226,11 +233,12 @@ export async function updateCitizenRecord(id: string, updates: Partial<CitizenSe
     } catch {
       // Ignored
     }
-  } catch (err) {
-    console.warn("Error syncing citizen update to Supabase:", err);
-  }
 
-  return { error: null };
+    return { error: null };
+  } catch (err) {
+    console.error("Error syncing citizen update to Supabase:", err);
+    return { error: err };
+  }
 }
 
 export async function settleCitizenDue(id: string, paymentMode: "Cash" | "UPI"): Promise<{ error: any }> {
@@ -253,15 +261,59 @@ export async function deleteCitizenRecord(id: string): Promise<{ error: any }> {
 
   try {
     // Explicit Supabase deletion for citizen_services and customers tables
-    const [delCitizenRes, delCustRes] = await Promise.allSettled([
+    await Promise.allSettled([
       (supabase as any).from("citizen_services").delete().eq("id", id),
-      supabase.from("customers").delete().eq("id", id)
+      supabase.from("customers").delete().eq("id", id).eq("tenant_code", "new_csp")
     ]);
 
     return { error: null };
   } catch (err: any) {
-    console.warn("Error deleting citizen record from Supabase:", err);
-    return { error: null };
+    console.error("Error deleting citizen record from Supabase:", err);
+    return { error: err };
+  }
+}
+
+export async function fetchCitizenRecordsFromSupabase(): Promise<CitizenServiceRecord[]> {
+  try {
+    let recordsData: any[] | null = null;
+
+    // 1. Try citizen_services table
+    try {
+      const res = await (supabase as any)
+        .from("citizen_services")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!res.error && res.data && res.data.length > 0) {
+        recordsData = res.data;
+      }
+    } catch {
+      // Fallback
+    }
+
+    // 2. Fallback to customers table
+    if (!recordsData || recordsData.length === 0) {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("tenant_code", "new_csp")
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        recordsData = data;
+      }
+    }
+
+    if (recordsData && recordsData.length > 0) {
+      const mapped = recordsData.map(mapDbToCitizenRecord);
+      saveCitizenRecords(mapped);
+      return mapped;
+    }
+
+    return getCitizenRecords();
+  } catch (err) {
+    console.error("Failed to fetch citizen data from Supabase:", err);
+    return getCitizenRecords();
   }
 }
 
@@ -281,16 +333,7 @@ export async function syncCitizenFromSupabase(): Promise<void> {
     }
 
     // 2. Sync Records
-    const { data: recordsData, error } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("tenant_code", "new_csp")
-      .order("created_at", { ascending: false });
-
-    if (!error && recordsData && recordsData.length > 0) {
-      const mapped = recordsData.map(mapDbToCitizenRecord);
-      saveCitizenRecords(mapped);
-    }
+    await fetchCitizenRecordsFromSupabase();
   } catch (err) {
     console.warn("Failed to sync citizen data from Supabase:", err);
   }

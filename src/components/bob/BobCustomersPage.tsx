@@ -5,7 +5,7 @@ import {
   Trash2, Edit, RefreshCw, ArrowLeft, ShieldCheck, CheckCircle
 } from "lucide-react";
 import type { BobCustomerRecord } from "@/types/bob";
-import { getBobCustomers, deleteBobCustomer, syncBobFromSupabase } from "@/lib/bobStorage";
+import { getBobCustomers, deleteBobCustomer, fetchBobCustomersFromSupabase } from "@/lib/bobStorage";
 import { exportToCSV, formatDateTime } from "@/lib/utils";
 import BobReceiptModal from "./BobReceiptModal";
 import BobCustomerForm from "./BobCustomerForm";
@@ -25,8 +25,10 @@ export default function BobCustomersPage() {
     setLoading(true);
     setRecords(getBobCustomers());
     try {
-      await syncBobFromSupabase();
-      setRecords(getBobCustomers());
+      const live = await fetchBobCustomersFromSupabase();
+      if (live && live.length >= 0) {
+        setRecords(live);
+      }
     } finally {
       setLoading(false);
     }
@@ -86,9 +88,13 @@ export default function BobCustomersPage() {
         PMSBY: r.enrollPMSBY ? "Yes" : "No",
         PMJJBY: r.enrollPMJJBY ? "Yes" : "No",
         "Passbook Issued": r.passbookIssued ? "Yes" : "No",
-        "Passbook Date": r.passbookIssuedAt || "",
+        "Passbook Issued Date": r.passbookIssuedAt || "",
+        "Passbook Delivered": r.passbookDelivered ? "Yes" : "No",
+        "Passbook Delivered Date": r.passbookDeliveredAt || "",
         "ATM Issued": r.atmIssued ? "Yes" : "No",
-        "ATM Date": r.atmIssuedAt || "",
+        "ATM Issued Date": r.atmIssuedAt || "",
+        "ATM Delivered": r.atmDelivered ? "Yes" : "No",
+        "ATM Delivered Date": r.atmDeliveredAt || "",
         "Created At": formatDateTime(r.createdAt),
       })),
       "bank-of-baroda-customers"
@@ -270,11 +276,11 @@ export default function BobCustomersPage() {
                   </td>
                   <td className="py-3 px-4 text-center">
                     <div className="flex flex-col gap-0.5 items-center">
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${r.passbookIssued ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"}`}>
-                        PB: {r.passbookIssued ? "✓" : "Pending"}
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${r.passbookDelivered ? "bg-emerald-100 text-emerald-800" : r.passbookIssued ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-500"}`}>
+                        PB: {r.passbookDelivered ? "Delivered" : r.passbookIssued ? "Issued" : "Pending"}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${r.atmIssued ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"}`}>
-                        ATM: {r.atmIssued ? "✓" : "Pending"}
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${r.atmDelivered ? "bg-emerald-100 text-emerald-800" : r.atmIssued ? "bg-violet-100 text-violet-800" : "bg-slate-100 text-slate-500"}`}>
+                        ATM: {r.atmDelivered ? "Delivered" : r.atmIssued ? "Issued" : "Pending"}
                       </span>
                     </div>
                   </td>

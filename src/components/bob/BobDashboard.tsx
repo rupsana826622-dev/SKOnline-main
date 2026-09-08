@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users, UserPlus, Truck, ShieldCheck, Download,
-  RefreshCw, CheckCircle, Clock, AlertCircle, Printer
+  RefreshCw, CheckCircle, Clock, AlertCircle, Printer, Package, CreditCard
 } from "lucide-react";
-import { getBobCustomers, syncBobFromSupabase } from "@/lib/bobStorage";
+import { getBobCustomers, fetchBobCustomersFromSupabase } from "@/lib/bobStorage";
 import type { BobCustomerRecord } from "@/types/bob";
 import { exportToCSV, formatDateTime } from "@/lib/utils";
 import BobReceiptModal from "./BobReceiptModal";
@@ -21,8 +21,10 @@ export default function BobDashboard() {
     setLoading(true);
     setRecords(getBobCustomers());
     try {
-      await syncBobFromSupabase();
-      setRecords(getBobCustomers());
+      const live = await fetchBobCustomersFromSupabase();
+      if (live && live.length >= 0) {
+        setRecords(live);
+      }
     } finally {
       setLoading(false);
     }
@@ -39,8 +41,10 @@ export default function BobDashboard() {
   }, []);
 
   const totalAccounts = records.length;
-  const pendingPassbooks = records.filter(r => !r.passbookIssued).length;
-  const pendingAtm = records.filter(r => !r.atmIssued).length;
+  const pbIssued = records.filter(r => r.passbookIssued).length;
+  const pbDelivered = records.filter(r => r.passbookDelivered).length;
+  const atmIssued = records.filter(r => r.atmIssued).length;
+  const atmDelivered = records.filter(r => r.atmDelivered).length;
   const apyEnrolled = records.filter(r => r.enrollAPY).length;
   const pmsbyEnrolled = records.filter(r => r.enrollPMSBY).length;
   const pmjjbyEnrolled = records.filter(r => r.enrollPMJJBY).length;
@@ -66,7 +70,9 @@ export default function BobDashboard() {
         PMSBY: r.enrollPMSBY ? "Yes" : "No",
         PMJJBY: r.enrollPMJJBY ? "Yes" : "No",
         "Passbook Issued": r.passbookIssued ? "Yes" : "No",
+        "Passbook Delivered": r.passbookDelivered ? "Yes" : "No",
         "ATM Issued": r.atmIssued ? "Yes" : "No",
+        "ATM Delivered": r.atmDelivered ? "Yes" : "No",
         "Created At": formatDateTime(r.createdAt),
       })),
       "bank-of-baroda-records"
@@ -75,11 +81,11 @@ export default function BobDashboard() {
   };
 
   const stats = [
-    { label: "Total BOB Accounts", value: totalAccounts, icon: Users, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200" },
-    { label: "Pending Passbooks", value: pendingPassbooks, icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
-    { label: "Pending ATM Cards", value: pendingAtm, icon: AlertCircle, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-200" },
-    { label: "APY Enrolled", value: apyEnrolled, icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200" },
-    { label: "PMSBY / PMJJBY", value: pmsbyEnrolled + pmjjbyEnrolled, icon: CheckCircle, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
+    { label: "Total Accounts", value: totalAccounts, icon: Users, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200" },
+    { label: "Passbooks Issued", value: pbIssued, icon: Package, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
+    { label: "Passbooks Delivered", value: pbDelivered, icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200" },
+    { label: "ATMs Issued", value: atmIssued, icon: CreditCard, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-200" },
+    { label: "ATMs Delivered", value: atmDelivered, icon: CheckCircle, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
   ];
 
   return (
@@ -95,7 +101,7 @@ export default function BobDashboard() {
           <div>
             <h1 className="text-xl font-bold text-slate-900">Bank of Baroda CSP Console</h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Customer Service Point account register, deliverables & social security schemes
+              Customer Service Point account register, 4-stage deliverables & social security schemes
             </p>
           </div>
         </div>
@@ -149,7 +155,7 @@ export default function BobDashboard() {
             className="flex items-center gap-3 p-3.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs shadow-sm hover:shadow transition-all"
           >
             <Truck size={18} />
-            <span>Delivery Tracker</span>
+            <span>Delivery Tracker (4-Stage)</span>
           </button>
           <button
             onClick={() => navigate("/customers")}
@@ -217,9 +223,14 @@ export default function BobDashboard() {
                     </div>
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.passbookIssued ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"}`}>
-                      PB: {r.passbookIssued ? "✓" : "Pending"}
-                    </span>
+                    <div className="flex flex-col gap-0.5 items-center">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.passbookDelivered ? "bg-emerald-100 text-emerald-800" : r.passbookIssued ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-500"}`}>
+                        PB: {r.passbookDelivered ? "Delivered" : r.passbookIssued ? "Issued" : "Pending"}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.atmDelivered ? "bg-emerald-100 text-emerald-800" : r.atmIssued ? "bg-violet-100 text-violet-800" : "bg-slate-100 text-slate-500"}`}>
+                        ATM: {r.atmDelivered ? "Delivered" : r.atmIssued ? "Issued" : "Pending"}
+                      </span>
+                    </div>
                   </td>
                   <td className="py-3 px-4 text-right">
                     <button

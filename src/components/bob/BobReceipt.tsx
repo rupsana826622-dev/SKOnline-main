@@ -12,7 +12,7 @@ interface BobReceiptProps {
 
 /**
  * Standalone print engine for Bank of Baroda Customer Acknowledgment Slip.
- * Inlines full typography, orange (#F26522) palette, borders, and stamp to guarantee no blank page rendering.
+ * Inlines full typography, orange (#EA580C) palette, clean eco-friendly borders, and stamp.
  */
 export function printBobReceipt(record: BobCustomerRecord, customSettings?: BobSettings) {
   const settings = customSettings || getBobSettings();
@@ -21,6 +21,23 @@ export function printBobReceipt(record: BobCustomerRecord, customSettings?: BobS
     month: "short",
     year: "numeric",
   });
+
+  const fmt = (iso?: string | null) => {
+    if (!iso) return "";
+    return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const passbookStatus = record.passbookDelivered
+    ? `Delivered (${fmt(record.passbookDeliveredAt) || "Done"})`
+    : record.passbookIssued
+    ? `Issued (${fmt(record.passbookIssuedAt) || "Done"})`
+    : "Under Processing";
+
+  const atmStatus = record.atmDelivered
+    ? `Delivered (${fmt(record.atmDeliveredAt) || "Done"})`
+    : record.atmIssued
+    ? `Issued (${fmt(record.atmIssuedAt) || "Done"})`
+    : "Under Processing";
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -168,9 +185,12 @@ export function printBobReceipt(record: BobCustomerRecord, customSettings?: BobS
       font-weight: 700;
       color: #0f172a;
     }
+
+    /* ─── ECO-FRIENDLY INK-SAVING FINANCIAL CARD ─── */
     .financial-card {
-      background: #0f172a;
-      color: #ffffff;
+      background: #ffffff;
+      color: #0f172a;
+      border: 1px solid #ea580c;
       border-radius: 8px;
       padding: 10px 14px;
       margin-bottom: 12px;
@@ -183,13 +203,13 @@ export function printBobReceipt(record: BobCustomerRecord, customSettings?: BobS
       font-size: 9px;
       font-weight: 700;
       text-transform: uppercase;
-      color: #fdba74;
+      color: #ea580c;
       letter-spacing: 0.5px;
     }
     .amount-item .val {
       font-size: 13px;
       font-weight: 900;
-      color: #ffffff;
+      color: #0f172a;
       font-family: monospace;
     }
     .schemes-card {
@@ -312,7 +332,7 @@ export function printBobReceipt(record: BobCustomerRecord, customSettings?: BobS
       </div>
     </div>
 
-    <!-- 3. Banking & Financial Details -->
+    <!-- 3. Eco-Friendly Ink-Saving Banking Details -->
     <div class="financial-card">
       <div class="amount-item">
         <div class="lbl">Account Number</div>
@@ -346,14 +366,14 @@ export function printBobReceipt(record: BobCustomerRecord, customSettings?: BobS
       </div>
     </div>
 
-    <!-- 5. Footer & Delivery Tracker -->
+    <!-- 5. Footer & 4-Stage Delivery Status -->
     <div class="footer-row">
       <div class="delivery-box">
         <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #ea580c; margin-bottom: 2px;">
           Deliverables Status
         </div>
-        <div>Passbook: <strong>${record.passbookIssued ? "Issued (" + (record.passbookIssuedAt ? new Date(record.passbookIssuedAt).toLocaleDateString("en-IN") : "Done") + ")" : "Under Processing"}</strong></div>
-        <div>ATM Card: <strong>${record.atmIssued ? "Issued (" + (record.atmIssuedAt ? new Date(record.atmIssuedAt).toLocaleDateString("en-IN") : "Done") + ")" : "Under Processing"}</strong></div>
+        <div>Passbook: <strong>${passbookStatus}</strong></div>
+        <div>ATM Card: <strong>${atmStatus}</strong></div>
       </div>
 
       <div class="sig-box">
@@ -436,6 +456,23 @@ export default function BobReceipt({
     month: "short",
     year: "numeric",
   });
+
+  const fmt = (iso?: string | null) => {
+    if (!iso) return "";
+    return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const passbookStatus = record.passbookDelivered
+    ? `Delivered (${fmt(record.passbookDeliveredAt) || "Done"})`
+    : record.passbookIssued
+    ? `Issued (${fmt(record.passbookIssuedAt) || "Done"})`
+    : "Under Processing";
+
+  const atmStatus = record.atmDelivered
+    ? `Delivered (${fmt(record.atmDeliveredAt) || "Done"})`
+    : record.atmIssued
+    ? `Issued (${fmt(record.atmIssuedAt) || "Done"})`
+    : "Under Processing";
 
   return (
     <div className="bob-receipt-wrapper w-full flex flex-col items-center">
@@ -541,20 +578,20 @@ export default function BobReceipt({
           </div>
         </div>
 
-        {/* 3. Financial Card */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-xl p-4 mb-4 shadow-sm">
+        {/* 3. Eco-Friendly Ink-Saving Financial Card */}
+        <div className="bg-white border border-orange-300 rounded-xl p-4 mb-4 shadow-2xs">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
             <div>
-              <div className="text-[10px] uppercase font-bold text-orange-400 tracking-wider">Account Number</div>
-              <div className="text-base font-mono font-black text-white">{record.accountNo || "PENDING"}</div>
+              <div className="text-[10px] uppercase font-bold text-orange-700 tracking-wider">Account Number</div>
+              <div className="text-base font-mono font-black text-slate-900">{record.accountNo || "PENDING"}</div>
             </div>
-            <div className="border-t sm:border-t-0 sm:border-l border-slate-700 pt-2 sm:pt-0 sm:pl-4">
-              <div className="text-[10px] uppercase font-bold text-orange-400 tracking-wider">CIF Number</div>
-              <div className="text-sm font-mono font-bold text-emerald-400">{record.cifNo || "PENDING"}</div>
+            <div className="border-t sm:border-t-0 sm:border-l border-slate-200 pt-2 sm:pt-0 sm:pl-4">
+              <div className="text-[10px] uppercase font-bold text-orange-700 tracking-wider">CIF Number</div>
+              <div className="text-sm font-mono font-bold text-slate-900">{record.cifNo || "PENDING"}</div>
             </div>
-            <div className="border-t sm:border-t-0 sm:border-l border-slate-700 pt-2 sm:pt-0 sm:pl-4">
-              <div className="text-[10px] uppercase font-bold text-orange-400 tracking-wider">Reference NO</div>
-              <div className="text-sm font-mono font-bold text-slate-200">{record.refNo || "—"}</div>
+            <div className="border-t sm:border-t-0 sm:border-l border-slate-200 pt-2 sm:pt-0 sm:pl-4">
+              <div className="text-[10px] uppercase font-bold text-orange-700 tracking-wider">Reference NO</div>
+              <div className="text-sm font-mono font-bold text-slate-700">{record.refNo || "—"}</div>
             </div>
           </div>
         </div>
@@ -589,7 +626,7 @@ export default function BobReceipt({
           </div>
         </div>
 
-        {/* 5. Footer & Deliverables */}
+        {/* 5. Footer & 4-Stage Deliverables Status */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end pt-3 border-t border-orange-200">
           {/* Deliverables summary */}
           <div className="sm:col-span-1 text-xs text-slate-600 space-y-1">
@@ -599,13 +636,13 @@ export default function BobReceipt({
             <div>
               Passbook:{" "}
               <span className="font-bold text-slate-800">
-                {record.passbookIssued ? "Issued" : "Under Processing"}
+                {passbookStatus}
               </span>
             </div>
             <div>
               ATM Card:{" "}
               <span className="font-bold text-slate-800">
-                {record.atmIssued ? "Issued" : "Under Processing"}
+                {atmStatus}
               </span>
             </div>
           </div>

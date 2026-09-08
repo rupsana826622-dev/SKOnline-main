@@ -4,7 +4,7 @@ import {
   Phone, User, Package, AlertCircle, Printer, Eye
 } from "lucide-react";
 import type { CitizenServiceRecord } from "@/types/citizen";
-import { getCitizenRecords, updateCitizenRecord } from "@/lib/citizenStorage";
+import { getCitizenRecords, updateCitizenRecord, syncCitizenFromSupabase } from "@/lib/citizenStorage";
 import { toast } from "sonner";
 import CitizenReceiptModal from "./CitizenReceiptModal";
 
@@ -84,6 +84,9 @@ export default function CitizenDeliveryTracker() {
 
   useEffect(() => {
     setRecords(getCitizenRecords());
+    syncCitizenFromSupabase().then(() => {
+      setRecords(getCitizenRecords());
+    });
 
     const handleUpdate = () => {
       setRecords(getCitizenRecords());

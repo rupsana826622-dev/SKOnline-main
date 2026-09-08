@@ -157,11 +157,19 @@ export default function CitizenServiceForm({ initialRecord, onSuccess, onCancel 
       };
 
       if (initialRecord) {
-        await updateCitizenRecord(initialRecord.id, recordPayload);
-        toast.success(`Service record SL #${recordPayload.serialNo} updated successfully!`);
+        const res = await updateCitizenRecord(initialRecord.id, recordPayload);
+        if (res.error) {
+          toast.error("Warning: Saved locally, but failed to sync to Supabase.");
+        } else {
+          toast.success(`Service record SL #${recordPayload.serialNo} updated successfully!`);
+        }
       } else {
-        await addCitizenRecord(recordPayload);
-        toast.success(`New service application SL #${recordPayload.serialNo} saved!`);
+        const res = await addCitizenRecord(recordPayload);
+        if (res.error) {
+          toast.error("Warning: Saved locally, but failed to sync to Supabase.");
+        } else {
+          toast.success(`New service application SL #${recordPayload.serialNo} saved!`);
+        }
       }
 
       setSubmittedRecord(recordPayload);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Search, Truck, Package, CreditCard, CheckCircle, Clock, Calendar } from "lucide-react";
-import { getBobCustomers, updateBobCustomer } from "@/lib/bobStorage";
+import { Search, Truck, Package, CreditCard, CheckCircle, Clock, Calendar, RefreshCw } from "lucide-react";
+import { getBobCustomers, updateBobCustomer, fetchBobCustomersFromSupabase } from "@/lib/bobStorage";
 import type { BobCustomerRecord } from "@/types/bob";
 import { toast } from "sonner";
 import SEO from "@/components/common/SEO";
@@ -9,7 +9,7 @@ type DeliveryFilter = "All" | "Passbook Pending" | "ATM Pending" | "Fully Delive
 
 type PickerTarget = {
   customerId: string;
-  field: "passbookIssued" | "atmIssued";
+  field: "passbookIssued" | "passbookDelivered" | "atmIssued" | "atmDelivered";
 } | null;
 
 function DatePickerPopover({
@@ -48,7 +48,7 @@ function DatePickerPopover({
     >
       <div className="flex items-center gap-2 mb-3">
         <Calendar size={14} className="text-orange-600" />
-        <span className="text-xs font-bold text-slate-700">Select Issuance Date</span>
+        <span className="text-xs font-bold text-slate-700">Select Date</span>
       </div>
       <input
         type="date"
@@ -82,6 +82,7 @@ function DeliveryToggle({
   onToggle,
   onRequestDate,
   label,
+  disabled,
   pickerOpen,
   onPickerConfirm,
   onPickerCancel,
@@ -90,6 +91,7 @@ function DeliveryToggle({
   onToggle: () => void;
   onRequestDate: () => void;
   label: string;
+  disabled?: boolean;
   pickerOpen: boolean;
   onPickerConfirm: (iso: string) => void;
   onPickerCancel: () => void;
@@ -100,18 +102,21 @@ function DeliveryToggle({
         onClick={() => {
           if (checked) {
             onToggle();
-          } else {
+          } else if (!disabled) {
             onRequestDate();
           }
         }}
-        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+        disabled={disabled && !checked}
+        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all ${
           checked
             ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300"
+            : disabled
+            ? "bg-slate-50 text-slate-300 border border-slate-200 cursor-not-allowed"
             : "bg-slate-100 text-slate-600 hover:bg-orange-100 hover:text-orange-700 border border-slate-200"
         }`}
       >
-        {checked ? <CheckCircle size={13} /> : <Clock size={13} />}
-        <span className="whitespace-nowrap max-w-[100px] truncate">{label}</span>
+        {checked ? <CheckCircle size={13} className="flex-shrink-0" /> : <Clock size={13} className="flex-shrink-0" />}
+        <span className="whitespace-nowrap max-w-[85px] truncate">{label}</span>
       </button>
       {pickerOpen && (
         <DatePickerPopover
@@ -128,9 +133,23 @@ export default function BobDeliveryTracker() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<DeliveryFilter>("All");
   const [picker, setPicker] = useState<PickerTarget>(null);
+  const [loading, setLoading] = useState(false);
+
+  const loadData = async () => {
+    setLoading(true);
+    setCustomers(getBobCustomers());
+    try {
+      const live = await fetchBobCustomersFromSupabase();
+      if (live && live.length >= 0) {
+        setCustomers(live);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setCustomers(getBobCustomers());
+    loadData();
 
     const handleUpdate = () => {
       setCustomers(getBobCustomers());
@@ -139,7 +158,7 @@ export default function BobDeliveryTracker() {
     return () => window.removeEventListener("bob-data-updated", handleUpdate);
   }, []);
 
-  const uncheck = async (id: string, field: "passbookIssued" | "atmIssued") => {
+  const uncheck = async (id: string, field: "passbookIssued" | "passbookDelivered" | "atmIssued" | "atmDelivered") => {
     const c = customers.find(item => item.id === id);
     if (!c) return;
 
@@ -147,14 +166,24 @@ export default function BobDeliveryTracker() {
     if (field === "passbookIssued") {
       updates.passbookIssued = false;
       updates.passbookIssuedAt = null;
-    } else {
+    } else if (field === "passbookDelivered") {
+      updates.passbookDelivered = false;
+      updates.passbookDeliveredAt = null;
+    } else if (field === "atmIssued") {
       updates.atmIssued = false;
       updates.atmIssuedAt = null;
+    } else if (field === "atmDelivered") {
+      updates.atmDelivered = false;
+      updates.atmDeliveredAt = null;
     }
 
-    await updateBobCustomer(id, updates);
-    setCustomers(getBobCustomers());
-    toast.success("Delivery status reset.");
+    const res = await updateBobCustomer(id, updates);
+    if (res.error) {
+      toast.error("Failed to update status in Supabase.");
+    } else {
+      setCustomers(getBobCustomers());
+      toast.success("Delivery status reset.");
+    }
   };
 
   const confirmDate = async (isoDate: string) => {
@@ -170,15 +199,36 @@ export default function BobDeliveryTracker() {
     if (field === "passbookIssued") {
       updates.passbookIssued = true;
       updates.passbookIssuedAt = isoDate;
-    } else {
+    } else if (field === "passbookDelivered") {
+      updates.passbookDelivered = true;
+      updates.passbookDeliveredAt = isoDate;
+      // Auto mark issued if not already marked
+      if (!c.passbookIssued) {
+        updates.passbookIssued = true;
+        updates.passbookIssuedAt = isoDate;
+      }
+    } else if (field === "atmIssued") {
       updates.atmIssued = true;
       updates.atmIssuedAt = isoDate;
+    } else if (field === "atmDelivered") {
+      updates.atmDelivered = true;
+      updates.atmDeliveredAt = isoDate;
+      // Auto mark issued if not already marked
+      if (!c.atmIssued) {
+        updates.atmIssued = true;
+        updates.atmIssuedAt = isoDate;
+      }
     }
 
-    await updateBobCustomer(customerId, updates);
-    setCustomers(getBobCustomers());
+    const res = await updateBobCustomer(customerId, updates);
     setPicker(null);
-    toast.success("Delivery date updated successfully.");
+
+    if (res.error) {
+      toast.error("Failed to save delivery date to Supabase.");
+    } else {
+      setCustomers(getBobCustomers());
+      toast.success("Delivery date updated and saved to Supabase.");
+    }
   };
 
   const filtered = useMemo(() => {
@@ -193,9 +243,9 @@ export default function BobDeliveryTracker() {
 
       const filterMatch =
         filter === "All" ||
-        (filter === "Passbook Pending" && !c.passbookIssued) ||
-        (filter === "ATM Pending" && !c.atmIssued) ||
-        (filter === "Fully Delivered" && c.passbookIssued && c.atmIssued);
+        (filter === "Passbook Pending" && !c.passbookDelivered) ||
+        (filter === "ATM Pending" && !c.atmDelivered) ||
+        (filter === "Fully Delivered" && c.passbookDelivered && c.atmDelivered);
 
       return match && filterMatch;
     });
@@ -204,46 +254,56 @@ export default function BobDeliveryTracker() {
   const stats = {
     total: customers.length,
     pbIssued: customers.filter(c => c.passbookIssued).length,
-    pbPending: customers.filter(c => !c.passbookIssued).length,
+    pbDelivered: customers.filter(c => c.passbookDelivered).length,
     atmIssued: customers.filter(c => c.atmIssued).length,
-    atmPending: customers.filter(c => !c.atmIssued).length,
-    fullyDone: customers.filter(c => c.passbookIssued && c.atmIssued).length,
+    atmDelivered: customers.filter(c => c.atmDelivered).length,
+    fullyDelivered: customers.filter(c => c.passbookDelivered && c.atmDelivered).length,
   };
 
   const fmtDate = (iso?: string | null) => {
     if (!iso) return "—";
-    return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
   };
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
-      <SEO title="Bank of Baroda Delivery Tracker" />
+      <SEO title="Bank of Baroda 4-Stage Delivery Tracker" />
 
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-          <Truck size={20} className="text-orange-600" />
-          Bank of Baroda Delivery Tracker
-        </h1>
-        <p className="text-sm text-slate-500 mt-0.5">
-          Track passbook and ATM card deliverables with inline date assignment
-        </p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <Truck size={20} className="text-orange-600" />
+            Bank of Baroda Delivery Tracker
+          </h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            4-Stage lifecycle management for Passbooks and ATM cards with instant calendar date logging
+          </p>
+        </div>
+
+        <button
+          onClick={loadData}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
+        >
+          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          Refresh
+        </button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards: 4 Milestones + Fully Delivered */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Passbook Issued", value: stats.pbIssued, icon: Package, color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Passbook Pending", value: stats.pbPending, icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
+          { label: "Passbook Delivered", value: stats.pbDelivered, icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50" },
           { label: "ATM Issued", value: stats.atmIssued, icon: CreditCard, color: "text-violet-600", bg: "bg-violet-50" },
-          { label: "Fully Delivered", value: stats.fullyDone, icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50" },
+          { label: "ATM Delivered / Complete", value: stats.atmDelivered, icon: CheckCircle, color: "text-orange-600", bg: "bg-orange-50" },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
             <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center mb-2`}>
               <Icon size={16} className={color} />
             </div>
-            <div className={`text-2xl font-extrabold ${color}`}>{value}</div>
-            <div className="text-xs text-slate-500 font-medium mt-0.5 leading-tight">{label}</div>
+            <div className={`text-2xl font-black ${color}`}>{value}</div>
+            <div className="text-xs text-slate-600 font-semibold mt-0.5 leading-tight">{label}</div>
           </div>
         ))}
       </div>
@@ -276,37 +336,41 @@ export default function BobDeliveryTracker() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* 4-Stage Delivery Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4">SL NO</th>
-                <th className="py-3 px-4">Customer Details</th>
-                <th className="py-3 px-4">Account Number</th>
-                <th className="py-3 px-4">Mobile</th>
-                <th className="py-3 px-4 text-center">Passbook Issued</th>
-                <th className="py-3 px-4 text-center">ATM Card Issued</th>
+                <th className="py-3 px-3">SL NO</th>
+                <th className="py-3 px-3">Customer Details</th>
+                <th className="py-3 px-3">Account Number</th>
+                <th className="py-3 px-3">Mobile</th>
+                <th className="py-3 px-2 text-center text-blue-800">Passbook Issued</th>
+                <th className="py-3 px-2 text-center text-emerald-800">Passbook Delivered</th>
+                <th className="py-3 px-2 text-center text-violet-800">ATM Issued</th>
+                <th className="py-3 px-2 text-center text-orange-800">ATM Delivered</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
               {filtered.map(c => (
                 <tr key={c.id} className="hover:bg-orange-50/30 transition-colors">
-                  <td className="py-3 px-4 font-mono font-bold text-orange-700">
+                  <td className="py-3 px-3 font-mono font-bold text-orange-700">
                     SL #{c.slNo}
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-3">
                     <div className="font-bold text-slate-900">{c.customerName}</div>
                     {c.guardianName && <div className="text-[11px] text-slate-500">C/O: {c.guardianName}</div>}
                   </td>
-                  <td className="py-3 px-4 font-mono font-bold text-slate-800">
+                  <td className="py-3 px-3 font-mono font-bold text-slate-800">
                     {c.accountNo || "—"}
                   </td>
-                  <td className="py-3 px-4 font-mono text-slate-600">
+                  <td className="py-3 px-3 font-mono text-slate-600">
                     {c.mobile}
                   </td>
-                  <td className="py-3 px-4 text-center">
+
+                  {/* 1. Passbook Issued */}
+                  <td className="py-3 px-2 text-center">
                     <DeliveryToggle
                       checked={c.passbookIssued}
                       onToggle={() => uncheck(c.id, "passbookIssued")}
@@ -317,7 +381,22 @@ export default function BobDeliveryTracker() {
                       onPickerCancel={() => setPicker(null)}
                     />
                   </td>
-                  <td className="py-3 px-4 text-center">
+
+                  {/* 2. Passbook Delivered */}
+                  <td className="py-3 px-2 text-center">
+                    <DeliveryToggle
+                      checked={c.passbookDelivered}
+                      onToggle={() => uncheck(c.id, "passbookDelivered")}
+                      onRequestDate={() => setPicker({ customerId: c.id, field: "passbookDelivered" })}
+                      label={c.passbookDelivered ? `✓ ${fmtDate(c.passbookDeliveredAt)}` : "Set Date"}
+                      pickerOpen={picker?.customerId === c.id && picker?.field === "passbookDelivered"}
+                      onPickerConfirm={confirmDate}
+                      onPickerCancel={() => setPicker(null)}
+                    />
+                  </td>
+
+                  {/* 3. ATM Issued */}
+                  <td className="py-3 px-2 text-center">
                     <DeliveryToggle
                       checked={c.atmIssued}
                       onToggle={() => uncheck(c.id, "atmIssued")}
@@ -328,12 +407,25 @@ export default function BobDeliveryTracker() {
                       onPickerCancel={() => setPicker(null)}
                     />
                   </td>
+
+                  {/* 4. ATM Delivered */}
+                  <td className="py-3 px-2 text-center">
+                    <DeliveryToggle
+                      checked={c.atmDelivered}
+                      onToggle={() => uncheck(c.id, "atmDelivered")}
+                      onRequestDate={() => setPicker({ customerId: c.id, field: "atmDelivered" })}
+                      label={c.atmDelivered ? `✓ ${fmtDate(c.atmDeliveredAt)}` : "Set Date"}
+                      pickerOpen={picker?.customerId === c.id && picker?.field === "atmDelivered"}
+                      onPickerConfirm={confirmDate}
+                      onPickerCancel={() => setPicker(null)}
+                    />
+                  </td>
                 </tr>
               ))}
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     No matching delivery records found.
                   </td>
                 </tr>

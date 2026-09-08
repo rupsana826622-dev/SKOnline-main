@@ -17,11 +17,16 @@ export interface BobCustomerRecord {
   enrollPMSBY: boolean;
   enrollPMJJBY: boolean;
 
-  // Delivery Tracking
+  // 4-Stage Delivery Tracking
   passbookIssued: boolean;
   passbookIssuedAt?: string | null;
+  passbookDelivered: boolean;
+  passbookDeliveredAt?: string | null;
+
   atmIssued: boolean;
   atmIssuedAt?: string | null;
+  atmDelivered: boolean;
+  atmDeliveredAt?: string | null;
 
   // Metadata
   notes?: string;

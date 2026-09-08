@@ -109,8 +109,12 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
         enrollPMJJBY,
         passbookIssued: initialRecord?.passbookIssued || false,
         passbookIssuedAt: initialRecord?.passbookIssuedAt || null,
+        passbookDelivered: initialRecord?.passbookDelivered || false,
+        passbookDeliveredAt: initialRecord?.passbookDeliveredAt || null,
         atmIssued: initialRecord?.atmIssued || false,
         atmIssuedAt: initialRecord?.atmIssuedAt || null,
+        atmDelivered: initialRecord?.atmDelivered || false,
+        atmDeliveredAt: initialRecord?.atmDeliveredAt || null,
         notes: notes.trim(),
         createdAt: initialRecord?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -119,11 +123,19 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
       };
 
       if (initialRecord) {
-        await updateBobCustomer(initialRecord.id, recordPayload);
-        toast.success(`Bank of Baroda account SL #${recordPayload.slNo} updated successfully!`);
+        const res = await updateBobCustomer(initialRecord.id, recordPayload);
+        if (res.error) {
+          toast.error("Warning: Saved locally, but failed to sync to Supabase.");
+        } else {
+          toast.success(`Bank of Baroda account SL #${recordPayload.slNo} updated successfully!`);
+        }
       } else {
-        await addBobCustomer(recordPayload);
-        toast.success(`New Bank of Baroda account SL #${recordPayload.slNo} registered!`);
+        const res = await addBobCustomer(recordPayload);
+        if (res.error) {
+          toast.error("Warning: Saved locally, but failed to sync to Supabase.");
+        } else {
+          toast.success(`New Bank of Baroda account SL #${recordPayload.slNo} registered!`);
+        }
       }
 
       setSubmittedRecord(recordPayload);
