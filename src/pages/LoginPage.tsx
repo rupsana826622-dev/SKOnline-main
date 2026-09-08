@@ -32,14 +32,19 @@ export default function LoginPage() {
     // All credential verification runs against the database on every attempt.
     // No hardcoded usernames or passwords exist in client code.
     try {
-      const { data: tenant, error: dbError } = await supabase
+      const { data: tenant, error } = await supabase
         .from("tenants")
         .select("*")
-        .eq("username", user)
+        .ilike("username", user)
         .eq("password", pass)
-        .single();
+        .maybeSingle();
 
-      if (dbError || !tenant) {
+      if (error) {
+        console.error("Login Query Error:", error.message);
+      }
+      console.log("Login Match Result:", tenant);
+
+      if (!tenant) {
         // No matching row — reject login
         setError("Invalid Username or Password.");
         setLoading(false);
