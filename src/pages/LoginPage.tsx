@@ -5,6 +5,7 @@ import { setSession, getSession, TENANTS } from "@/lib/storage";
 import { APP_NAME, APP_TAGLINE } from "@/constants";
 import logoImg from "@/assets/sk-logo.png";
 import SEO from "@/components/common/SEO";
+import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -24,22 +25,61 @@ export default function LoginPage() {
     setLoading(true);
     await new Promise(r => setTimeout(r, 600));
 
-    // Multi-tenant credential verification
-    const user = username.trim().toLowerCase();
-    const tenant = TENANTS[user];
-    if (tenant && password === tenant.password) {
-      setSession({
-        username: user,
-        tenantCode: tenant.tenantCode,
-        tenantId: tenant.tenantId,
-        bankName: tenant.bankName,
-      });
+    const user = username.trim();
+    const pass = password.trim();
+
+    // ── STEP 1: Try dynamic Supabase public.tenants table ──────────────────
+    let authenticated = false;
+    try {
+      const { data: tenant, error: dbError } = await supabase
+        .from("tenants")
+        .select("*")
+        .eq("username", user)
+        .eq("password", pass)
+        .single();
+
+      if (!dbError && tenant) {
+        // Map DB row to session — use workspace column for routing
+        const workspaceCode: string = tenant.workspace || tenant.tenant_code || "boi_csp";
+        const tenantId: string = tenant.id || workspaceCode;
+        const bankName: string = tenant.bank_name || tenant.bankName || "SK ONLINE";
+
+        setSession({
+          username: user.toLowerCase(),
+          tenantCode: workspaceCode,
+          tenantId: tenantId,
+          bankName: bankName,
+        });
+        authenticated = true;
+      }
+    } catch (networkErr) {
+      // Network/Supabase unavailable — fall through to local fallback
+      console.warn("Supabase tenants query failed, using local fallback:", networkErr);
+    }
+
+    // ── STEP 2: Local hardcoded fallback (offline resilience) ──────────────
+    if (!authenticated) {
+      const lowerUser = user.toLowerCase();
+      const localTenant = TENANTS[lowerUser];
+      if (localTenant && pass === localTenant.password) {
+        setSession({
+          username: lowerUser,
+          tenantCode: localTenant.tenantCode,
+          tenantId: localTenant.tenantId,
+          bankName: localTenant.bankName,
+        });
+        authenticated = true;
+      }
+    }
+
+    if (authenticated) {
       navigate("/dashboard", { replace: true });
     } else {
-      setError("Invalid credentials. Please check your username and password.");
+      setError("Invalid Username or Password. Please check your credentials.");
     }
     setLoading(false);
   };
+
 
   return (
     <div className="min-h-screen flex bg-slate-50 overflow-x-hidden relative">
