@@ -54,7 +54,17 @@ const Field2 = ({
   </div>
 );
 
+import CitizenSettingsPage from "@/components/citizen/CitizenSettingsPage";
+import { getSession } from "@/lib/storage";
+
 export default function SettingsPage() {
+  const session = getSession();
+  const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
+
+  if (isCitizenTenant) {
+    return <CitizenSettingsPage />;
+  }
+
   const [settings, setSettings] = useState<AppSettings>(getSettings());
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<"general" | "whatsapp">("general");

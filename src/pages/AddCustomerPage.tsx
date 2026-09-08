@@ -205,8 +205,26 @@ function defaultForm(settings: ReturnType<typeof getSettings>) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+import CitizenServiceForm from "@/components/citizen/CitizenServiceForm";
+import { getSession } from "@/lib/storage";
+
 export default function AddCustomerPage() {
   const navigate = useNavigate();
+  const session = getSession();
+  const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
+
+  if (isCitizenTenant) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-4">
+        <SEO title="New Citizen Service Application — SK Online" />
+        <CitizenServiceForm
+          onSuccess={() => {}}
+          onCancel={() => navigate("/customers")}
+        />
+      </div>
+    );
+  }
+
   const settings = getSettings();
   const [form, setFormState] = useState<Record<string, string>>(defaultForm(settings));
   const [districtMode, setDistrictMode] = useState<"preset" | "custom">("preset");

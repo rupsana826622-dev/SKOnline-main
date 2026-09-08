@@ -4,13 +4,21 @@ import {
   Users, UserPlus, Truck, TrendingUp, MessageSquare,
   Download, RefreshCw, CheckCircle, Clock, AlertCircle,
 } from "lucide-react";
-import { getCustomers } from "@/lib/storage";
+import { getCustomers, getSession } from "@/lib/storage";
 import { getDaysUntilBirthday, exportToCSV, formatDateTime } from "@/lib/utils";
 import BirthdayReminder from "@/components/features/BirthdayReminder";
+import CitizenDashboard from "@/components/citizen/CitizenDashboard";
 import type { Customer } from "@/types";
 import SEO from "@/components/common/SEO";
 
 export default function DashboardPage() {
+  const session = getSession();
+  const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
+
+  if (isCitizenTenant) {
+    return <CitizenDashboard />;
+  }
+
   const [customers, setCustomers] = useState<Customer[]>([]);
   const navigate = useNavigate();
 

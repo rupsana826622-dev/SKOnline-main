@@ -4,16 +4,24 @@ import {
   Search, UserPlus, Download, Filter, Printer,
   Trash2, Eye, ChevronDown, RefreshCw, AlertCircle
 } from "lucide-react";
-import { getCustomers, fetchCustomersFromSupabase, deleteCustomerAsync } from "@/lib/storage";
+import { getCustomers, fetchCustomersFromSupabase, deleteCustomerAsync, getSession } from "@/lib/storage";
 import { exportToCSV, formatDateTime, getDaysUntilBirthday } from "@/lib/utils";
 import PrintModal from "@/components/features/PrintModal";
 import CustomerProfileView from "@/components/features/CustomerProfileView";
+import CitizenCustomersPage from "@/components/citizen/CitizenCustomersPage";
 import type { Customer } from "@/types";
 import { CATEGORIES } from "@/constants";
 import { toast } from "sonner";
 import SEO from "@/components/common/SEO";
 
 export default function CustomersPage() {
+  const session = getSession();
+  const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
+
+  if (isCitizenTenant) {
+    return <CitizenCustomersPage />;
+  }
+
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");

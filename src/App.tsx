@@ -8,6 +8,7 @@ import DashboardPage from "@/pages/DashboardPage";
 import CustomersPage from "@/pages/CustomersPage";
 import AddCustomerPage from "@/pages/AddCustomerPage";
 import DeliveryTrackerPage from "@/pages/DeliveryTrackerPage";
+import DueLedgerPage from "@/pages/DueLedgerPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
 import SettingsPage from "@/pages/SettingsPage";
 import FamilyMappingPage from "@/pages/FamilyMappingPage";
@@ -45,6 +46,9 @@ export default function App() {
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/add-customer" element={<AddCustomerPage />} />
           <Route path="/delivery" element={<DeliveryTrackerPage />} />
+          <Route path="/citizen/delivery" element={<DeliveryTrackerPage />} />
+          <Route path="/citizen/dues" element={<DueLedgerPage />} />
+          <Route path="/dues" element={<DueLedgerPage />} />
           <Route path="/whatsapp" element={<WhatsAppPage />} />
           <Route path="/inquiries" element={<InquiriesPage />} />
           <Route path="/settings" element={<SettingsPage />} />

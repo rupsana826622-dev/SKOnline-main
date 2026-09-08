@@ -2,9 +2,10 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, UserPlus, Truck, MessageSquare,
   Settings, Map, LogOut, ChevronLeft, ChevronRight, ShieldCheck, Printer, ClipboardList,
+  Sparkles, CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { clearSession } from "@/lib/storage";
+import { clearSession, getSession, getTenantCode } from "@/lib/storage";
 import { APP_NAME, POWERED_BY } from "@/constants";
 import logoImg from "@/assets/sk-logo.png";
 
@@ -14,7 +15,7 @@ interface SidebarProps {
   birthdayCount: number;
 }
 
-const navItems = [
+const boiNavItems = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { label: "Customers", path: "/customers", icon: Users },
   { label: "Add Customer", path: "/add-customer", icon: UserPlus },
@@ -25,8 +26,22 @@ const navItems = [
   { label: "Settings", path: "/settings", icon: Settings },
 ];
 
+const citizenNavItems = [
+  { label: "Citizen Dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { label: "Citizen Services", path: "/customers", icon: Users },
+  { label: "Add Customer", path: "/add-customer", icon: UserPlus },
+  { label: "Delivery Tracker", path: "/citizen/delivery", icon: Truck },
+  { label: "Due Payments Ledger", path: "/citizen/dues", icon: CreditCard },
+  { label: "WB-SMS / WhatsApp", path: "/whatsapp", icon: MessageSquare },
+  { label: "📋 Inquiries", path: "/inquiries", icon: ClipboardList },
+  { label: "Services Settings", path: "/settings", icon: Settings },
+];
+
 export default function Sidebar({ collapsed, onToggle, birthdayCount }: SidebarProps) {
   const navigate = useNavigate();
+  const session = getSession();
+  const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
+  const navItems = isCitizenTenant ? citizenNavItems : boiNavItems;
 
   const handleLogout = () => {
     clearSession();
@@ -51,8 +66,17 @@ export default function Sidebar({ collapsed, onToggle, birthdayCount }: SidebarP
           <div className="min-w-0">
             <div className="font-extrabold text-base text-white tracking-tight leading-none">{APP_NAME}</div>
             <div className="text-xs text-slate-400 font-medium mt-0.5 flex items-center gap-1">
-              <ShieldCheck size={10} />
-              <span>CSP Portal</span>
+              {isCitizenTenant ? (
+                <>
+                  <Sparkles size={10} className="text-amber-400" />
+                  <span className="text-blue-300 font-semibold">Citizen Hub</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={10} />
+                  <span>CSP Portal</span>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -78,7 +102,7 @@ export default function Sidebar({ collapsed, onToggle, birthdayCount }: SidebarP
               <>
                 <Icon size={18} className={cn("flex-shrink-0", isActive ? "text-white" : "text-slate-400 group-hover:text-white")} />
                 {!collapsed && <span className="truncate">{label}</span>}
-                {!collapsed && path === "/dashboard" && birthdayCount > 0 && (
+                {!collapsed && !isCitizenTenant && path === "/dashboard" && birthdayCount > 0 && (
                   <span className="ml-auto bg-amber-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                     {birthdayCount}
                   </span>

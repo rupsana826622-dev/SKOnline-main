@@ -128,8 +128,22 @@ function DeliveryToggle({
 }
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
+import CitizenDeliveryTracker from "@/components/citizen/CitizenDeliveryTracker";
+import { getSession } from "@/lib/storage";
 
 export default function DeliveryTrackerPage() {
+  const session = getSession();
+  const isCitizenTenant = session?.tenantCode === "new_csp" || session?.username === "abul";
+
+  if (isCitizenTenant) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-6">
+        <SEO title="Service Delivery Tracker — Digital Citizen Hub" />
+        <CitizenDeliveryTracker />
+      </div>
+    );
+  }
+
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<DeliveryFilter>("All");
