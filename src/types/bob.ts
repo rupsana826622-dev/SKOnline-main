@@ -39,9 +39,11 @@ export interface BobCustomerRecord {
 export interface BobSettings {
   cspName: string;
   cspCode: string;
+  cspAddress: string; // e.g., "Rampur"
+  linkBranch: string; // e.g., "Rajbari"
   branchName: string;
   branchCode: string;
-  ifscCode: string;
+  ifscCode: string; // e.g., "BARB0DBRAMP"
   operatorName: string;
   operatorContact: string;
   refPrefix: string;
@@ -53,9 +55,11 @@ export interface BobSettings {
 export const DEFAULT_BOB_SETTINGS: BobSettings = {
   cspName: "SK FINANCIAL & CSP SERVICES",
   cspCode: "BOB-CSP-1082",
+  cspAddress: "Rampur",
+  linkBranch: "Rajbari",
   branchName: "Bank of Baroda CSP Branch",
   branchCode: "BARB0CSP001",
-  ifscCode: "BARB0XXXXXX",
+  ifscCode: "BARB0DBRAMP",
   operatorName: "CSP Operator",
   operatorContact: "9876543210",
   refPrefix: "BOB-2026-",

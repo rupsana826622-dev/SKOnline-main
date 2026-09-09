@@ -8,17 +8,18 @@ import { getBobCustomers, deleteBobCustomer, fetchBobCustomersFromSupabase } fro
 import { exportToCSV, formatDateTime } from "@/lib/utils";
 import BobReceiptModal from "./BobReceiptModal";
 import BobCustomerForm from "./BobCustomerForm";
-import BobProfileDrawer from "./BobProfileDrawer";
+import BobCustomerProfile from "./BobCustomerProfile";
 import { toast } from "sonner";
 import SEO from "@/components/common/SEO";
+
+type ViewMode = "list" | "add" | "profile" | "edit";
 
 export default function BobCustomersPage() {
   const [records, setRecords] = useState<BobCustomerRecord[]>([]);
   const [search, setSearch] = useState("");
   const [schemeFilter, setSchemeFilter] = useState<"All" | "APY" | "PMSBY" | "PMJJBY">("All");
-  const [isAdding, setIsAdding] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<BobCustomerRecord | null>(null);
-  const [activeProfileRecord, setActiveProfileRecord] = useState<BobCustomerRecord | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [selectedRecord, setSelectedRecord] = useState<BobCustomerRecord | null>(null);
   const [selectedReceiptRecord, setSelectedReceiptRecord] = useState<BobCustomerRecord | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -108,7 +109,10 @@ export default function BobCustomersPage() {
     if (!confirm(`Are you sure you want to delete Bank of Baroda account for "${name}"?`)) return;
 
     setRecords(prev => prev.filter(r => r.id !== id));
-    if (activeProfileRecord?.id === id) setActiveProfileRecord(null);
+    if (selectedRecord?.id === id) {
+      setSelectedRecord(null);
+      setViewMode("list");
+    }
 
     try {
       await deleteBobCustomer(id);
@@ -118,18 +122,18 @@ export default function BobCustomersPage() {
     }
   };
 
-  // In-Page Customer Addition
-  if (isAdding) {
+  // 1. In-Page Customer Addition View
+  if (viewMode === "add") {
     return (
-      <div className="max-w-4xl mx-auto space-y-4">
+      <div className="max-w-4xl mx-auto space-y-4 pb-12 animate-fade-in">
         <SEO title="Add Bank of Baroda Customer" />
         <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-orange-200 shadow-xs">
           <button
-            onClick={() => setIsAdding(false)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+            onClick={() => setViewMode("list")}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
           >
-            <ArrowLeft size={14} />
-            Back to Customers Directory
+            <ArrowLeft size={15} />
+            <span>Back to Customers List</span>
           </button>
           <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
             Registering New BOB Customer
@@ -137,46 +141,78 @@ export default function BobCustomersPage() {
         </div>
         <BobCustomerForm
           onSuccess={() => {
-            setIsAdding(false);
+            setViewMode("list");
             loadData();
           }}
-          onCancel={() => setIsAdding(false)}
+          onCancel={() => setViewMode("list")}
         />
       </div>
     );
   }
 
-  // In-Page Customer Edit
-  if (editingRecord) {
+  // 2. In-Page Customer Edit View
+  if (viewMode === "edit" && selectedRecord) {
     return (
-      <div className="max-w-4xl mx-auto space-y-4">
-        <SEO title={`Edit BOB Customer — Serial ${editingRecord.slNo}`} />
+      <div className="max-w-4xl mx-auto space-y-4 pb-12 animate-fade-in">
+        <SEO title={`Edit BOB Customer — Serial ${selectedRecord.slNo}`} />
         <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-orange-200 shadow-xs">
           <button
-            onClick={() => setEditingRecord(null)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+            onClick={() => setViewMode("profile")}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
           >
-            <ArrowLeft size={14} />
-            Back to Customers Directory
+            <ArrowLeft size={15} />
+            <span>Back to Profile</span>
           </button>
           <span className="text-xs font-mono font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
-            Editing Serial {editingRecord.slNo}
+            Editing Serial {selectedRecord.slNo}
           </span>
         </div>
         <BobCustomerForm
-          initialRecord={editingRecord}
-          onSuccess={() => {
-            setEditingRecord(null);
+          initialRecord={selectedRecord}
+          onSuccess={updated => {
+            setSelectedRecord(updated);
+            setViewMode("profile");
             loadData();
           }}
-          onCancel={() => setEditingRecord(null)}
+          onCancel={() => setViewMode("profile")}
         />
       </div>
     );
   }
 
+  // 3. Dedicated Full-Width Customer Profile View
+  if (viewMode === "profile" && selectedRecord) {
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <BobCustomerProfile
+          record={selectedRecord}
+          onBack={() => setViewMode("list")}
+          onEdit={rec => {
+            setSelectedRecord(rec);
+            setViewMode("edit");
+          }}
+          onPrintReceipt={rec => setSelectedReceiptRecord(rec)}
+          onRecordDeleted={deletedId => {
+            setRecords(prev => prev.filter(item => item.id !== deletedId));
+            setSelectedRecord(null);
+            setViewMode("list");
+          }}
+        />
+
+        {/* Slip Modal */}
+        {selectedReceiptRecord && (
+          <BobReceiptModal
+            record={selectedReceiptRecord}
+            onClose={() => setSelectedReceiptRecord(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // 4. Main Customers Table View
   return (
-    <div className="max-w-7xl mx-auto space-y-5">
+    <div className="max-w-7xl mx-auto space-y-5 animate-fade-in">
       <SEO title="Bank of Baroda Customer Directory" />
 
       {/* Header */}
@@ -187,7 +223,7 @@ export default function BobCustomersPage() {
             {loading && <RefreshCw size={14} className="animate-spin text-orange-600" />}
           </div>
           <p className="text-sm text-slate-500 mt-0.5">
-            {records.length} total BOB accounts · {filtered.length} shown · Click any row to view profile
+            {records.length} total BOB accounts · {filtered.length} shown · Click any row to view full profile
           </p>
         </div>
 
@@ -208,7 +244,7 @@ export default function BobCustomersPage() {
           </button>
           {/* Primary In-Page Add Customer Button */}
           <button
-            onClick={() => setIsAdding(true)}
+            onClick={() => setViewMode("add")}
             className="flex items-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow-md transition-all"
           >
             <PlusCircle size={14} />
@@ -257,7 +293,7 @@ export default function BobCustomersPage() {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4">Serial</th>
+                <th className="py-3 px-3 text-center w-14">Serial</th>
                 <th className="py-3 px-4">Customer Details</th>
                 <th className="py-3 px-4">Account NO</th>
                 <th className="py-3 px-4">CIF / Reference</th>
@@ -268,15 +304,22 @@ export default function BobCustomersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-              {filtered.map(r => (
+              {filtered.map((r, index) => (
                 <tr
                   key={r.id}
-                  onClick={() => setActiveProfileRecord(r)}
-                  className="hover:bg-orange-50/40 cursor-pointer transition-colors group"
+                  onClick={() => {
+                    setSelectedRecord(r);
+                    setViewMode("profile");
+                  }}
+                  className="hover:bg-orange-50/50 cursor-pointer transition-colors group"
                 >
-                  {/* Clean Numeric Serial directly without emoji or avatar */}
-                  <td className="py-3 px-4 font-mono font-bold text-slate-900 text-sm">
-                    {r.slNo}
+                  {/* Circular Badge Serial Number (Strict 1, 2, 3 Counting) */}
+                  <td className="py-3 px-3 text-center">
+                    <div className="flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-700 font-bold flex items-center justify-center text-sm shadow-2xs group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                        {r.slNo || index + 1}
+                      </div>
+                    </div>
                   </td>
 
                   {/* Customer Details */}
@@ -360,7 +403,8 @@ export default function BobCustomersPage() {
                       <button
                         onClick={e => {
                           e.stopPropagation();
-                          setEditingRecord(r);
+                          setSelectedRecord(r);
+                          setViewMode("edit");
                         }}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-300 shadow-2xs"
                         title="Edit Account Details"
@@ -394,19 +438,6 @@ export default function BobCustomersPage() {
           </table>
         </div>
       </div>
-
-      {/* Row-Click Customer Profile Drawer */}
-      <BobProfileDrawer
-        record={activeProfileRecord}
-        isOpen={!!activeProfileRecord}
-        onClose={() => setActiveProfileRecord(null)}
-        onEdit={recordToEdit => setEditingRecord(recordToEdit)}
-        onPrintReceipt={recordToPrint => setSelectedReceiptRecord(recordToPrint)}
-        onRecordDeleted={deletedId => {
-          setRecords(prev => prev.filter(item => item.id !== deletedId));
-          setActiveProfileRecord(null);
-        }}
-      />
 
       {/* Slip Modal */}
       {selectedReceiptRecord && (

@@ -30,29 +30,111 @@ export function getBobSettings(): BobSettings {
   }
 }
 
-export function saveBobSettings(settings: BobSettings): void {
+export async function uploadBobStamp(file: File): Promise<{ url: string | null; error: any }> {
+  try {
+    const fileExt = file.name.split(".").pop() || "png";
+    const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const filePath = `bob_stamp_${Date.now()}_${cleanFileName}`;
+
+    // Try system-assets bucket first, fallback to citizen-documents
+    let bucketName = "system-assets";
+    let uploadRes = await supabase.storage.from(bucketName).upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: true,
+    });
+
+    if (uploadRes.error) {
+      bucketName = "citizen-documents";
+      uploadRes = await supabase.storage.from(bucketName).upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: true,
+      });
+    }
+
+    if (uploadRes.error) {
+      console.error("Supabase Storage Stamp Upload Error:", uploadRes.error);
+      const msg = `Storage Upload Failed: ${uploadRes.error.message}`;
+      alert(msg);
+      toast.error(msg);
+      return { url: null, error: uploadRes.error };
+    }
+
+    const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath);
+    return { url: data?.publicUrl || null, error: null };
+  } catch (err: any) {
+    console.error("Unexpected error in uploadBobStamp:", err);
+    alert(`Upload Error: ${err.message || "Unknown error"}`);
+    toast.error(`Upload Error: ${err.message || "Unknown error"}`);
+    return { url: null, error: err };
+  }
+}
+
+export async function saveBobSettingsAsync(settings: BobSettings): Promise<{ error: any }> {
+  const currentTenantId = getCurrentTenantId();
+
+  // Save to local cache immediately
   localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
   window.dispatchEvent(new Event("bob-settings-updated"));
 
-  // Sync to Supabase system_settings row for bob_csp
-  supabase
-    .from("system_settings")
-    .upsert({
-      id: "bob_csp_config",
-      bank_name: "Bank of Baroda",
-      branch_name: settings.branchName || "Bank of Baroda CSP",
-      bc_agent_name: settings.operatorName || "CSP Operator",
-      bc_agent_mobile: settings.operatorContact || "",
-      custom_logos: {
-        bob_settings: settings,
-      },
-    })
-    .then(({ error }) => {
-      if (error) {
-        console.error("Error saving BOB settings to Supabase:", error);
-        toast.error(`Settings Save Error: ${error.message}`);
-      }
-    });
+  try {
+    // 1. Persist directly to public.bob_settings table
+    let bobSettingsErr: any = null;
+    try {
+      const { error } = await (supabase as any)
+        .from("bob_settings")
+        .upsert({
+          tenant_id: currentTenantId,
+          csp_name: settings.cspName,
+          csp_code: settings.cspCode,
+          csp_address: settings.cspAddress,
+          link_branch: settings.linkBranch,
+          branch_name: settings.branchName || settings.linkBranch,
+          branch_code: settings.branchCode,
+          ifsc_code: settings.ifscCode,
+          operator_name: settings.operatorName,
+          operator_contact: settings.operatorContact,
+          ref_prefix: settings.refPrefix,
+          stamp_signature_url: settings.stampSignatureUrl,
+          updated_at: new Date().toISOString(),
+        });
+      if (error) bobSettingsErr = error;
+    } catch (e) {
+      bobSettingsErr = e;
+    }
+
+    // 2. Also persist to system_settings config row
+    const { error: sysErr } = await supabase
+      .from("system_settings")
+      .upsert({
+        id: "bob_csp_config",
+        bank_name: "Bank of Baroda",
+        branch_name: settings.linkBranch || settings.branchName || "Bank of Baroda CSP",
+        bc_agent_name: settings.operatorName || "CSP Operator",
+        bc_agent_mobile: settings.operatorContact || "",
+        custom_logos: {
+          bob_settings: settings,
+        },
+      });
+
+    if (sysErr && bobSettingsErr) {
+      console.error("Error saving BOB settings to Supabase:", sysErr || bobSettingsErr);
+      const errorMsg = `Settings Save Failed: ${sysErr.message || bobSettingsErr.message}`;
+      alert(errorMsg);
+      toast.error(errorMsg);
+      return { error: sysErr || bobSettingsErr };
+    }
+
+    return { error: null };
+  } catch (err: any) {
+    console.error("Unexpected error in saveBobSettingsAsync:", err);
+    alert(`Settings Save Error: ${err.message || "Network Error"}`);
+    toast.error(`Settings Save Error: ${err.message || "Network Error"}`);
+    return { error: err };
+  }
+}
+
+export function saveBobSettings(settings: BobSettings): void {
+  saveBobSettingsAsync(settings);
 }
 
 // ─── BOB CUSTOMER RECORDS ─────────────────────────────────────
@@ -327,16 +409,56 @@ export async function deleteBobCustomer(id: string): Promise<{ error: any }> {
 }
 
 export async function syncBobFromSupabase(): Promise<void> {
-  try {
-    // 1. Sync Settings
-    const { data: settingsData } = await supabase
-      .from("system_settings")
-      .select("*")
-      .eq("id", "bob_csp_config")
-      .maybeSingle();
+  const currentTenantId = getCurrentTenantId();
 
-    if (settingsData?.custom_logos?.bob_settings) {
-      const liveSettings = settingsData.custom_logos.bob_settings;
+  try {
+    // 1. Sync Settings: Try public.bob_settings table first
+    let liveSettings: BobSettings | null = null;
+    try {
+      const { data, error } = await (supabase as any)
+        .from("bob_settings")
+        .select("*")
+        .eq("tenant_id", currentTenantId)
+        .maybeSingle();
+
+      if (!error && data) {
+        liveSettings = {
+          ...DEFAULT_BOB_SETTINGS,
+          cspName: data.csp_name || DEFAULT_BOB_SETTINGS.cspName,
+          cspCode: data.csp_code || DEFAULT_BOB_SETTINGS.cspCode,
+          cspAddress: data.csp_address || DEFAULT_BOB_SETTINGS.cspAddress,
+          linkBranch: data.link_branch || DEFAULT_BOB_SETTINGS.linkBranch,
+          branchName: data.branch_name || data.link_branch || DEFAULT_BOB_SETTINGS.branchName,
+          branchCode: data.branch_code || DEFAULT_BOB_SETTINGS.branchCode,
+          ifscCode: data.ifsc_code || DEFAULT_BOB_SETTINGS.ifscCode,
+          operatorName: data.operator_name || DEFAULT_BOB_SETTINGS.operatorName,
+          operatorContact: data.operator_contact || DEFAULT_BOB_SETTINGS.operatorContact,
+          refPrefix: data.ref_prefix || DEFAULT_BOB_SETTINGS.refPrefix,
+          accountPrefix: DEFAULT_BOB_SETTINGS.accountPrefix,
+          stampSignatureUrl: data.stamp_signature_url || "",
+        };
+      }
+    } catch {
+      // Ignored
+    }
+
+    // Fallback to system_settings config row
+    if (!liveSettings) {
+      const { data: settingsData } = await supabase
+        .from("system_settings")
+        .select("*")
+        .eq("id", "bob_csp_config")
+        .maybeSingle();
+
+      if (settingsData?.custom_logos?.bob_settings) {
+        liveSettings = {
+          ...DEFAULT_BOB_SETTINGS,
+          ...settingsData.custom_logos.bob_settings,
+        };
+      }
+    }
+
+    if (liveSettings) {
       localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(liveSettings));
       window.dispatchEvent(new Event("bob-settings-updated"));
     }

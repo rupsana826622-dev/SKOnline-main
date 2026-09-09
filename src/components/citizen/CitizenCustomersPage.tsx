@@ -10,18 +10,19 @@ import { exportToCSV, formatDateTime } from "@/lib/utils";
 import CitizenReceiptModal from "./CitizenReceiptModal";
 import CitizenServiceForm from "./CitizenServiceForm";
 import CitizenSettingsModal from "./CitizenSettingsModal";
-import CitizenProfileDrawer from "./CitizenProfileDrawer";
+import CitizenCustomerProfile from "./CitizenCustomerProfile";
 import { toast } from "sonner";
 import SEO from "@/components/common/SEO";
+
+type ViewMode = "list" | "add" | "profile" | "edit";
 
 export default function CitizenCustomersPage() {
   const [records, setRecords] = useState<CitizenServiceRecord[]>([]);
   const [search, setSearch] = useState("");
   const [selectedService, setSelectedService] = useState("All");
   const [selectedStatusTab, setSelectedStatusTab] = useState<"All" | "Due" | "Paid" | "Delivered">("All");
-  const [isAdding, setIsAdding] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<CitizenServiceRecord | null>(null);
-  const [activeProfileRecord, setActiveProfileRecord] = useState<CitizenServiceRecord | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [selectedRecord, setSelectedRecord] = useState<CitizenServiceRecord | null>(null);
   const [selectedReceiptRecord, setSelectedReceiptRecord] = useState<CitizenServiceRecord | null>(null);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -110,7 +111,10 @@ export default function CitizenCustomersPage() {
     if (!confirm(`Are you sure you want to permanently delete application for "${name}"?`)) return;
 
     setRecords(prev => prev.filter(r => r.id !== id));
-    if (activeProfileRecord?.id === id) setActiveProfileRecord(null);
+    if (selectedRecord?.id === id) {
+      setSelectedRecord(null);
+      setViewMode("list");
+    }
 
     try {
       await deleteCitizenRecord(id);
@@ -120,18 +124,18 @@ export default function CitizenCustomersPage() {
     }
   };
 
-  // In-Page Customer Addition View
-  if (isAdding) {
+  // 1. In-Page Customer Addition View
+  if (viewMode === "add") {
     return (
-      <div className="max-w-4xl mx-auto space-y-4">
+      <div className="max-w-4xl mx-auto space-y-4 pb-12 animate-fade-in">
         <SEO title="Add Customer — Digital Citizen Services" />
         <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
           <button
-            onClick={() => setIsAdding(false)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+            onClick={() => setViewMode("list")}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
           >
-            <ArrowLeft size={14} />
-            Back to Application Directory
+            <ArrowLeft size={15} />
+            <span>Back to Customer List</span>
           </button>
           <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
             Creating New Application
@@ -139,46 +143,82 @@ export default function CitizenCustomersPage() {
         </div>
         <CitizenServiceForm
           onSuccess={() => {
-            setIsAdding(false);
+            setViewMode("list");
             loadData();
           }}
-          onCancel={() => setIsAdding(false)}
+          onCancel={() => setViewMode("list")}
         />
       </div>
     );
   }
 
-  // In-Page Customer Edit View
-  if (editingRecord) {
+  // 2. In-Page Customer Edit View
+  if (viewMode === "edit" && selectedRecord) {
     return (
-      <div className="max-w-4xl mx-auto space-y-4">
-        <SEO title={`Edit Application — Serial ${editingRecord.serialNo}`} />
+      <div className="max-w-4xl mx-auto space-y-4 pb-12 animate-fade-in">
+        <SEO title={`Edit Application — Serial ${selectedRecord.serialNo}`} />
         <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
           <button
-            onClick={() => setEditingRecord(null)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+            onClick={() => setViewMode("profile")}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
           >
-            <ArrowLeft size={14} />
-            Back to Application Directory
+            <ArrowLeft size={15} />
+            <span>Back to Profile</span>
           </button>
           <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
-            Editing Serial {editingRecord.serialNo}
+            Editing Serial {selectedRecord.serialNo}
           </span>
         </div>
         <CitizenServiceForm
-          initialRecord={editingRecord}
-          onSuccess={() => {
-            setEditingRecord(null);
+          initialRecord={selectedRecord}
+          onSuccess={updated => {
+            setSelectedRecord(updated);
+            setViewMode("profile");
             loadData();
           }}
-          onCancel={() => setEditingRecord(null)}
+          onCancel={() => setViewMode("profile")}
         />
       </div>
     );
   }
 
+  // 3. Dedicated Full-Width Customer Profile View
+  if (viewMode === "profile" && selectedRecord) {
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <CitizenCustomerProfile
+          record={selectedRecord}
+          onBack={() => setViewMode("list")}
+          onEdit={rec => {
+            setSelectedRecord(rec);
+            setViewMode("edit");
+          }}
+          onPrintReceipt={rec => setSelectedReceiptRecord(rec)}
+          onRecordUpdated={updated => {
+            setSelectedRecord(updated);
+            setRecords(prev => prev.map(item => (item.id === updated.id ? updated : item)));
+          }}
+          onRecordDeleted={deletedId => {
+            setRecords(prev => prev.filter(item => item.id !== deletedId));
+            setSelectedRecord(null);
+            setViewMode("list");
+          }}
+        />
+
+        {/* Receipt Modal */}
+        {selectedReceiptRecord && (
+          <CitizenReceiptModal
+            record={selectedReceiptRecord}
+            onClose={() => setSelectedReceiptRecord(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // 4. Main Customer Listing Table View
   return (
-    <div className="max-w-7xl mx-auto space-y-5">
+    <div className="max-w-7xl mx-auto space-y-5 animate-fade-in">
       <SEO title="Service Applications Directory — Digital Citizen Services" />
 
       {/* Header */}
@@ -189,7 +229,7 @@ export default function CitizenCustomersPage() {
             {loading && <RefreshCw size={14} className="animate-spin text-blue-600" />}
           </div>
           <p className="text-sm text-slate-500 mt-0.5">
-            {records.length} total applications · {filtered.length} shown · Click any row to view profile
+            {records.length} total applications · {filtered.length} shown · Click any row to view full profile
           </p>
         </div>
 
@@ -210,7 +250,7 @@ export default function CitizenCustomersPage() {
           </button>
           {/* Primary Top-Right Customer Addition Button */}
           <button
-            onClick={() => setIsAdding(true)}
+            onClick={() => setViewMode("add")}
             className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow-md transition-all"
           >
             <PlusCircle size={14} />
@@ -275,7 +315,7 @@ export default function CitizenCustomersPage() {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4">Serial</th>
+                <th className="py-3 px-3 text-center w-14">Serial</th>
                 <th className="py-3 px-4">Customer Details</th>
                 <th className="py-3 px-4">Service Type</th>
                 <th className="py-3 px-4">App ID & Password</th>
@@ -288,15 +328,22 @@ export default function CitizenCustomersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-              {filtered.map(r => (
+              {filtered.map((r, index) => (
                 <tr
                   key={r.id}
-                  onClick={() => setActiveProfileRecord(r)}
-                  className="hover:bg-blue-50/40 cursor-pointer transition-colors group"
+                  onClick={() => {
+                    setSelectedRecord(r);
+                    setViewMode("profile");
+                  }}
+                  className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
                 >
-                  {/* Clean Numeric Serial directly without emoji or avatar */}
-                  <td className="py-3 px-4 font-mono font-bold text-slate-900 text-sm">
-                    {r.serialNo}
+                  {/* Circular Badge Serial Number (Strict 1, 2, 3 Counting) */}
+                  <td className="py-3 px-3 text-center">
+                    <div className="flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-sm shadow-2xs group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        {r.serialNo || index + 1}
+                      </div>
+                    </div>
                   </td>
 
                   {/* Customer Details */}
@@ -416,7 +463,8 @@ export default function CitizenCustomersPage() {
                       <button
                         onClick={e => {
                           e.stopPropagation();
-                          setEditingRecord(r);
+                          setSelectedRecord(r);
+                          setViewMode("edit");
                         }}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-300 shadow-2xs"
                         title="Directly Edit Application Details"
@@ -450,23 +498,6 @@ export default function CitizenCustomersPage() {
           </table>
         </div>
       </div>
-
-      {/* Row-Click Customer Profile Drawer */}
-      <CitizenProfileDrawer
-        record={activeProfileRecord}
-        isOpen={!!activeProfileRecord}
-        onClose={() => setActiveProfileRecord(null)}
-        onEdit={recordToEdit => setEditingRecord(recordToEdit)}
-        onPrintReceipt={recordToPrint => setSelectedReceiptRecord(recordToPrint)}
-        onRecordUpdated={updated => {
-          setRecords(prev => prev.map(item => (item.id === updated.id ? updated : item)));
-          setActiveProfileRecord(updated);
-        }}
-        onRecordDeleted={deletedId => {
-          setRecords(prev => prev.filter(item => item.id !== deletedId));
-          setActiveProfileRecord(null);
-        }}
-      />
 
       {/* Receipt Modal */}
       {selectedReceiptRecord && (

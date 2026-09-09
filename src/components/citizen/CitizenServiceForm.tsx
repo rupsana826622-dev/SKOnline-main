@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import {
   Save, Printer, Lock, Eye, EyeOff, CheckCircle, AlertCircle,
   Hash, Calendar, User, Phone, MapPin, Tag, CreditCard, Sparkles, PlusCircle,
