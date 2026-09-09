@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
 import {
   Save, Printer, Lock, Eye, EyeOff, CheckCircle, AlertCircle,
-  Hash, Calendar, User, Phone, MapPin, Tag, CreditCard, Sparkles, PlusCircle
+  Hash, Calendar, User, Phone, MapPin, Tag, CreditCard, Sparkles, PlusCircle,
+  Upload, FileText, ExternalLink, X
 } from "lucide-react";
 import type { CitizenServiceRecord } from "@/types/citizen";
-import { getCitizenSettings, getNextSerialNo, addCitizenRecord, updateCitizenRecord } from "@/lib/citizenStorage";
+import { getCitizenSettings, getNextSerialNo, addCitizenRecord, updateCitizenRecord, uploadCitizenDocument } from "@/lib/citizenStorage";
 import { generateId } from "@/lib/utils";
 import { toast } from "sonner";
 import CitizenReceiptModal from "./CitizenReceiptModal";
@@ -28,6 +28,11 @@ export default function CitizenServiceForm({ initialRecord, onSuccess, onCancel 
   const [appNumber, setAppNumber] = useState(initialRecord?.appNumber || "");
   const [portalPassword, setPortalPassword] = useState(initialRecord?.portalPassword || "");
   const [showPassword, setShowPassword] = useState(false);
+
+  // Dynamic Service / Document Number & Cloud Attachment
+  const [finalServiceNo, setFinalServiceNo] = useState(initialRecord?.finalServiceNo || "");
+  const [documentFileUrl, setDocumentFileUrl] = useState(initialRecord?.documentFileUrl || "");
+  const [uploadingDoc, setUploadingDoc] = useState(false);
 
   // Billing & Accounting
   const [totalAmount, setTotalAmount] = useState<number>(initialRecord?.totalAmount ?? 0);
@@ -92,6 +97,29 @@ export default function CitizenServiceForm({ initialRecord, onSuccess, onCancel 
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingDoc(true);
+    const toastId = toast.loading("Uploading document to Supabase Storage...");
+
+    try {
+      const { url, error } = await uploadCitizenDocument(file, initialRecord?.id);
+      if (error || !url) {
+        toast.error(`Document upload failed: ${error?.message || "Storage error"}`, { id: toastId });
+        return;
+      }
+
+      setDocumentFileUrl(url);
+      toast.success("Document uploaded successfully!", { id: toastId });
+    } catch (err: any) {
+      toast.error(`Upload error: ${err.message || "Failed to upload file"}`, { id: toastId });
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
   const resetForm = () => {
     setSerialNo(getNextSerialNo());
     setCustomerName("");
@@ -101,6 +129,8 @@ export default function CitizenServiceForm({ initialRecord, onSuccess, onCancel 
     setApplicationDate(todayStr);
     setAppNumber("");
     setPortalPassword("");
+    setFinalServiceNo("");
+    setDocumentFileUrl("");
     setTotalAmount(0);
     setAdvancePaid(0);
     setDueAmount(0);
@@ -134,7 +164,7 @@ export default function CitizenServiceForm({ initialRecord, onSuccess, onCancel 
 
       const recordPayload: CitizenServiceRecord = {
         id: initialRecord?.id || generateId(),
-        serialNo: Number(serialNo) || 1001,
+        serialNo: Number(serialNo) || 1,
         customerName: customerName.trim(),
         contactNo: contactNo.trim(),
         address: address.trim(),
@@ -142,6 +172,8 @@ export default function CitizenServiceForm({ initialRecord, onSuccess, onCancel 
         applicationDate: applicationDate || todayStr,
         appNumber: appNumber.trim(),
         portalPassword: portalPassword.trim(),
+        finalServiceNo: finalServiceNo.trim(),
+        documentFileUrl: documentFileUrl.trim(),
         totalAmount: Number(totalAmount) || 0,
         advancePaid: Number(advancePaid) || 0,
         dueAmount: calculatedDue,
@@ -187,6 +219,19 @@ export default function CitizenServiceForm({ initialRecord, onSuccess, onCancel 
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const getDocFieldProps = (service: string) => {
+    const s = service.toLowerCase();
+    if (s.includes("pan")) return { label: "Generated PAN Number", placeholder: "Enter Allotted PAN (e.g. ABCDE1234F)" };
+    if (s.includes("passport")) return { label: "Passport Number", placeholder: "Enter Allotted Passport Number" };
+    if (s.includes("voter") || s.includes("epic")) return { label: "EPIC / Voter Card Number", placeholder: "Enter Allotted Voter ID / EPIC Number" };
+    if (s.includes("ration")) return { label: "Digital Ration Card Number", placeholder: "Enter Allotted Ration Card Number" };
+    if (s.includes("trade")) return { label: "Trade License Number", placeholder: "Enter Allotted Trade License Number" };
+    if (s.includes("food") || s.includes("fssai")) return { label: "FSSAI / Food License Number", placeholder: "Enter Food License Registration Number" };
+    if (s.includes("ticket") || s.includes("train") || s.includes("flight")) return { label: "PNR / Ticket Booking ID", placeholder: "Enter PNR / E-Ticket Number" };
+    if (s.includes("aadhaar") || s.includes("aadhar")) return { label: "Aadhaar / Enrolment Number", placeholder: "Enter Updated Aadhaar Number" };
+    return { label: "Generated Service / Document No", placeholder: `Enter Allotted ${service} Number / ID` };
   };
 
   return (
@@ -273,7 +318,7 @@ export default function CitizenServiceForm({ initialRecord, onSuccess, onCancel 
         <div className="space-y-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
             <Tag size={14} className="text-blue-600" />
-            <span>2. Service & Portal Credentials</span>
+            <span>2. Service, Credentials & Allotted Document</span>
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             {/* Service Type Dropdown */}
@@ -345,6 +390,64 @@ export default function CitizenServiceForm({ initialRecord, onSuccess, onCancel 
                 >
                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
+              </div>
+            </div>
+
+            {/* Dynamic Final Service / Document Number */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                {getDocFieldProps(serviceType).label} <span className="text-slate-400 font-normal">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder={getDocFieldProps(serviceType).placeholder}
+                value={finalServiceNo}
+                onChange={e => setFinalServiceNo(e.target.value.toUpperCase())}
+                className="w-full px-3.5 py-2 text-sm font-mono font-bold text-blue-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/50 focus:bg-white"
+              />
+            </div>
+
+            {/* Cloud PDF File Attachment */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Attach Final Document / PDF <span className="text-slate-400 font-normal">(Cloud Storage)</span>
+              </label>
+              <div className="flex items-center gap-2">
+                {documentFileUrl ? (
+                  <div className="flex-1 flex items-center justify-between px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+                    <div className="flex items-center gap-2 truncate">
+                      <FileText size={16} className="text-emerald-600 shrink-0" />
+                      <a
+                        href={documentFileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-bold text-emerald-700 hover:underline truncate"
+                      >
+                        View Attached PDF (Cloud)
+                      </a>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDocumentFileUrl("")}
+                      className="text-slate-400 hover:text-red-600 p-1"
+                      title="Remove attached file"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-dashed border-slate-300 rounded-lg cursor-pointer transition-colors text-xs font-semibold">
+                    <Upload size={14} className="text-blue-600" />
+                    <span>{uploadingDoc ? "Uploading to Cloud..." : "Upload e-PAN / Certificate PDF"}</span>
+                    <input
+                      type="file"
+                      accept=".pdf,image/*,.doc,.docx"
+                      onChange={handleFileUpload}
+                      disabled={uploadingDoc}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
             </div>
           </div>

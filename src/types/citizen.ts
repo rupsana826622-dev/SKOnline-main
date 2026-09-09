@@ -8,6 +8,8 @@ export interface CitizenServiceRecord {
   applicationDate: string; // YYYY-MM-DD or DD/MM/YYYY
   appNumber: string; // User ID / Application No / Acknowledgement No
   portalPassword?: string; // Passkey/DOB text input — strictly excluded from customer printouts
+  finalServiceNo?: string; // Generated Service / Document No (e.g., PAN Number, Passport Number)
+  documentFileUrl?: string; // Supabase Storage public URL for attached PDF/document
   totalAmount: number;
   advancePaid: number;
   dueAmount: number;

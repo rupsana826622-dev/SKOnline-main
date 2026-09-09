@@ -355,8 +355,8 @@ export default function BobDeliveryTracker() {
             <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
               {filtered.map(c => (
                 <tr key={c.id} className="hover:bg-orange-50/30 transition-colors">
-                  <td className="py-3 px-3 font-mono font-bold text-orange-700">
-                    SL #{c.slNo}
+                  <td className="py-3 px-3 font-mono font-bold text-slate-900">
+                    {c.slNo}
                   </td>
                   <td className="py-3 px-3">
                     <div className="font-bold text-slate-900">{c.customerName}</div>

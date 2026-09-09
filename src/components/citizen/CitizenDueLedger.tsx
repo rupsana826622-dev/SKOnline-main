@@ -123,8 +123,8 @@ export default function CitizenDueLedger() {
             <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
               {dueRecords.map(r => (
                 <tr key={r.id} className="hover:bg-amber-50/30 transition-colors">
-                  <td className="py-3 px-4 font-mono font-bold text-blue-700">
-                    SL #{r.serialNo}
+                  <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                    {r.serialNo}
                   </td>
                   <td className="py-3 px-4">
                     <div className="font-bold text-slate-900">{r.customerName}</div>

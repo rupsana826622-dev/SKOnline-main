@@ -80,8 +80,8 @@ export function saveCitizenRecords(records: CitizenServiceRecord[]): void {
 
 export function getNextSerialNo(): number {
   const records = getCitizenRecords();
-  if (records.length === 0) return 1001;
-  const max = records.reduce((acc, r) => (r.serialNo > acc ? r.serialNo : acc), 1000);
+  if (records.length === 0) return 1;
+  const max = records.reduce((acc, r) => (r.serialNo > acc ? r.serialNo : acc), 0);
   return max + 1;
 }
 
@@ -94,10 +94,12 @@ function mapCitizenRecordToDb(r: CitizenServiceRecord): Record<string, any> {
     father_name: r.serviceType || "", // Store service type in father_name for quick inspection
     address: r.address || "",
     mobile_number: r.contactNo || "",
-    pin_code: String(r.serialNo || ""),
+    pin_code: String(r.serialNo || 1),
     account_opening_date: r.applicationDate || "",
     account_number: r.appNumber || "",
     customer_id_cif: r.portalPassword || "", // Secure storage for passkey (only in operator db)
+    final_service_no: r.finalServiceNo || "",
+    document_file_url: r.documentFileUrl || "",
     status: r.status || "Applied",
     passbook_issued: r.status === "Delivered" || !!r.deliveredDate,
     passbook_issued_at: r.deliveredDate || null,
@@ -115,6 +117,8 @@ function mapCitizenRecordToDb(r: CitizenServiceRecord): Record<string, any> {
       paymentMode: r.paymentMode,
       paymentStatus: r.paymentStatus,
       portalPassword: r.portalPassword,
+      finalServiceNo: r.finalServiceNo,
+      documentFileUrl: r.documentFileUrl,
       notes: r.notes,
       issuedDate: r.issuedDate,
       deliveredDate: r.deliveredDate,
@@ -140,7 +144,7 @@ function mapDbToCitizenRecord(row: any): CitizenServiceRecord {
 
   return {
     id: row.id,
-    serialNo: Number(row.pin_code) || 1001,
+    serialNo: Number(row.pin_code) || 1,
     customerName: row.full_name || "",
     contactNo: row.mobile_number || "",
     address: row.address || "",
@@ -148,6 +152,8 @@ function mapDbToCitizenRecord(row: any): CitizenServiceRecord {
     applicationDate: row.account_opening_date || row.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
     appNumber: row.account_number || "",
     portalPassword: extra.portalPassword || row.customer_id_cif || "",
+    finalServiceNo: extra.finalServiceNo || row.final_service_no || "",
+    documentFileUrl: extra.documentFileUrl || row.document_file_url || "",
     totalAmount,
     advancePaid,
     dueAmount,
@@ -338,3 +344,40 @@ export async function syncCitizenFromSupabase(): Promise<void> {
     console.warn("Failed to sync citizen data from Supabase:", err);
   }
 }
+
+/**
+ * Upload a document (e-PAN PDF, Acknowledgement, Certificate) to Supabase Storage bucket 'citizen-documents'
+ */
+export async function uploadCitizenDocument(
+  file: File,
+  recordId?: string
+): Promise<{ url: string | null; error: any }> {
+  try {
+    const fileExt = file.name.split(".").pop() || "pdf";
+    const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const filePath = `${recordId || "doc"}_${Date.now()}_${cleanFileName}`;
+
+    const { data, error } = await supabase.storage
+      .from("citizen-documents")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (error) {
+      console.error("Supabase Storage Upload Error:", error);
+      return { url: null, error };
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("citizen-documents")
+      .getPublicUrl(filePath);
+
+    const publicUrl = publicUrlData?.publicUrl || null;
+    return { url: publicUrl, error: null };
+  } catch (err: any) {
+    console.error("Unexpected error in uploadCitizenDocument:", err);
+    return { url: null, error: err };
+  }
+}
+

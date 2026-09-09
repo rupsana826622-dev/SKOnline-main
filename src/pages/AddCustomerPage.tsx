@@ -220,7 +220,7 @@ export default function AddCustomerPage() {
       <div className="max-w-4xl mx-auto space-y-4">
         <SEO title="New Bank of Baroda Customer Registration — SK Online" />
         <BobCustomerForm
-          onSuccess={() => {}}
+          onSuccess={() => navigate("/customers")}
           onCancel={() => navigate("/customers")}
         />
       </div>
@@ -232,7 +232,7 @@ export default function AddCustomerPage() {
       <div className="max-w-4xl mx-auto space-y-4">
         <SEO title="New Citizen Service Application — SK Online" />
         <CitizenServiceForm
-          onSuccess={() => {}}
+          onSuccess={() => navigate("/customers")}
           onCancel={() => navigate("/customers")}
         />
       </div>

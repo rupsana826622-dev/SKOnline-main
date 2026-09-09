@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Search, PlusCircle, Download, Printer,
   Trash2, Edit, RefreshCw, ArrowLeft, ShieldCheck, CheckCircle
@@ -9,6 +8,7 @@ import { getBobCustomers, deleteBobCustomer, fetchBobCustomersFromSupabase } fro
 import { exportToCSV, formatDateTime } from "@/lib/utils";
 import BobReceiptModal from "./BobReceiptModal";
 import BobCustomerForm from "./BobCustomerForm";
+import BobProfileDrawer from "./BobProfileDrawer";
 import { toast } from "sonner";
 import SEO from "@/components/common/SEO";
 
@@ -16,10 +16,11 @@ export default function BobCustomersPage() {
   const [records, setRecords] = useState<BobCustomerRecord[]>([]);
   const [search, setSearch] = useState("");
   const [schemeFilter, setSchemeFilter] = useState<"All" | "APY" | "PMSBY" | "PMJJBY">("All");
+  const [isAdding, setIsAdding] = useState(false);
   const [editingRecord, setEditingRecord] = useState<BobCustomerRecord | null>(null);
+  const [activeProfileRecord, setActiveProfileRecord] = useState<BobCustomerRecord | null>(null);
   const [selectedReceiptRecord, setSelectedReceiptRecord] = useState<BobCustomerRecord | null>(null);
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
   const loadData = async () => {
     setLoading(true);
@@ -102,10 +103,12 @@ export default function BobCustomersPage() {
     toast.success("BOB Customers CSV exported successfully!");
   };
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (!confirm(`Are you sure you want to delete Bank of Baroda account for "${name}"?`)) return;
 
     setRecords(prev => prev.filter(r => r.id !== id));
+    if (activeProfileRecord?.id === id) setActiveProfileRecord(null);
 
     try {
       await deleteBobCustomer(id);
@@ -115,25 +118,57 @@ export default function BobCustomersPage() {
     }
   };
 
+  // In-Page Customer Addition
+  if (isAdding) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-4">
+        <SEO title="Add Bank of Baroda Customer" />
+        <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-orange-200 shadow-xs">
+          <button
+            onClick={() => setIsAdding(false)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <ArrowLeft size={14} />
+            Back to Customers Directory
+          </button>
+          <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
+            Registering New BOB Customer
+          </span>
+        </div>
+        <BobCustomerForm
+          onSuccess={() => {
+            setIsAdding(false);
+            loadData();
+          }}
+          onCancel={() => setIsAdding(false)}
+        />
+      </div>
+    );
+  }
+
+  // In-Page Customer Edit
   if (editingRecord) {
     return (
       <div className="max-w-4xl mx-auto space-y-4">
-        <SEO title={`Edit BOB Customer — SL #${editingRecord.slNo}`} />
-        <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+        <SEO title={`Edit BOB Customer — Serial ${editingRecord.slNo}`} />
+        <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-orange-200 shadow-xs">
           <button
             onClick={() => setEditingRecord(null)}
             className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
           >
             <ArrowLeft size={14} />
-            Back to Customers List
+            Back to Customers Directory
           </button>
           <span className="text-xs font-mono font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
-            Editing SL #{editingRecord.slNo}
+            Editing Serial {editingRecord.slNo}
           </span>
         </div>
         <BobCustomerForm
           initialRecord={editingRecord}
-          onSuccess={() => setEditingRecord(null)}
+          onSuccess={() => {
+            setEditingRecord(null);
+            loadData();
+          }}
           onCancel={() => setEditingRecord(null)}
         />
       </div>
@@ -152,7 +187,7 @@ export default function BobCustomersPage() {
             {loading && <RefreshCw size={14} className="animate-spin text-orange-600" />}
           </div>
           <p className="text-sm text-slate-500 mt-0.5">
-            {records.length} total BOB accounts · {filtered.length} shown
+            {records.length} total BOB accounts · {filtered.length} shown · Click any row to view profile
           </p>
         </div>
 
@@ -171,12 +206,13 @@ export default function BobCustomersPage() {
             <Download size={13} />
             Export CSV
           </button>
+          {/* Primary In-Page Add Customer Button */}
           <button
-            onClick={() => navigate("/add-customer")}
-            className="flex items-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all"
+            onClick={() => setIsAdding(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow-md transition-all"
           >
             <PlusCircle size={14} />
-            Add Customer
+            <span>+ Add Customer</span>
           </button>
         </div>
       </div>
@@ -221,7 +257,7 @@ export default function BobCustomersPage() {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4">SL NO</th>
+                <th className="py-3 px-4">Serial</th>
                 <th className="py-3 px-4">Customer Details</th>
                 <th className="py-3 px-4">Account NO</th>
                 <th className="py-3 px-4">CIF / Reference</th>
@@ -233,25 +269,42 @@ export default function BobCustomersPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
               {filtered.map(r => (
-                <tr key={r.id} className="hover:bg-orange-50/30 transition-colors">
-                  <td className="py-3 px-4 font-mono font-bold text-orange-700">
-                    SL #{r.slNo}
+                <tr
+                  key={r.id}
+                  onClick={() => setActiveProfileRecord(r)}
+                  className="hover:bg-orange-50/40 cursor-pointer transition-colors group"
+                >
+                  {/* Clean Numeric Serial directly without emoji or avatar */}
+                  <td className="py-3 px-4 font-mono font-bold text-slate-900 text-sm">
+                    {r.slNo}
                   </td>
+
+                  {/* Customer Details */}
                   <td className="py-3 px-4">
-                    <div className="font-bold text-slate-900">{r.customerName}</div>
+                    <div className="font-bold text-slate-900 group-hover:text-orange-700 transition-colors">
+                      {r.customerName}
+                    </div>
                     {r.guardianName && <div className="text-[11px] text-slate-500">C/O: {r.guardianName}</div>}
                     <div className="text-[11px] text-slate-500 font-mono">{r.mobile}</div>
                   </td>
+
+                  {/* Account Number */}
                   <td className="py-3 px-4 font-mono font-extrabold text-slate-900">
                     {r.accountNo || "—"}
                   </td>
+
+                  {/* CIF & Reference */}
                   <td className="py-3 px-4">
                     <div className="font-mono text-slate-700 text-[11px] font-semibold">CIF: {r.cifNo || "—"}</div>
                     <div className="font-mono text-slate-500 text-[10px]">REF: {r.refNo || "—"}</div>
                   </td>
+
+                  {/* Account Opening Date */}
                   <td className="py-3 px-4 font-mono text-slate-600 text-[11px]">
                     {r.accountOpeningDate || "—"}
                   </td>
+
+                  {/* Schemes Badges */}
                   <td className="py-3 px-4 text-center">
                     <div className="flex items-center justify-center gap-1 flex-wrap">
                       {r.enrollAPY && (
@@ -274,6 +327,8 @@ export default function BobCustomersPage() {
                       )}
                     </div>
                   </td>
+
+                  {/* Deliverables */}
                   <td className="py-3 px-4 text-center">
                     <div className="flex flex-col gap-0.5 items-center">
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${r.passbookDelivered ? "bg-emerald-100 text-emerald-800" : r.passbookIssued ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-500"}`}>
@@ -284,11 +339,16 @@ export default function BobCustomersPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="py-3 px-4">
+
+                  {/* Actions (stop propagation) */}
+                  <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-1.5">
-                      {/* 1. Slip Print */}
+                      {/* Slip Print */}
                       <button
-                        onClick={() => setSelectedReceiptRecord(r)}
+                        onClick={e => {
+                          e.stopPropagation();
+                          setSelectedReceiptRecord(r);
+                        }}
                         className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors border border-orange-200 shadow-2xs"
                         title="Print Bank of Baroda Slip"
                       >
@@ -296,9 +356,12 @@ export default function BobCustomersPage() {
                         <span>Slip</span>
                       </button>
 
-                      {/* 2. Direct Edit */}
+                      {/* Direct Edit */}
                       <button
-                        onClick={() => setEditingRecord(r)}
+                        onClick={e => {
+                          e.stopPropagation();
+                          setEditingRecord(r);
+                        }}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-300 shadow-2xs"
                         title="Edit Account Details"
                       >
@@ -306,9 +369,9 @@ export default function BobCustomersPage() {
                         <span>Edit</span>
                       </button>
 
-                      {/* 3. Direct Delete */}
+                      {/* Direct Delete */}
                       <button
-                        onClick={() => handleDelete(r.id, r.customerName)}
+                        onClick={e => handleDelete(r.id, r.customerName, e)}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200 shadow-2xs"
                         title="Delete Record"
                       >
@@ -331,6 +394,19 @@ export default function BobCustomersPage() {
           </table>
         </div>
       </div>
+
+      {/* Row-Click Customer Profile Drawer */}
+      <BobProfileDrawer
+        record={activeProfileRecord}
+        isOpen={!!activeProfileRecord}
+        onClose={() => setActiveProfileRecord(null)}
+        onEdit={recordToEdit => setEditingRecord(recordToEdit)}
+        onPrintReceipt={recordToPrint => setSelectedReceiptRecord(recordToPrint)}
+        onRecordDeleted={deletedId => {
+          setRecords(prev => prev.filter(item => item.id !== deletedId));
+          setActiveProfileRecord(null);
+        }}
+      />
 
       {/* Slip Modal */}
       {selectedReceiptRecord && (

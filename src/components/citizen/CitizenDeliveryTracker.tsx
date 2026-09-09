@@ -211,8 +211,8 @@ export default function CitizenDeliveryTracker() {
                 return (
                   <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
                     {/* Serial */}
-                    <td className="py-3 px-4 font-mono font-bold text-blue-700">
-                      SL #{r.serialNo}
+                    <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                      {r.serialNo}
                     </td>
 
                     {/* Customer */}

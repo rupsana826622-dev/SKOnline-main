@@ -132,7 +132,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                       {r.customerName}
                     </div>
                     <div className="text-xs text-slate-500 truncate">
-                      SL #{r.slNo} · A/C: {r.accountNo || "PENDING"} · {r.mobile}
+                      SL {r.slNo} · A/C: {r.accountNo || "PENDING"} · {r.mobile}
                     </div>
                   </div>
                 </div>
@@ -168,7 +168,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                       {r.customerName} <span className="text-xs text-blue-600 font-normal">({r.serviceType})</span>
                     </div>
                     <div className="text-xs text-slate-500 truncate">
-                      SL #{r.serialNo} · {r.appNumber} · {r.contactNo}
+                      SL {r.serialNo} · {r.appNumber} · {r.contactNo}
                     </div>
                   </div>
                 </div>

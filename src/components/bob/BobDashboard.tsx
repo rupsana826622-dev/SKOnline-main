@@ -201,8 +201,8 @@ export default function BobDashboard() {
             <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
               {recentCustomers.map(r => (
                 <tr key={r.id} className="hover:bg-orange-50/20 transition-colors">
-                  <td className="py-3 px-4 font-mono font-bold text-orange-700">
-                    SL #{r.slNo}
+                  <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                    {r.slNo}
                   </td>
                   <td className="py-3 px-4">
                     <div className="font-bold text-slate-900">{r.customerName}</div>

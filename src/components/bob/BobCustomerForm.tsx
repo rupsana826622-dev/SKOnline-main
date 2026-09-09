@@ -113,7 +113,7 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
       if (initialRecord) {
         await updateBobCustomer(initialRecord.id, {
           accountOpeningDate: accountOpeningDate || todayStr,
-          slNo: Number(slNo) || 1001,
+          slNo: Number(slNo) || 1,
           customerName: customerName.trim(),
           guardianName: guardianName.trim(),
           dob: dob.trim(),
@@ -130,7 +130,7 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
         savedRecord = {
           ...initialRecord,
           accountOpeningDate: accountOpeningDate || todayStr,
-          slNo: Number(slNo) || 1001,
+          slNo: Number(slNo) || 1,
           customerName: customerName.trim(),
           guardianName: guardianName.trim(),
           dob: dob.trim(),

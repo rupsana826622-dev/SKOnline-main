@@ -79,15 +79,15 @@ export function saveBobCustomers(records: BobCustomerRecord[]): void {
 
 export function getNextBobSerialNo(): number {
   const records = getBobCustomers();
-  if (records.length === 0) return 1001;
-  const max = records.reduce((acc, r) => (r.slNo > acc ? r.slNo : acc), 1000);
+  if (records.length === 0) return 1;
+  const max = records.reduce((acc, r) => (r.slNo > acc ? r.slNo : acc), 0);
   return max + 1;
 }
 
 export function mapDbToBobCustomer(row: any): BobCustomerRecord {
   return {
     id: row.id,
-    slNo: Number(row.sl_no || row.customer_number || 1001),
+    slNo: Number(row.sl_no || row.customer_number || 1),
     accountOpeningDate: row.account_opening_date || row.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
     customerName: row.customer_name || row.full_name || "",
     guardianName: row.care_of || row.father_name || "",

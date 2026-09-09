@@ -29,7 +29,6 @@ const boiNavItems = [
 const citizenNavItems = [
   { label: "Citizen Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { label: "Citizen Services", path: "/customers", icon: Users },
-  { label: "Add Customer", path: "/add-customer", icon: UserPlus },
   { label: "Delivery Tracker", path: "/citizen/delivery", icon: Truck },
   { label: "Due Payments Ledger", path: "/citizen/dues", icon: CreditCard },
   { label: "WB-SMS / WhatsApp", path: "/whatsapp", icon: MessageSquare },
@@ -40,7 +39,6 @@ const citizenNavItems = [
 const bobNavItems = [
   { label: "BOB Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { label: "BOB Customers", path: "/customers", icon: Users },
-  { label: "Add BOB Customer", path: "/add-customer", icon: UserPlus },
   { label: "Delivery Tracker", path: "/delivery", icon: Truck },
   { label: "WB-SMS / WhatsApp", path: "/whatsapp", icon: MessageSquare },
   { label: "📋 Inquiries", path: "/inquiries", icon: ClipboardList },
