@@ -79,7 +79,7 @@ export async function uploadCitizenStamp(file: File): Promise<{ url: string | nu
 }
 
 /**
- * Persist Citizen Hub settings directly to Supabase public.citizen_settings & public.citizen_service_types
+ * Persist Citizen Hub settings directly to Supabase public.system_settings & public.citizen_settings
  */
 export async function saveCitizenSettingsAsync(settings: CitizenSettings): Promise<{ error: any; data?: any }> {
   const tenantId = getCurrentCitizenTenantId();
@@ -88,58 +88,102 @@ export async function saveCitizenSettingsAsync(settings: CitizenSettings): Promi
   localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
   window.dispatchEvent(new Event("citizen-settings-updated"));
 
-  const payload = {
-    tenant_id: tenantId,
-    stamp_signature_url: settings.stampSignatureUrl,
-    promotional_text: settings.promotionalText,
-    center_name: settings.centerName,
-    center_contact: settings.centerContact,
-    center_address: settings.centerAddress,
-    tagline: settings.tagline || "Digital Citizen Services & Customer Care",
-    service_types: settings.serviceTypes,
-    updated_at: new Date().toISOString(),
-  };
+  const stampUrl = settings.stampSignatureUrl || "";
+  const promoText = settings.promotionalText || "";
+  const dynamicServicesList = settings.serviceTypes || DEFAULT_CITIZEN_SERVICES;
 
+  let lastError: any = null;
+
+  // 1. Commit all updates directly to public.system_settings under id = 'new_csp_config'
   try {
-    // 1. Direct write to public.citizen_settings
-    const { data: citizenData, error: citizenError } = await (supabase as any)
+    const { error: sysError } = await supabase
+      .from("system_settings")
+      .upsert({
+        id: "new_csp_config",
+        tenant_id: tenantId,
+        bank_name: settings.centerName || "SK ONLINE & CYBER ZONE",
+        branch_name: settings.centerAddress || "Cyber Zone Branch",
+        bc_agent_name: settings.centerName || "Abul",
+        bc_agent_mobile: settings.centerContact || "",
+        custom_logos: {
+          citizen_settings: {
+            stamp_url: stampUrl,
+            stampSignatureUrl: stampUrl,
+            promotional_text: promoText,
+            promotionalText: promoText,
+            service_types: dynamicServicesList,
+            serviceTypes: dynamicServicesList,
+            center_name: settings.centerName,
+            centerName: settings.centerName,
+            center_contact: settings.centerContact,
+            centerContact: settings.centerContact,
+            center_address: settings.centerAddress,
+            centerAddress: settings.centerAddress,
+            tagline: settings.tagline || "Digital Citizen Services & Customer Care",
+          },
+        },
+        updated_at: new Date().toISOString(),
+      });
+
+    if (sysError) {
+      console.warn("system_settings upsert error:", sysError);
+      lastError = sysError;
+    }
+  } catch (e) {
+    lastError = e;
+  }
+
+  // 2. Also write to public.citizen_settings with onConflict: tenant_id
+  try {
+    const { error: citizenError } = await (supabase as any)
       .from("citizen_settings")
-      .upsert(payload, { onConflict: "tenant_id" })
-      .select();
+      .upsert({
+        tenant_id: tenantId,
+        stamp_signature_url: stampUrl,
+        promotional_text: promoText,
+        center_name: settings.centerName,
+        center_contact: settings.centerContact,
+        center_address: settings.centerAddress,
+        tagline: settings.tagline || "Digital Citizen Services & Customer Care",
+        service_types: dynamicServicesList,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "tenant_id" });
 
     if (citizenError) {
-      console.error("CRITICAL: citizen_settings save failed:", citizenError);
-      const msg = `SUPABASE ERROR (Settings): ${citizenError.message} | Code: ${citizenError.code || "ERR"}`;
-      alert(msg);
-      toast.error(msg);
-      throw citizenError;
+      console.warn("citizen_settings upsert warning:", citizenError);
+    } else {
+      lastError = null; // Successfully committed to citizen_settings
     }
+  } catch {
+    // Non-fatal if citizen_settings table doesn't exist
+  }
 
-    // 2. Also persist individual service types to public.citizen_service_types if available
-    if (Array.isArray(settings.serviceTypes) && settings.serviceTypes.length > 0) {
-      for (const st of settings.serviceTypes) {
-        try {
-          await (supabase as any)
-            .from("citizen_service_types")
-            .upsert({
-              tenant_id: tenantId,
-              service_name: st,
-              name: st,
-            }, { onConflict: "tenant_id,service_name" });
-        } catch {
-          // Ignored if table structure differs
-        }
+  // 3. Also persist dynamic services to public.citizen_service_types if table exists
+  try {
+    if (Array.isArray(dynamicServicesList) && dynamicServicesList.length > 0) {
+      for (const st of dynamicServicesList) {
+        await (supabase as any)
+          .from("citizen_service_types")
+          .upsert({
+            tenant_id: tenantId,
+            service_name: st,
+            name: st,
+          }, { onConflict: "tenant_id,service_name" });
       }
     }
+  } catch {
+    // Non-fatal
+  }
 
-    return { error: null, data: citizenData };
-  } catch (err: any) {
-    console.error("CRITICAL: citizen_settings save failed:", err);
-    const msg = `SUPABASE ERROR (Settings): ${err.message || "Network Error"}`;
+  if (lastError) {
+    console.error("CRITICAL: citizen settings save failed:", lastError);
+    const msg = `SUPABASE ERROR (Settings): ${lastError.message || "Save Error"} | Code: ${lastError.code || "ERR"}`;
     alert(msg);
     toast.error(msg);
-    throw err;
+    throw lastError;
   }
+
+  return { error: null };
 }
 
 export function saveCitizenSettings(settings: CitizenSettings): void {
@@ -175,53 +219,58 @@ export function getNextSerialNo(): number {
   return max + 1;
 }
 
-// Map CitizenServiceRecord to/from Supabase public.citizen_services table
-function mapCitizenRecordToDb(r: CitizenServiceRecord): Record<string, any> {
+/**
+ * Strictly sanitize and map CitizenServiceRecord to valid public.citizen_services columns
+ */
+function sanitizeCitizenPayload(r: Partial<CitizenServiceRecord> & Record<string, any>): Record<string, any> {
   const tenantId = getCurrentCitizenTenantId();
-  return {
-    id: r.id,
+  const totalAmount = Number(r.totalAmount ?? r.total_amount ?? 0) || 0;
+  const advanceAmount = Number(r.advancePaid ?? r.advance_amount ?? r.advance_paid ?? 0) || 0;
+  const dueAmount = r.dueAmount !== undefined
+    ? Number(r.dueAmount)
+    : r.due_amount !== undefined
+    ? Number(r.due_amount)
+    : Math.max(0, totalAmount - advanceAmount);
+
+  const payload: Record<string, any> = {
     tenant_id: tenantId,
-    serial_no: Number(r.serialNo || 1),
-    customer_name: r.customerName || "",
-    contact_no: r.contactNo || "",
-    address: r.address || "",
-    service_type: r.serviceType || "",
-    application_date: r.applicationDate || "",
-    app_number: r.appNumber || "",
-    portal_password: r.portalPassword || "",
-    final_service_no: r.finalServiceNo || "",
-    document_file_url: r.documentFileUrl || "",
-    total_amount: Number(r.totalAmount || 0),
-    advance_paid: Number(r.advancePaid || 0),
-    due_amount: Number(r.dueAmount || 0),
-    payment_mode: r.paymentMode || "Cash",
-    payment_status: r.paymentStatus || (r.dueAmount === 0 ? "Full Paid" : "Partial"),
-    status: r.status || "Applied",
-    issued_date: r.issuedDate || null,
-    delivered_date: r.deliveredDate || null,
-    notes: r.notes || "",
-    created_at: r.createdAt || new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    serial_no: Number(r.serialNo ?? r.serial_no) || 1,
+    customer_name: (r.customerName ?? r.customer_name)?.trim() || "",
+    contact_no: (r.contactNo ?? r.contact_no ?? r.mobile)?.trim() || null,
+    address: (r.address)?.trim() || null,
+    service_type: (r.serviceType ?? r.service_type)?.trim() || "General",
+    application_date: (r.applicationDate ?? r.application_date) || new Date().toISOString().split("T")[0],
+    app_user_id: (r.appNumber ?? r.app_user_id ?? r.app_number)?.trim() || null,
+    app_password: (r.portalPassword ?? r.app_password ?? r.portal_password)?.trim() || null,
+    final_service_no: (r.finalServiceNo ?? r.final_service_no)?.trim() || null,
+    document_file_url: (r.documentFileUrl ?? r.document_file_url) || null,
+    total_amount: totalAmount,
+    advance_amount: advanceAmount,
+    due_amount: dueAmount,
+    payment_mode: (r.paymentMode ?? r.payment_mode) || "Cash",
+    payment_status: dueAmount <= 0 ? "Full Paid" : "Due",
   };
+
+  return payload;
 }
 
 function mapDbToCitizenRecord(row: any): CitizenServiceRecord {
-  const totalAmount = Number(row.total_amount ?? row.annual_income ?? 0);
-  const advancePaid = Number(row.advance_paid ?? 0);
+  const totalAmount = Number(row.total_amount ?? 0);
+  const advancePaid = Number(row.advance_amount ?? row.advance_paid ?? 0);
   const dueAmount = Number(row.due_amount ?? Math.max(0, totalAmount - advancePaid));
-  const paymentMode = (row.payment_mode || row.profession || "Cash") as "Cash" | "UPI";
-  const paymentStatus = (row.payment_status || row.category || (dueAmount === 0 ? "Full Paid" : "Partial")) as "Full Paid" | "Partial" | "Pending";
+  const paymentMode = (row.payment_mode || "Cash") as "Cash" | "UPI";
+  const paymentStatus = (row.payment_status === "Due" ? "Partial" : row.payment_status || (dueAmount <= 0 ? "Full Paid" : "Partial")) as "Full Paid" | "Partial" | "Pending";
 
   return {
     id: row.id,
-    serialNo: Number(row.serial_no || row.sl_no || row.pin_code || 1) || 1,
-    customerName: row.customer_name || row.full_name || "",
-    contactNo: row.contact_no || row.mobile_number || row.mobile || "",
+    serialNo: Number(row.serial_no || row.sl_no || 1) || 1,
+    customerName: row.customer_name || "",
+    contactNo: row.contact_no || row.mobile || "",
     address: row.address || "",
-    serviceType: row.service_type || row.father_name || "General Service",
-    applicationDate: row.application_date || row.account_opening_date || row.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-    appNumber: row.app_number || row.account_number || "",
-    portalPassword: row.portal_password || row.customer_id_cif || "",
+    serviceType: row.service_type || "General",
+    applicationDate: row.application_date || row.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+    appNumber: row.app_user_id || row.app_number || "",
+    portalPassword: row.app_password || row.portal_password || "",
     finalServiceNo: row.final_service_no || "",
     documentFileUrl: row.document_file_url || "",
     totalAmount,
@@ -229,9 +278,9 @@ function mapDbToCitizenRecord(row: any): CitizenServiceRecord {
     dueAmount,
     paymentMode,
     paymentStatus,
-    status: (row.status as any) || (row.passbook_issued ? "Delivered" : row.passbook_received ? "Issued" : "Applied"),
-    issuedDate: row.issued_date || row.passbook_received_at || null,
-    deliveredDate: row.delivered_date || row.passbook_issued_at || null,
+    status: (row.status as any) || (dueAmount <= 0 ? "Delivered" : "Applied"),
+    issuedDate: row.issued_date || null,
+    deliveredDate: row.delivered_date || null,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
     notes: row.notes || "",
@@ -243,7 +292,7 @@ function mapDbToCitizenRecord(row: any): CitizenServiceRecord {
  * Direct Add/Insert strictly into Supabase public.citizen_services
  */
 export async function addCitizenRecord(record: CitizenServiceRecord): Promise<{ error: any; data?: any }> {
-  const payload = mapCitizenRecordToDb(record);
+  const payload = sanitizeCitizenPayload(record);
 
   try {
     const { data, error } = await (supabase as any)
@@ -252,8 +301,8 @@ export async function addCitizenRecord(record: CitizenServiceRecord): Promise<{ 
       .select();
 
     if (error) {
-      console.error("CRITICAL: citizen_services insert failed:", error);
-      const msg = `SUPABASE ERROR (Add Citizen Record): ${error.message} | Code: ${error.code || "ERR"}`;
+      console.error("Insert citizen_services failure:", error);
+      const msg = `Supabase Error (${error.code}): ${error.message}`;
       alert(msg);
       toast.error(msg);
       throw error;
@@ -264,9 +313,6 @@ export async function addCitizenRecord(record: CitizenServiceRecord): Promise<{ 
     return { error: null, data: data ? data[0] : null };
   } catch (err: any) {
     console.error("Supabase Citizen Insert Error:", err);
-    const msg = `SUPABASE ERROR (Add Record): ${err.message || "Network Error"}`;
-    alert(msg);
-    toast.error(msg);
     throw err;
   }
 }
@@ -276,25 +322,7 @@ export async function addCitizenRecord(record: CitizenServiceRecord): Promise<{ 
  */
 export async function updateCitizenRecord(id: string, updates: Partial<CitizenServiceRecord>): Promise<{ error: any }> {
   const tenantId = getCurrentCitizenTenantId();
-  const records = getCitizenRecords();
-  const existing = records.find(r => r.id === id);
-
-  const updated: CitizenServiceRecord = {
-    ...(existing || {} as any),
-    ...updates,
-    id,
-    updatedAt: new Date().toISOString(),
-  };
-
-  // Auto calculate due amount if amounts were updated
-  if (updates.totalAmount !== undefined || updates.advancePaid !== undefined) {
-    const total = updates.totalAmount !== undefined ? updates.totalAmount : updated.totalAmount;
-    const adv = updates.advancePaid !== undefined ? updates.advancePaid : updated.advancePaid;
-    updated.dueAmount = Math.max(0, total - adv);
-    updated.paymentStatus = updated.dueAmount === 0 ? "Full Paid" : adv > 0 ? "Partial" : "Pending";
-  }
-
-  const payload = mapCitizenRecordToDb(updated);
+  const payload = sanitizeCitizenPayload(updates as any);
 
   try {
     const { error } = await (supabase as any)
@@ -304,8 +332,8 @@ export async function updateCitizenRecord(id: string, updates: Partial<CitizenSe
       .eq("tenant_id", tenantId);
 
     if (error) {
-      console.error("CRITICAL: citizen_services update failed:", error);
-      const msg = `SUPABASE ERROR (Update Record): ${error.message} | Code: ${error.code || "ERR"}`;
+      console.error("Update citizen_services failure:", error);
+      const msg = `Supabase Error (${error.code}): ${error.message}`;
       alert(msg);
       toast.error(msg);
       throw error;
@@ -316,9 +344,6 @@ export async function updateCitizenRecord(id: string, updates: Partial<CitizenSe
     return { error: null };
   } catch (err: any) {
     console.error("Supabase Citizen Update Error:", err);
-    const msg = `SUPABASE ERROR (Update Record): ${err.message || "Network Error"}`;
-    alert(msg);
-    toast.error(msg);
     throw err;
   }
 }
@@ -350,8 +375,8 @@ export async function deleteCitizenRecord(id: string): Promise<{ error: any }> {
       .eq("tenant_id", tenantId);
 
     if (error) {
-      console.error("CRITICAL: citizen_services delete failed:", error);
-      const msg = `SUPABASE ERROR (Delete Record): ${error.message}`;
+      console.error("Delete citizen_services failure:", error);
+      const msg = `Supabase Error (${error.code}): ${error.message}`;
       alert(msg);
       toast.error(msg);
       throw error;
@@ -362,9 +387,6 @@ export async function deleteCitizenRecord(id: string): Promise<{ error: any }> {
     return { error: null };
   } catch (err: any) {
     console.error("Supabase Citizen Delete Error:", err);
-    const msg = `SUPABASE ERROR (Delete Record): ${err.message || "Network Error"}`;
-    alert(msg);
-    toast.error(msg);
     throw err;
   }
 }
@@ -403,49 +425,65 @@ export async function syncCitizenFromSupabase(): Promise<void> {
   const tenantId = getCurrentCitizenTenantId();
 
   try {
-    // 1. Sync Settings: Query public.citizen_settings
-    const { data, error } = await (supabase as any)
-      .from("citizen_settings")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
+    let liveSettings: CitizenSettings | null = null;
 
-    if (!error && data) {
-      let serviceTypes = Array.isArray(data.service_types) && data.service_types.length > 0
-        ? data.service_types
-        : DEFAULT_CITIZEN_SERVICES;
+    // 1. Read from system_settings row new_csp_config first
+    try {
+      const { data: sysData, error: sysError } = await supabase
+        .from("system_settings")
+        .select("*")
+        .eq("id", "new_csp_config")
+        .maybeSingle();
 
-      // Also try to query citizen_service_types
-      try {
-        const { data: stData } = await (supabase as any)
-          .from("citizen_service_types")
-          .select("service_name, name")
-          .eq("tenant_id", tenantId);
-
-        if (stData && stData.length > 0) {
-          const fetchedNames = stData.map((s: any) => s.service_name || s.name).filter(Boolean);
-          const merged = Array.from(new Set([...serviceTypes, ...fetchedNames]));
-          if (merged.length > 0) serviceTypes = merged;
-        }
-      } catch {
-        // Ignored
+      if (!sysError && sysData?.custom_logos?.citizen_settings) {
+        const cs = sysData.custom_logos.citizen_settings;
+        liveSettings = {
+          serviceTypes: Array.isArray(cs.service_types || cs.serviceTypes) && (cs.service_types || cs.serviceTypes).length > 0
+            ? (cs.service_types || cs.serviceTypes)
+            : DEFAULT_CITIZEN_SERVICES,
+          stampSignatureUrl: cs.stamp_url || cs.stampSignatureUrl || "",
+          promotionalText: cs.promotional_text || cs.promotionalText || DEFAULT_CITIZEN_SETTINGS.promotionalText,
+          centerName: cs.center_name || cs.centerName || sysData.bank_name || DEFAULT_CITIZEN_SETTINGS.centerName,
+          centerContact: cs.center_contact || cs.centerContact || sysData.bc_agent_mobile || DEFAULT_CITIZEN_SETTINGS.centerContact,
+          centerAddress: cs.center_address || cs.centerAddress || sysData.branch_name || DEFAULT_CITIZEN_SETTINGS.centerAddress,
+          tagline: cs.tagline || DEFAULT_CITIZEN_SETTINGS.tagline,
+        };
       }
+    } catch {
+      // Fallback
+    }
 
-      const liveSettings: CitizenSettings = {
-        serviceTypes,
-        stampSignatureUrl: data.stamp_signature_url || "",
-        promotionalText: data.promotional_text || DEFAULT_CITIZEN_SETTINGS.promotionalText,
-        centerName: data.center_name || DEFAULT_CITIZEN_SETTINGS.centerName,
-        centerContact: data.center_contact || DEFAULT_CITIZEN_SETTINGS.centerContact,
-        centerAddress: data.center_address || DEFAULT_CITIZEN_SETTINGS.centerAddress,
-        tagline: data.tagline || DEFAULT_CITIZEN_SETTINGS.tagline,
-      };
+    // 2. Also try reading from public.citizen_settings
+    try {
+      const { data: citData, error: citError } = await (supabase as any)
+        .from("citizen_settings")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
 
+      if (!citError && citData) {
+        liveSettings = {
+          serviceTypes: Array.isArray(citData.service_types) && citData.service_types.length > 0
+            ? citData.service_types
+            : liveSettings?.serviceTypes || DEFAULT_CITIZEN_SERVICES,
+          stampSignatureUrl: citData.stamp_signature_url || liveSettings?.stampSignatureUrl || "",
+          promotionalText: citData.promotional_text || liveSettings?.promotionalText || DEFAULT_CITIZEN_SETTINGS.promotionalText,
+          centerName: citData.center_name || liveSettings?.centerName || DEFAULT_CITIZEN_SETTINGS.centerName,
+          centerContact: citData.center_contact || liveSettings?.centerContact || DEFAULT_CITIZEN_SETTINGS.centerContact,
+          centerAddress: citData.center_address || liveSettings?.centerAddress || DEFAULT_CITIZEN_SETTINGS.centerAddress,
+          tagline: citData.tagline || liveSettings?.tagline || DEFAULT_CITIZEN_SETTINGS.tagline,
+        };
+      }
+    } catch {
+      // Ignored
+    }
+
+    if (liveSettings) {
       localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(liveSettings));
       window.dispatchEvent(new Event("citizen-settings-updated"));
     }
 
-    // 2. Sync Records
+    // 3. Sync Records
     await fetchCitizenRecordsFromSupabase();
   } catch (err) {
     console.warn("Failed to sync citizen data from Supabase:", err);

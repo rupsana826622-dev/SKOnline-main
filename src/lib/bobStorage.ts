@@ -32,7 +32,6 @@ export function getBobSettings(): BobSettings {
 
 export async function uploadBobStamp(file: File): Promise<{ url: string | null; error: any }> {
   try {
-    const fileExt = file.name.split(".").pop() || "png";
     const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const filePath = `bob_stamp_${Date.now()}_${cleanFileName}`;
 
@@ -77,10 +76,32 @@ export async function saveBobSettingsAsync(settings: BobSettings): Promise<{ err
   window.dispatchEvent(new Event("bob-settings-updated"));
 
   try {
-    // 1. Persist directly to public.bob_settings table
-    let bobSettingsErr: any = null;
+    let lastError: any = null;
+
+    // 1. Persist directly to system_settings row bob_csp_config
     try {
-      const { error } = await (supabase as any)
+      const { error: sysErr } = await supabase
+        .from("system_settings")
+        .upsert({
+          id: "bob_csp_config",
+          tenant_id: currentTenantId,
+          bank_name: "Bank of Baroda",
+          branch_name: settings.linkBranch || settings.branchName || "Bank of Baroda CSP",
+          bc_agent_name: settings.operatorName || "CSP Operator",
+          bc_agent_mobile: settings.operatorContact || "",
+          custom_logos: {
+            bob_settings: settings,
+          },
+          updated_at: new Date().toISOString(),
+        });
+      if (sysErr) lastError = sysErr;
+    } catch (e) {
+      lastError = e;
+    }
+
+    // 2. Also persist directly to public.bob_settings table
+    try {
+      const { error: bobErr } = await (supabase as any)
         .from("bob_settings")
         .upsert({
           tenant_id: currentTenantId,
@@ -98,31 +119,22 @@ export async function saveBobSettingsAsync(settings: BobSettings): Promise<{ err
           updated_at: new Date().toISOString(),
         }, { onConflict: "tenant_id" })
         .select();
-      if (error) bobSettingsErr = error;
+
+      if (bobErr) {
+        console.warn("bob_settings upsert warning:", bobErr);
+      } else {
+        lastError = null;
+      }
     } catch (e) {
-      bobSettingsErr = e;
+      // Non-fatal if table not yet provisioned
     }
 
-    // 2. Also persist to system_settings config row
-    const { error: sysErr } = await supabase
-      .from("system_settings")
-      .upsert({
-        id: "bob_csp_config",
-        bank_name: "Bank of Baroda",
-        branch_name: settings.linkBranch || settings.branchName || "Bank of Baroda CSP",
-        bc_agent_name: settings.operatorName || "CSP Operator",
-        bc_agent_mobile: settings.operatorContact || "",
-        custom_logos: {
-          bob_settings: settings,
-        },
-      });
-
-    if (sysErr && bobSettingsErr) {
-      console.error("Error saving BOB settings to Supabase:", sysErr || bobSettingsErr);
-      const errorMsg = `Settings Save Failed: ${sysErr.message || bobSettingsErr.message}`;
+    if (lastError) {
+      console.error("Error saving BOB settings to Supabase:", lastError);
+      const errorMsg = `Settings Save Failed: ${lastError.message || "Database Error"}`;
       alert(errorMsg);
       toast.error(errorMsg);
-      return { error: sysErr || bobSettingsErr };
+      return { error: lastError };
     }
 
     return { error: null };
@@ -170,30 +182,30 @@ export function getNextBobSerialNo(): number {
 export function mapDbToBobCustomer(row: any): BobCustomerRecord {
   return {
     id: row.id,
-    slNo: Number(row.sl_no || row.customer_number || 1),
+    slNo: Number(row.sl_no || 1),
     accountOpeningDate: row.account_opening_date || row.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-    customerName: row.customer_name || row.full_name || "",
-    guardianName: row.care_of || row.father_name || "",
+    customerName: row.customer_name || "",
+    guardianName: row.care_of || "",
     dob: row.dob || "",
-    mobile: row.mobile || row.mobile_number || "",
+    mobile: row.mobile || "",
     address: row.address || "",
-    aadhaarNo: row.aadhaar_no || row.aadhaar_number || "",
-    refNo: row.reference_no || row.pin_code || "",
-    cifNo: row.cif_no || row.customer_id_cif || "",
-    accountNo: row.account_no || row.account_number || "",
-    enrollAPY: row.has_apy !== undefined ? !!row.has_apy : !!row.include_apy,
-    enrollPMSBY: row.has_pmsby !== undefined ? !!row.has_pmsby : !!row.include_pmsby,
-    enrollPMJJBY: row.has_pmjjby !== undefined ? !!row.has_pmjjby : !!row.include_pmjjby,
+    aadhaarNo: row.aadhaar_no || "",
+    refNo: row.reference_no || "",
+    cifNo: row.cif_no || "",
+    accountNo: row.account_no || "",
+    enrollAPY: Boolean(row.has_apy),
+    enrollPMSBY: Boolean(row.has_pmsby),
+    enrollPMJJBY: Boolean(row.has_pmjjby),
 
-    passbookIssued: !!row.passbook_issued,
-    passbookIssuedAt: row.passbook_issued_date || row.passbook_issued_at || (row.passbook_issued ? row.created_at : null),
-    passbookDelivered: !!row.passbook_delivered || !!row.passbook_received,
-    passbookDeliveredAt: row.passbook_delivered_date || row.passbook_received_at || null,
+    passbookIssued: Boolean(row.passbook_issued),
+    passbookIssuedAt: row.passbook_issued_date || null,
+    passbookDelivered: Boolean(row.passbook_delivered),
+    passbookDeliveredAt: row.passbook_delivered_date || null,
 
-    atmIssued: !!row.atm_issued,
-    atmIssuedAt: row.atm_issued_date || row.atm_issued_at || (row.atm_issued ? row.created_at : null),
-    atmDelivered: !!row.atm_delivered || !!row.atm_received,
-    atmDeliveredAt: row.atm_delivered_date || row.atm_received_at || null,
+    atmIssued: Boolean(row.atm_issued),
+    atmIssuedAt: row.atm_issued_date || null,
+    atmDelivered: Boolean(row.atm_delivered),
+    atmDeliveredAt: row.atm_delivered_date || null,
 
     notes: row.notes || "",
     createdAt: row.created_at || new Date().toISOString(),
@@ -218,7 +230,6 @@ export async function fetchBobCustomersFromSupabase(): Promise<BobCustomerRecord
 
     if (error) {
       console.error("Supabase BOB Select Error:", error);
-      // If table error, show alert so operator is informed
       toast.error(`Database Error: ${error.message} (Code: ${error.code || "SELECT_ERR"})`);
       saveBobCustomers([]);
       return [];
@@ -258,8 +269,8 @@ export async function addBobCustomer(formData: {
   const payload = {
     tenant_id: currentTenantId,
     account_opening_date: formData.account_opening_date || new Date().toISOString().split("T")[0],
-    sl_no: formData.sl_no ? parseInt(String(formData.sl_no), 10) : null,
-    customer_name: formData.customer_name?.trim(),
+    sl_no: formData.sl_no ? parseInt(String(formData.sl_no), 10) : 1,
+    customer_name: formData.customer_name?.trim() || "",
     care_of: formData.care_of?.trim() || null,
     dob: formData.dob?.trim() || null,
     mobile: formData.mobile?.trim() || null,
@@ -307,7 +318,7 @@ export async function updateBobCustomer(
     payload.account_opening_date = updates.accountOpeningDate || new Date().toISOString().split("T")[0];
   }
   if (updates.slNo !== undefined) {
-    payload.sl_no = updates.slNo ? parseInt(String(updates.slNo), 10) : null;
+    payload.sl_no = updates.slNo ? parseInt(String(updates.slNo), 10) : 1;
   }
   if (updates.customerName !== undefined) {
     payload.customer_name = updates.customerName?.trim();
@@ -346,6 +357,32 @@ export async function updateBobCustomer(
     payload.has_pmjjby = Boolean(updates.enrollPMJJBY);
   }
 
+  // Delivery tracking columns
+  if (updates.passbookIssued !== undefined) {
+    payload.passbook_issued = Boolean(updates.passbookIssued);
+  }
+  if (updates.passbookIssuedAt !== undefined) {
+    payload.passbook_issued_date = updates.passbookIssuedAt || null;
+  }
+  if (updates.passbookDelivered !== undefined) {
+    payload.passbook_delivered = Boolean(updates.passbookDelivered);
+  }
+  if (updates.passbookDeliveredAt !== undefined) {
+    payload.passbook_delivered_date = updates.passbookDeliveredAt || null;
+  }
+  if (updates.atmIssued !== undefined) {
+    payload.atm_issued = Boolean(updates.atmIssued);
+  }
+  if (updates.atmIssuedAt !== undefined) {
+    payload.atm_issued_date = updates.atmIssuedAt || null;
+  }
+  if (updates.atmDelivered !== undefined) {
+    payload.atm_delivered = Boolean(updates.atmDelivered);
+  }
+  if (updates.atmDeliveredAt !== undefined) {
+    payload.atm_delivered_date = updates.atmDeliveredAt || null;
+  }
+
   if (Object.keys(payload).length > 0) {
     const { error } = await (supabase as any)
       .from("bob_customers")
@@ -362,25 +399,8 @@ export async function updateBobCustomer(
     }
   }
 
-  // Also handle delivery tracking updates in local cache seamlessly
-  if (
-    updates.passbookIssued !== undefined ||
-    updates.passbookIssuedAt !== undefined ||
-    updates.passbookDelivered !== undefined ||
-    updates.passbookDeliveredAt !== undefined ||
-    updates.atmIssued !== undefined ||
-    updates.atmIssuedAt !== undefined ||
-    updates.atmDelivered !== undefined ||
-    updates.atmDeliveredAt !== undefined
-  ) {
-    const cached = getBobCustomers();
-    const updatedList = cached.map(c => (c.id === id ? { ...c, ...updates } : c));
-    saveBobCustomers(updatedList);
-  } else {
-    // Re-fetch all records live from Supabase
-    await fetchBobCustomersFromSupabase();
-  }
-
+  // Re-fetch all records live from Supabase
+  await fetchBobCustomersFromSupabase();
   return { error: null };
 }
 
@@ -413,8 +433,27 @@ export async function syncBobFromSupabase(): Promise<void> {
   const currentTenantId = getCurrentTenantId();
 
   try {
-    // 1. Sync Settings: Try public.bob_settings table first
     let liveSettings: BobSettings | null = null;
+
+    // 1. Sync Settings: Try system_settings row bob_csp_config
+    try {
+      const { data: settingsData, error: sysError } = await supabase
+        .from("system_settings")
+        .select("*")
+        .eq("id", "bob_csp_config")
+        .maybeSingle();
+
+      if (!sysError && settingsData?.custom_logos?.bob_settings) {
+        liveSettings = {
+          ...DEFAULT_BOB_SETTINGS,
+          ...settingsData.custom_logos.bob_settings,
+        };
+      }
+    } catch {
+      // Ignored
+    }
+
+    // 2. Also check public.bob_settings table
     try {
       const { data, error } = await (supabase as any)
         .from("bob_settings")
@@ -425,38 +464,22 @@ export async function syncBobFromSupabase(): Promise<void> {
       if (!error && data) {
         liveSettings = {
           ...DEFAULT_BOB_SETTINGS,
-          cspName: data.csp_name || DEFAULT_BOB_SETTINGS.cspName,
-          cspCode: data.csp_code || DEFAULT_BOB_SETTINGS.cspCode,
-          cspAddress: data.csp_address || DEFAULT_BOB_SETTINGS.cspAddress,
-          linkBranch: data.link_branch || DEFAULT_BOB_SETTINGS.linkBranch,
-          branchName: data.branch_name || data.link_branch || DEFAULT_BOB_SETTINGS.branchName,
-          branchCode: data.branch_code || DEFAULT_BOB_SETTINGS.branchCode,
-          ifscCode: data.ifsc_code || DEFAULT_BOB_SETTINGS.ifscCode,
-          operatorName: data.operator_name || DEFAULT_BOB_SETTINGS.operatorName,
-          operatorContact: data.operator_contact || DEFAULT_BOB_SETTINGS.operatorContact,
-          refPrefix: data.ref_prefix || DEFAULT_BOB_SETTINGS.refPrefix,
-          accountPrefix: DEFAULT_BOB_SETTINGS.accountPrefix,
-          stampSignatureUrl: data.stamp_signature_url || "",
+          ...(liveSettings || {}),
+          cspName: data.csp_name || liveSettings?.cspName || DEFAULT_BOB_SETTINGS.cspName,
+          cspCode: data.csp_code || liveSettings?.cspCode || DEFAULT_BOB_SETTINGS.cspCode,
+          cspAddress: data.csp_address || liveSettings?.cspAddress || DEFAULT_BOB_SETTINGS.cspAddress,
+          linkBranch: data.link_branch || liveSettings?.linkBranch || DEFAULT_BOB_SETTINGS.linkBranch,
+          branchName: data.branch_name || data.link_branch || liveSettings?.branchName || DEFAULT_BOB_SETTINGS.branchName,
+          branchCode: data.branch_code || liveSettings?.branchCode || DEFAULT_BOB_SETTINGS.branchCode,
+          ifscCode: data.ifsc_code || liveSettings?.ifscCode || DEFAULT_BOB_SETTINGS.ifscCode,
+          operatorName: data.operator_name || liveSettings?.operatorName || DEFAULT_BOB_SETTINGS.operatorName,
+          operatorContact: data.operator_contact || liveSettings?.operatorContact || DEFAULT_BOB_SETTINGS.operatorContact,
+          refPrefix: data.ref_prefix || liveSettings?.refPrefix || DEFAULT_BOB_SETTINGS.refPrefix,
+          stampSignatureUrl: data.stamp_signature_url || liveSettings?.stampSignatureUrl || "",
         };
       }
     } catch {
       // Ignored
-    }
-
-    // Fallback to system_settings config row
-    if (!liveSettings) {
-      const { data: settingsData } = await supabase
-        .from("system_settings")
-        .select("*")
-        .eq("id", "bob_csp_config")
-        .maybeSingle();
-
-      if (settingsData?.custom_logos?.bob_settings) {
-        liveSettings = {
-          ...DEFAULT_BOB_SETTINGS,
-          ...settingsData.custom_logos.bob_settings,
-        };
-      }
     }
 
     if (liveSettings) {
@@ -464,7 +487,7 @@ export async function syncBobFromSupabase(): Promise<void> {
       window.dispatchEvent(new Event("bob-settings-updated"));
     }
 
-    // 2. Sync Records
+    // 3. Sync Records
     await fetchBobCustomersFromSupabase();
   } catch (err) {
     console.warn("Failed to sync BOB data from Supabase:", err);
