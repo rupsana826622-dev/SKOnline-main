@@ -5,7 +5,11 @@ import {
 } from "lucide-react";
 import type { CitizenSettings } from "@/types/citizen";
 import { DEFAULT_CITIZEN_SETTINGS, DEFAULT_CITIZEN_SERVICES } from "@/types/citizen";
-import { getCitizenSettings, saveCitizenSettings } from "@/lib/citizenStorage";
+import {
+  getCitizenSettings,
+  saveCitizenSettingsAsync,
+  uploadCitizenStamp
+} from "@/lib/citizenStorage";
 import { toast } from "sonner";
 
 interface CitizenSettingsModalProps {
@@ -17,6 +21,8 @@ interface CitizenSettingsModalProps {
 export default function CitizenSettingsModal({ open, onClose, onSaved }: CitizenSettingsModalProps) {
   const [settings, setSettings] = useState<CitizenSettings>(getCitizenSettings());
   const [newService, setNewService] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [uploadingStamp, setUploadingStamp] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -58,7 +64,7 @@ export default function CitizenSettingsModal({ open, onClose, onSaved }: Citizen
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -72,13 +78,23 @@ export default function CitizenSettingsModal({ open, onClose, onSaved }: Citizen
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      setSettings(prev => ({ ...prev, stampSignatureUrl: base64 }));
-      toast.success("Stamp / Signature uploaded.");
-    };
-    reader.readAsDataURL(file);
+    setUploadingStamp(true);
+    const toastId = toast.loading("Uploading stamp to Supabase Storage...");
+
+    try {
+      const { url, error } = await uploadCitizenStamp(file);
+      if (error || !url) {
+        toast.error(`Stamp upload failed: ${error?.message || "Storage error"}`, { id: toastId });
+        return;
+      }
+
+      setSettings(prev => ({ ...prev, stampSignatureUrl: url }));
+      toast.success("Stamp / Signature uploaded to Supabase Storage!", { id: toastId });
+    } catch (err: any) {
+      toast.error(`Upload error: ${err.message || "Failed to upload file"}`, { id: toastId });
+    } finally {
+      setUploadingStamp(false);
+    }
   };
 
   const handleRemoveStamp = () => {
@@ -87,11 +103,20 @@ export default function CitizenSettingsModal({ open, onClose, onSaved }: Citizen
     toast.info("Stamp / Signature removed.");
   };
 
-  const handleSave = () => {
-    saveCitizenSettings(settings);
-    toast.success("Digital Citizen Hub settings saved successfully!");
-    if (onSaved) onSaved(settings);
-    onClose();
+  const handleSave = async () => {
+    setSaving(true);
+    const toastId = toast.loading("Saving settings to Supabase...");
+
+    try {
+      await saveCitizenSettingsAsync(settings);
+      toast.success("Settings committed to Supabase database!", { id: toastId });
+      if (onSaved) onSaved(settings);
+      onClose();
+    } catch (err: any) {
+      toast.error(`Settings save failed: ${err.message || "Database error"}`, { id: toastId });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -181,10 +206,10 @@ export default function CitizenSettingsModal({ open, onClose, onSaved }: Citizen
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
             <div className="flex items-center gap-2">
               <Shield size={16} className="text-blue-600" />
-              <h3 className="text-sm font-bold text-slate-800">Stamp & Authorized Signature</h3>
+              <h3 className="text-sm font-bold text-slate-800">Stamp & Authorized Signature (Cloud Persisted)</h3>
             </div>
             <p className="text-xs text-slate-500">
-              Upload a digital stamp/signature image to be printed on the customer receipt.
+              Upload a digital stamp/signature image to be printed on the customer receipt. Saved directly to Supabase Storage.
             </p>
 
             <div className="flex items-center gap-4">
@@ -216,6 +241,7 @@ export default function CitizenSettingsModal({ open, onClose, onSaved }: Citizen
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
+                  disabled={uploadingStamp}
                   accept="image/*"
                   className="hidden"
                   id="stamp-file-input"
@@ -225,7 +251,7 @@ export default function CitizenSettingsModal({ open, onClose, onSaved }: Citizen
                   className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-xs"
                 >
                   <Upload size={14} />
-                  {settings.stampSignatureUrl ? "Change Stamp Image" : "Upload Digital Stamp"}
+                  {uploadingStamp ? "Uploading..." : settings.stampSignatureUrl ? "Change Stamp Image" : "Upload Digital Stamp"}
                 </label>
                 <div className="text-[11px] text-slate-400 mt-1">PNG, JPG with transparent or white background recommended (max 2MB)</div>
               </div>
@@ -316,10 +342,15 @@ export default function CitizenSettingsModal({ open, onClose, onSaved }: Citizen
           <button
             type="button"
             onClick={handleSave}
-            className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
+            disabled={saving}
+            className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors shadow-sm"
           >
-            <Save size={14} />
-            Save Settings
+            {saving ? (
+              <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Save size={14} />
+            )}
+            {saving ? "Saving to Cloud..." : "Save Settings"}
           </button>
         </div>
       </div>

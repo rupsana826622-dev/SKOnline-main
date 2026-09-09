@@ -96,7 +96,8 @@ export async function saveBobSettingsAsync(settings: BobSettings): Promise<{ err
           ref_prefix: settings.refPrefix,
           stamp_signature_url: settings.stampSignatureUrl,
           updated_at: new Date().toISOString(),
-        });
+        }, { onConflict: "tenant_id" })
+        .select();
       if (error) bobSettingsErr = error;
     } catch (e) {
       bobSettingsErr = e;

@@ -5,18 +5,28 @@ import {
 } from "lucide-react";
 import type { CitizenSettings } from "@/types/citizen";
 import { DEFAULT_CITIZEN_SETTINGS, DEFAULT_CITIZEN_SERVICES } from "@/types/citizen";
-import { getCitizenSettings, saveCitizenSettings } from "@/lib/citizenStorage";
+import {
+  getCitizenSettings,
+  saveCitizenSettingsAsync,
+  uploadCitizenStamp,
+  syncCitizenFromSupabase
+} from "@/lib/citizenStorage";
 import { toast } from "sonner";
 import SEO from "@/components/common/SEO";
 
 export default function CitizenSettingsPage() {
   const [settings, setSettings] = useState<CitizenSettings>(getCitizenSettings());
   const [newService, setNewService] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [uploadingStamp, setUploadingStamp] = useState(false);
   const [saved, setSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setSettings(getCitizenSettings());
+    syncCitizenFromSupabase().then(() => {
+      setSettings(getCitizenSettings());
+    });
   }, []);
 
   const handleAddService = (e?: React.FormEvent) => {
@@ -50,7 +60,7 @@ export default function CitizenSettingsPage() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -64,36 +74,55 @@ export default function CitizenSettingsPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      setSettings(prev => ({ ...prev, stampSignatureUrl: base64 }));
-      toast.success("Stamp / Signature uploaded.");
-    };
-    reader.readAsDataURL(file);
+    setUploadingStamp(true);
+    const toastId = toast.loading("Uploading stamp / signature to Supabase Storage...");
+
+    try {
+      const { url, error } = await uploadCitizenStamp(file);
+      if (error || !url) {
+        toast.error(`Stamp upload failed: ${error?.message || "Storage error"}`, { id: toastId });
+        return;
+      }
+
+      setSettings(prev => ({ ...prev, stampSignatureUrl: url }));
+      toast.success("Stamp / Signature uploaded to Supabase Storage!", { id: toastId });
+    } catch (err: any) {
+      toast.error(`Upload error: ${err.message || "Failed to upload file"}`, { id: toastId });
+    } finally {
+      setUploadingStamp(false);
+    }
   };
 
   const handleRemoveStamp = () => {
     setSettings(prev => ({ ...prev, stampSignatureUrl: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
-    toast.info("Stamp / Signature removed.");
+    toast.info("Stamp / Signature removed. Remember to save changes.");
   };
 
-  const handleSave = () => {
-    saveCitizenSettings(settings);
-    setSaved(true);
-    toast.success("Digital Citizen Hub settings saved successfully!");
-    setTimeout(() => setSaved(false), 3000);
+  const handleSave = async () => {
+    setSaving(true);
+    const toastId = toast.loading("Saving settings to Supabase Cloud...");
+
+    try {
+      await saveCitizenSettingsAsync(settings);
+      setSaved(true);
+      toast.success("Settings committed to Supabase database!", { id: toastId });
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      toast.error(`Settings save failed: ${err.message || "Database error"}`, { id: toastId });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 pb-12 animate-fade-in">
       <SEO title="Services Settings — Digital Citizen Hub" />
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold shadow-md">
             <Settings size={20} />
           </div>
           <div>
@@ -106,12 +135,19 @@ export default function CitizenSettingsPage() {
 
         <button
           onClick={handleSave}
-          className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white rounded-xl transition-all shadow-md ${
+          disabled={saving}
+          className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white rounded-xl transition-all shadow-md disabled:opacity-50 ${
             saved ? "bg-emerald-600 hover:bg-emerald-700" : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
-          {saved ? <CheckCircle size={15} /> : <Save size={15} />}
-          {saved ? "Saved Changes!" : "Save All Changes"}
+          {saving ? (
+            <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+          ) : saved ? (
+            <CheckCircle size={15} />
+          ) : (
+            <Save size={15} />
+          )}
+          {saving ? "Saving to Cloud..." : saved ? "Saved Changes!" : "Save All Changes"}
         </button>
       </div>
 
@@ -178,10 +214,10 @@ export default function CitizenSettingsPage() {
       <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-sm">
         <div className="flex items-center gap-2">
           <Shield size={18} className="text-blue-600" />
-          <h2 className="text-sm font-bold text-slate-900">Stamp & Authorized Signature</h2>
+          <h2 className="text-sm font-bold text-slate-900">Stamp & Authorized Signature (Cloud Persisted)</h2>
         </div>
         <p className="text-xs text-slate-500">
-          Upload an official center stamp / authorized digital signature image. It will be printed in the bottom right corner of the Half-A4 customer receipt.
+          Upload an official center stamp / authorized digital signature image. It is saved directly to Supabase Storage and printed in the bottom right corner of customer acknowledgement slips.
         </p>
 
         <div className="flex items-center gap-6">
@@ -213,6 +249,7 @@ export default function CitizenSettingsPage() {
               type="file"
               ref={fileInputRef}
               onChange={handleFileUpload}
+              disabled={uploadingStamp}
               accept="image/*"
               className="hidden"
               id="stamp-file-input-page"
@@ -222,7 +259,7 @@ export default function CitizenSettingsPage() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-xs"
             >
               <Upload size={14} />
-              {settings.stampSignatureUrl ? "Change Stamp Image" : "Upload Digital Stamp / Sign"}
+              {uploadingStamp ? "Uploading to Cloud..." : settings.stampSignatureUrl ? "Change Stamp Image" : "Upload Digital Stamp / Sign"}
             </label>
             <div className="text-[11px] text-slate-400">
               Supported: PNG, JPG, WEBP with white/transparent background (max 2MB)
