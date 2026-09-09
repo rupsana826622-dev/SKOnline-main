@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import ReactDOM from "react-dom";
 import {
   Truck, CheckCircle, Clock, Calendar, Search, Filter,
   Phone, User, Package, AlertCircle, Printer, Eye
@@ -8,13 +9,15 @@ import { getCitizenRecords, updateCitizenRecord, syncCitizenFromSupabase } from 
 import { toast } from "sonner";
 import CitizenReceiptModal from "./CitizenReceiptModal";
 
-// ─── Date Picker Popover ──────────────────────────────────────────
+// ─── Date Picker Popover (Portal-rendered, escapes overflow clipping) ─────────
 
 function DeliveryDatePickerPopover({
+  anchorRect,
   initialDate,
   onConfirm,
   onCancel,
 }: {
+  anchorRect: DOMRect;
   initialDate?: string;
   onConfirm: (dateStr: string) => void;
   onCancel: () => void;
@@ -23,20 +26,34 @@ function DeliveryDatePickerPopover({
   const [selectedDate, setSelectedDate] = useState(initialDate || today);
   const popoverRef = useRef<HTMLDivElement>(null);
 
+  // Position the popover below the anchor button using fixed coordinates
+  const style: React.CSSProperties = {
+    position: "fixed",
+    top: anchorRect.bottom + 6,
+    left: Math.min(anchorRect.left, window.innerWidth - 250),
+    zIndex: 9999,
+    minWidth: 230,
+  };
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
         onCancel();
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    // slight delay so the click that opened the popover doesn't immediately close it
+    const tid = setTimeout(() => document.addEventListener("mousedown", handleClickOutside), 10);
+    return () => {
+      clearTimeout(tid);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, [onCancel]);
 
-  return (
+  const popover = (
     <div
       ref={popoverRef}
-      className="absolute z-50 top-full right-0 mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl p-3 min-w-[220px] animate-fade-in text-slate-900"
+      style={style}
+      className="bg-white border border-slate-300 rounded-xl shadow-2xl p-3 animate-fade-in text-slate-900"
       onClick={e => e.stopPropagation()}
     >
       <div className="flex items-center gap-1.5 mb-2 text-xs font-bold text-slate-700">
@@ -48,6 +65,7 @@ function DeliveryDatePickerPopover({
         value={selectedDate}
         onChange={e => setSelectedDate(e.target.value)}
         className="w-full px-2.5 py-1.5 text-xs font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-slate-50 mb-3"
+        autoFocus
       />
       <div className="flex gap-2">
         <button
@@ -67,6 +85,8 @@ function DeliveryDatePickerPopover({
       </div>
     </div>
   );
+
+  return ReactDOM.createPortal(popover, document.body);
 }
 
 export default function CitizenDeliveryTracker() {
@@ -74,10 +94,11 @@ export default function CitizenDeliveryTracker() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Applied" | "Issued" | "Delivered">("All");
 
-  // Popover state
+  // Popover state — stores target info + the anchor button's bounding rect
   const [pickerTarget, setPickerTarget] = useState<{
     recordId: string;
     action: "issue" | "deliver";
+    anchorRect: DOMRect;
   } | null>(null);
 
   const [selectedReceiptRecord, setSelectedReceiptRecord] = useState<CitizenServiceRecord | null>(null);
@@ -125,21 +146,27 @@ export default function CitizenDeliveryTracker() {
     const target = records.find(r => r.id === recordId);
     if (!target) return;
 
-    if (action === "issue") {
-      await updateCitizenRecord(recordId, {
-        issuedDate: dateStr,
-        status: target.status === "Delivered" ? "Delivered" : "Issued",
-      });
-      toast.success(`SL #${target.serialNo} marked as Issued on ${dateStr}`);
-    } else if (action === "deliver") {
-      await updateCitizenRecord(recordId, {
-        deliveredDate: dateStr,
-        status: "Delivered",
-      });
-      toast.success(`SL #${target.serialNo} marked as Delivered on ${dateStr}`);
-    }
-
     setPickerTarget(null);
+
+    try {
+      if (action === "issue") {
+        await updateCitizenRecord(recordId, {
+          issuedDate: dateStr,
+          status: target.status === "Delivered" ? "Delivered" : "Issued",
+        });
+        toast.success(`SL #${target.serialNo} marked as Issued on ${dateStr}`);
+      } else if (action === "deliver") {
+        await updateCitizenRecord(recordId, {
+          deliveredDate: dateStr,
+          status: "Delivered",
+        });
+        toast.success(`SL #${target.serialNo} marked as Delivered on ${dateStr}`);
+      }
+      await syncCitizenFromSupabase();
+      setRecords(getCitizenRecords());
+    } catch (err: any) {
+      toast.error(`Failed to update status: ${err?.message || "Database error"}`);
+    }
   };
 
   return (
@@ -238,12 +265,15 @@ export default function CitizenDeliveryTracker() {
                       {r.applicationDate}
                     </td>
 
-                    {/* Issued Milestone Button with Popover */}
-                    <td className="py-3 px-4 text-center relative">
-                      <div className="inline-block relative">
+                    {/* Issued Milestone Button with Portal Popover */}
+                    <td className="py-3 px-4 text-center">
+                      <div className="inline-block">
                         <button
                           type="button"
-                          onClick={() => setPickerTarget({ recordId: r.id, action: "issue" })}
+                          onClick={(e) => {
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            setPickerTarget({ recordId: r.id, action: "issue", anchorRect: rect });
+                          }}
                           className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all border ${
                             isIssued
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
@@ -253,23 +283,18 @@ export default function CitizenDeliveryTracker() {
                           <CheckCircle size={13} className={isIssued ? "text-emerald-600" : "text-slate-400"} />
                           <span>{isIssued ? r.issuedDate : "Mark Issued"}</span>
                         </button>
-
-                        {pickerTarget?.recordId === r.id && pickerTarget.action === "issue" && (
-                          <DeliveryDatePickerPopover
-                            initialDate={r.issuedDate || undefined}
-                            onConfirm={handleConfirmDate}
-                            onCancel={() => setPickerTarget(null)}
-                          />
-                        )}
                       </div>
                     </td>
 
-                    {/* Delivered Milestone Button with Popover */}
-                    <td className="py-3 px-4 text-center relative">
-                      <div className="inline-block relative">
+                    {/* Delivered Milestone Button with Portal Popover */}
+                    <td className="py-3 px-4 text-center">
+                      <div className="inline-block">
                         <button
                           type="button"
-                          onClick={() => setPickerTarget({ recordId: r.id, action: "deliver" })}
+                          onClick={(e) => {
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            setPickerTarget({ recordId: r.id, action: "deliver", anchorRect: rect });
+                          }}
                           className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all border ${
                             isDelivered
                               ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
@@ -279,14 +304,6 @@ export default function CitizenDeliveryTracker() {
                           <Package size={13} className={isDelivered ? "text-indigo-600" : "text-slate-400"} />
                           <span>{isDelivered ? r.deliveredDate : "Mark Delivered"}</span>
                         </button>
-
-                        {pickerTarget?.recordId === r.id && pickerTarget.action === "deliver" && (
-                          <DeliveryDatePickerPopover
-                            initialDate={r.deliveredDate || undefined}
-                            onConfirm={handleConfirmDate}
-                            onCancel={() => setPickerTarget(null)}
-                          />
-                        )}
                       </div>
                     </td>
 
@@ -322,6 +339,20 @@ export default function CitizenDeliveryTracker() {
         <CitizenReceiptModal
           record={selectedReceiptRecord}
           onClose={() => setSelectedReceiptRecord(null)}
+        />
+      )}
+
+      {/* Portal-rendered date picker \u2014 rendered at document.body to escape overflow clipping */}
+      {pickerTarget && (
+        <DeliveryDatePickerPopover
+          anchorRect={pickerTarget.anchorRect}
+          initialDate={
+            pickerTarget.action === "issue"
+              ? records.find(r => r.id === pickerTarget.recordId)?.issuedDate || undefined
+              : records.find(r => r.id === pickerTarget.recordId)?.deliveredDate || undefined
+          }
+          onConfirm={handleConfirmDate}
+          onCancel={() => setPickerTarget(null)}
         />
       )}
     </div>

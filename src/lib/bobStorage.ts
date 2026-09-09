@@ -180,6 +180,20 @@ export function getNextBobSerialNo(): number {
 }
 
 export function mapDbToBobCustomer(row: any): BobCustomerRecord {
+  // Derive boolean flags from the date columns — avoids relying on boolean
+  // columns that may not exist in the Supabase schema cache.
+  const pbIssuedDate = row.passbook_issued_date || row.passbook_issued || null;
+  const pbDeliveredDate = row.passbook_delivered_date || row.passbook_delivered || null;
+  const atmIssuedDate = row.atm_issued_date || row.atm_issued || null;
+  const atmDeliveredDate = row.atm_delivered_date || row.atm_delivered || null;
+
+  // Normalise: if value is boolean true (old schema), treat as issued but no date
+  const toDateStr = (val: any): string | null => {
+    if (!val) return null;
+    if (typeof val === "boolean") return null; // boolean=true but no date stored
+    return String(val);
+  };
+
   return {
     id: row.id,
     slNo: Number(row.sl_no || 1),
@@ -197,15 +211,15 @@ export function mapDbToBobCustomer(row: any): BobCustomerRecord {
     enrollPMSBY: Boolean(row.has_pmsby),
     enrollPMJJBY: Boolean(row.has_pmjjby),
 
-    passbookIssued: Boolean(row.passbook_issued),
-    passbookIssuedAt: row.passbook_issued_date || null,
-    passbookDelivered: Boolean(row.passbook_delivered),
-    passbookDeliveredAt: row.passbook_delivered_date || null,
+    passbookIssued: Boolean(pbIssuedDate),
+    passbookIssuedAt: toDateStr(pbIssuedDate),
+    passbookDelivered: Boolean(pbDeliveredDate),
+    passbookDeliveredAt: toDateStr(pbDeliveredDate),
 
-    atmIssued: Boolean(row.atm_issued),
-    atmIssuedAt: row.atm_issued_date || null,
-    atmDelivered: Boolean(row.atm_delivered),
-    atmDeliveredAt: row.atm_delivered_date || null,
+    atmIssued: Boolean(atmIssuedDate),
+    atmIssuedAt: toDateStr(atmIssuedDate),
+    atmDelivered: Boolean(atmDeliveredDate),
+    atmDeliveredAt: toDateStr(atmDeliveredDate),
 
     notes: row.notes || "",
     createdAt: row.created_at || new Date().toISOString(),
@@ -357,38 +371,74 @@ export async function updateBobCustomer(
     payload.has_pmjjby = Boolean(updates.enrollPMJJBY);
   }
 
-  // Delivery tracking columns
-  if (updates.passbookIssued !== undefined) {
-    payload.passbook_issued = Boolean(updates.passbookIssued);
+  // Delivery tracking columns — write BOTH the primary date column and its
+  // boolean-alias column so we cover whichever name the DB schema exposes.
+  // This prevents PGRST204 "column not found" errors.
+  if (updates.passbookIssued !== undefined || updates.passbookIssuedAt !== undefined) {
+    const dateVal = updates.passbookIssuedAt ?? null;
+    if (dateVal !== undefined) {
+      payload.passbook_issued_date = dateVal;
+      // Also attempt the short-form alias; Supabase ignores unknown columns on
+      // update only if the key doesn't exist — wrap safely:
+      payload.passbook_issued = dateVal; // date string acts as truthy
+    } else if (updates.passbookIssued !== undefined) {
+      payload.passbook_issued = Boolean(updates.passbookIssued) ? null : null;
+    }
   }
-  if (updates.passbookIssuedAt !== undefined) {
-    payload.passbook_issued_date = updates.passbookIssuedAt || null;
+  if (updates.passbookDelivered !== undefined || updates.passbookDeliveredAt !== undefined) {
+    const dateVal = updates.passbookDeliveredAt ?? null;
+    if (dateVal !== undefined) {
+      payload.passbook_delivered_date = dateVal;
+      payload.passbook_delivered = dateVal;
+    }
   }
-  if (updates.passbookDelivered !== undefined) {
-    payload.passbook_delivered = Boolean(updates.passbookDelivered);
+  if (updates.atmIssued !== undefined || updates.atmIssuedAt !== undefined) {
+    const dateVal = updates.atmIssuedAt ?? null;
+    if (dateVal !== undefined) {
+      payload.atm_issued_date = dateVal;
+      payload.atm_issued = dateVal;
+    } else if (updates.atmIssued !== undefined) {
+      payload.atm_issued = Boolean(updates.atmIssued) ? null : null;
+    }
   }
-  if (updates.passbookDeliveredAt !== undefined) {
-    payload.passbook_delivered_date = updates.passbookDeliveredAt || null;
-  }
-  if (updates.atmIssued !== undefined) {
-    payload.atm_issued = Boolean(updates.atmIssued);
-  }
-  if (updates.atmIssuedAt !== undefined) {
-    payload.atm_issued_date = updates.atmIssuedAt || null;
-  }
-  if (updates.atmDelivered !== undefined) {
-    payload.atm_delivered = Boolean(updates.atmDelivered);
-  }
-  if (updates.atmDeliveredAt !== undefined) {
-    payload.atm_delivered_date = updates.atmDeliveredAt || null;
+  if (updates.atmDelivered !== undefined || updates.atmDeliveredAt !== undefined) {
+    const dateVal = updates.atmDeliveredAt ?? null;
+    if (dateVal !== undefined) {
+      payload.atm_delivered_date = dateVal;
+      payload.atm_delivered = dateVal;
+    }
   }
 
   if (Object.keys(payload).length > 0) {
-    const { error } = await (supabase as any)
+    // First attempt: full payload (all columns)
+    let { error } = await (supabase as any)
       .from("bob_customers")
       .update(payload)
       .eq("id", id)
       .eq("tenant_id", currentTenantId);
+
+    if (error && error.code === "PGRST204") {
+      // Schema cache doesn't have one of the boolean alias columns.
+      // Retry with only the _date variants (safe subset).
+      console.warn("PGRST204 on full payload — retrying with _date-only columns", error);
+      const safeDatePayload: Record<string, any> = {};
+      if (payload.passbook_issued_date !== undefined) safeDatePayload.passbook_issued_date = payload.passbook_issued_date;
+      if (payload.passbook_delivered_date !== undefined) safeDatePayload.passbook_delivered_date = payload.passbook_delivered_date;
+      if (payload.atm_issued_date !== undefined) safeDatePayload.atm_issued_date = payload.atm_issued_date;
+      if (payload.atm_delivered_date !== undefined) safeDatePayload.atm_delivered_date = payload.atm_delivered_date;
+      // Include non-delivery fields from original payload too
+      for (const [k, v] of Object.entries(payload)) {
+        if (!k.endsWith("_date") && !k.startsWith("passbook_issued") && !k.startsWith("passbook_delivered") && !k.startsWith("atm_issued") && !k.startsWith("atm_delivered")) {
+          safeDatePayload[k] = v;
+        }
+      }
+      const retry = await (supabase as any)
+        .from("bob_customers")
+        .update(safeDatePayload)
+        .eq("id", id)
+        .eq("tenant_id", currentTenantId);
+      error = retry.error;
+    }
 
     if (error) {
       console.error("Supabase BOB Update Error:", error);

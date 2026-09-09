@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import ReactDOM from "react-dom";
 import { Search, Truck, Package, CreditCard, CheckCircle, Clock, Calendar, RefreshCw } from "lucide-react";
 import { getBobCustomers, updateBobCustomer, fetchBobCustomersFromSupabase } from "@/lib/bobStorage";
 import type { BobCustomerRecord } from "@/types/bob";
@@ -10,12 +11,15 @@ type DeliveryFilter = "All" | "Passbook Pending" | "ATM Pending" | "Fully Delive
 type PickerTarget = {
   customerId: string;
   field: "passbookIssued" | "passbookDelivered" | "atmIssued" | "atmDelivered";
+  anchorRect: DOMRect;
 } | null;
 
 function DatePickerPopover({
+  anchorRect,
   onConfirm,
   onCancel,
 }: {
+  anchorRect: DOMRect;
   onConfirm: (isoDate: string) => void;
   onCancel: () => void;
 }) {
@@ -23,14 +27,25 @@ function DatePickerPopover({
   const [selectedDate, setSelectedDate] = useState(today);
   const ref = useRef<HTMLDivElement>(null);
 
+  const style: React.CSSProperties = {
+    position: "fixed",
+    top: anchorRect.bottom + 6,
+    left: Math.min(anchorRect.left, window.innerWidth - 250),
+    zIndex: 9999,
+    minWidth: 230,
+  };
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         onCancel();
       }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const tid = setTimeout(() => document.addEventListener("mousedown", handler), 10);
+    return () => {
+      clearTimeout(tid);
+      document.removeEventListener("mousedown", handler);
+    };
   }, [onCancel]);
 
   const handleConfirm = () => {
@@ -40,10 +55,11 @@ function DatePickerPopover({
     onConfirm(dt.toISOString());
   };
 
-  return (
+  const popover = (
     <div
       ref={ref}
-      className="absolute z-50 top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl p-4 min-w-[230px] animate-fade-in"
+      style={style}
+      className="bg-white border border-slate-200 rounded-xl shadow-xl p-4 animate-fade-in"
       onClick={e => e.stopPropagation()}
     >
       <div className="flex items-center gap-2 mb-3">
@@ -75,6 +91,8 @@ function DatePickerPopover({
       </div>
     </div>
   );
+
+  return ReactDOM.createPortal(popover, document.body);
 }
 
 function DeliveryToggle({
@@ -83,27 +101,22 @@ function DeliveryToggle({
   onRequestDate,
   label,
   disabled,
-  pickerOpen,
-  onPickerConfirm,
-  onPickerCancel,
 }: {
   checked: boolean;
   onToggle: () => void;
-  onRequestDate: () => void;
+  onRequestDate: (rect: DOMRect) => void;
   label: string;
   disabled?: boolean;
-  pickerOpen: boolean;
-  onPickerConfirm: (iso: string) => void;
-  onPickerCancel: () => void;
 }) {
   return (
-    <div className="relative inline-block">
+    <div className="inline-block">
       <button
-        onClick={() => {
+        onClick={(e) => {
           if (checked) {
             onToggle();
           } else if (!disabled) {
-            onRequestDate();
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            onRequestDate(rect);
           }
         }}
         disabled={disabled && !checked}
@@ -118,12 +131,6 @@ function DeliveryToggle({
         {checked ? <CheckCircle size={13} className="flex-shrink-0" /> : <Clock size={13} className="flex-shrink-0" />}
         <span className="whitespace-nowrap max-w-[85px] truncate">{label}</span>
       </button>
-      {pickerOpen && (
-        <DatePickerPopover
-          onConfirm={onPickerConfirm}
-          onCancel={onPickerCancel}
-        />
-      )}
     </div>
   );
 }
@@ -374,11 +381,8 @@ export default function BobDeliveryTracker() {
                     <DeliveryToggle
                       checked={c.passbookIssued}
                       onToggle={() => uncheck(c.id, "passbookIssued")}
-                      onRequestDate={() => setPicker({ customerId: c.id, field: "passbookIssued" })}
+                      onRequestDate={(rect) => setPicker({ customerId: c.id, field: "passbookIssued", anchorRect: rect })}
                       label={c.passbookIssued ? `✓ ${fmtDate(c.passbookIssuedAt)}` : "Set Date"}
-                      pickerOpen={picker?.customerId === c.id && picker?.field === "passbookIssued"}
-                      onPickerConfirm={confirmDate}
-                      onPickerCancel={() => setPicker(null)}
                     />
                   </td>
 
@@ -387,11 +391,8 @@ export default function BobDeliveryTracker() {
                     <DeliveryToggle
                       checked={c.passbookDelivered}
                       onToggle={() => uncheck(c.id, "passbookDelivered")}
-                      onRequestDate={() => setPicker({ customerId: c.id, field: "passbookDelivered" })}
+                      onRequestDate={(rect) => setPicker({ customerId: c.id, field: "passbookDelivered", anchorRect: rect })}
                       label={c.passbookDelivered ? `✓ ${fmtDate(c.passbookDeliveredAt)}` : "Set Date"}
-                      pickerOpen={picker?.customerId === c.id && picker?.field === "passbookDelivered"}
-                      onPickerConfirm={confirmDate}
-                      onPickerCancel={() => setPicker(null)}
                     />
                   </td>
 
@@ -400,11 +401,8 @@ export default function BobDeliveryTracker() {
                     <DeliveryToggle
                       checked={c.atmIssued}
                       onToggle={() => uncheck(c.id, "atmIssued")}
-                      onRequestDate={() => setPicker({ customerId: c.id, field: "atmIssued" })}
+                      onRequestDate={(rect) => setPicker({ customerId: c.id, field: "atmIssued", anchorRect: rect })}
                       label={c.atmIssued ? `✓ ${fmtDate(c.atmIssuedAt)}` : "Set Date"}
-                      pickerOpen={picker?.customerId === c.id && picker?.field === "atmIssued"}
-                      onPickerConfirm={confirmDate}
-                      onPickerCancel={() => setPicker(null)}
                     />
                   </td>
 
@@ -413,11 +411,8 @@ export default function BobDeliveryTracker() {
                     <DeliveryToggle
                       checked={c.atmDelivered}
                       onToggle={() => uncheck(c.id, "atmDelivered")}
-                      onRequestDate={() => setPicker({ customerId: c.id, field: "atmDelivered" })}
+                      onRequestDate={(rect) => setPicker({ customerId: c.id, field: "atmDelivered", anchorRect: rect })}
                       label={c.atmDelivered ? `✓ ${fmtDate(c.atmDeliveredAt)}` : "Set Date"}
-                      pickerOpen={picker?.customerId === c.id && picker?.field === "atmDelivered"}
-                      onPickerConfirm={confirmDate}
-                      onPickerCancel={() => setPicker(null)}
                     />
                   </td>
                 </tr>
@@ -434,6 +429,15 @@ export default function BobDeliveryTracker() {
           </table>
         </div>
       </div>
+
+      {/* Portal-rendered date picker — renders at document.body to escape overflow clipping */}
+      {picker && (
+        <DatePickerPopover
+          anchorRect={picker.anchorRect}
+          onConfirm={confirmDate}
+          onCancel={() => setPicker(null)}
+        />
+      )}
     </div>
   );
 }

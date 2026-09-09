@@ -108,7 +108,7 @@ export default function CitizenCustomersPage() {
 
   const handleDelete = async (id: string, name: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!confirm(`Are you sure you want to permanently delete application for "${name}"?`)) return;
+    if (!window.confirm(`Are you sure you want to permanently delete application for "${name}"?`)) return;
 
     setRecords(prev => prev.filter(r => r.id !== id));
     if (selectedRecord?.id === id) {
@@ -117,10 +117,18 @@ export default function CitizenCustomersPage() {
     }
 
     try {
-      await deleteCitizenRecord(id);
+      const { error } = await deleteCitizenRecord(id);
+      if (error) {
+        alert('Delete Failed: ' + (error.message || 'Unknown error'));
+        await loadData();
+        return;
+      }
       toast.success(`Application for "${name}" deleted successfully.`);
+      await loadData();
     } catch (err: any) {
+      alert('Delete Failed: ' + (err?.message || 'Unknown error'));
       toast.error(`Error deleting record: ${err?.message || "Unknown error"}`);
+      await loadData();
     }
   };
 

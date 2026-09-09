@@ -25,7 +25,18 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
   );
   const [customerName, setCustomerName] = useState(initialRecord?.customerName || "");
   const [guardianName, setGuardianName] = useState(initialRecord?.guardianName || "");
-  const [dob, setDob] = useState(initialRecord?.dob || "");
+
+  // Convert ISO YYYY-MM-DD → DD/MM/YYYY for display in the masked input
+  const isoToDisplayDob = (iso?: string): string => {
+    if (!iso) return "";
+    const parts = iso.split("-");
+    if (parts.length === 3 && parts[0].length === 4) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return iso; // already DD/MM/YYYY or unknown — return as-is
+  };
+
+  const [dob, setDob] = useState(isoToDisplayDob(initialRecord?.dob));
   const [mobile, setMobile] = useState(initialRecord?.mobile || "");
   const [address, setAddress] = useState(initialRecord?.address || "");
   const [aadhaarNo, setAadhaarNo] = useState(initialRecord?.aadhaarNo || "");
@@ -50,6 +61,35 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
       parts.push(digits.slice(i, i + 4));
     }
     return parts.join(" ");
+  };
+
+  /**
+   * Auto-inserts slashes as operator types: 12102000 → 12/10/2000
+   * Accepts DD/MM/YYYY or raw digits up to 8 chars.
+   */
+  const handleDobChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value.replace(/\D/g, "");
+    if (raw.length > 8) raw = raw.slice(0, 8);
+    let formatted = raw;
+    if (raw.length > 4) {
+      formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4)}`;
+    } else if (raw.length > 2) {
+      formatted = `${raw.slice(0, 2)}/${raw.slice(2)}`;
+    }
+    setDob(formatted);
+  };
+
+  /**
+   * Convert DD/MM/YYYY → YYYY-MM-DD for Supabase storage.
+   * Falls back to the raw value if not in expected format.
+   */
+  const toIsoDob = (val: string): string | null => {
+    if (!val) return null;
+    const parts = val.split("/");
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+    }
+    return val || null; // already ISO or empty
   };
 
   const resetForm = () => {
@@ -96,7 +136,7 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
         sl_no: slNo ? parseInt(String(slNo), 10) : null,
         customer_name: customerName.trim(),
         care_of: guardianName.trim() || null,
-        dob: dob.trim() || null,
+        dob: toIsoDob(dob.trim()),
         mobile: mobile.trim() || null,
         address: address.trim() || null,
         aadhaar_no: aadhaarNo.trim() || null,
@@ -116,7 +156,7 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
           slNo: Number(slNo) || 1,
           customerName: customerName.trim(),
           guardianName: guardianName.trim(),
-          dob: dob.trim(),
+          dob: toIsoDob(dob.trim()) ?? "",
           mobile: mobile.trim(),
           address: address.trim(),
           aadhaarNo: aadhaarNo.trim(),
@@ -262,9 +302,10 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
               </label>
               <input
                 type="text"
-                placeholder="DD/MM/YYYY"
+                placeholder="DD/MM/YYYY (e.g. 12/10/2000)"
                 value={dob}
-                onChange={e => setDob(e.target.value)}
+                onChange={handleDobChange}
+                maxLength={10}
                 className="w-full px-3.5 py-2 text-sm font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-slate-50/50 focus:bg-white"
               />
             </div>

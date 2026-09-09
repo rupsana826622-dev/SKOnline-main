@@ -220,7 +220,8 @@ export function getNextSerialNo(): number {
 }
 
 /**
- * Strictly sanitize and map CitizenServiceRecord to valid public.citizen_services columns
+ * Build a FULL insert payload for new citizen_services records.
+ * Maps all CitizenServiceRecord fields to valid public.citizen_services columns.
  */
 function sanitizeCitizenPayload(r: Partial<CitizenServiceRecord> & Record<string, any>): Record<string, any> {
   const tenantId = getCurrentCitizenTenantId();
@@ -251,6 +252,83 @@ function sanitizeCitizenPayload(r: Partial<CitizenServiceRecord> & Record<string
     payment_status: dueAmount <= 0 ? "Full Paid" : "Due",
   };
 
+  return payload;
+}
+
+/**
+ * Build a PARTIAL update payload — only maps keys that were explicitly provided.
+ * Safe for partial updates (e.g. settle due, mark issued) without overwriting
+ * other columns in the database.
+ */
+function sanitizePartialCitizenPayload(r: Partial<CitizenServiceRecord> & Record<string, any>): Record<string, any> {
+  const payload: Record<string, any> = {};
+
+  // Payment / financial fields
+  if (r.advancePaid !== undefined || r.advance_amount !== undefined) {
+    payload.advance_amount = Number(r.advancePaid ?? r.advance_amount ?? 0);
+  }
+  if (r.dueAmount !== undefined || r.due_amount !== undefined) {
+    const due = Number(r.dueAmount ?? r.due_amount ?? 0);
+    payload.due_amount = due;
+    payload.payment_status = due <= 0 ? "Full Paid" : "Due";
+  }
+  if (r.totalAmount !== undefined || r.total_amount !== undefined) {
+    payload.total_amount = Number(r.totalAmount ?? r.total_amount ?? 0);
+  }
+  if (r.paymentMode !== undefined || r.payment_mode !== undefined) {
+    payload.payment_mode = r.paymentMode ?? r.payment_mode ?? "Cash";
+  }
+  if (r.paymentStatus !== undefined || r.payment_status !== undefined) {
+    payload.payment_status = r.paymentStatus ?? r.payment_status;
+  }
+
+  // Identity / service fields
+  if (r.customerName !== undefined || r.customer_name !== undefined) {
+    payload.customer_name = (r.customerName ?? r.customer_name)?.trim() || "";
+  }
+  if (r.contactNo !== undefined || r.contact_no !== undefined) {
+    payload.contact_no = (r.contactNo ?? r.contact_no)?.trim() || null;
+  }
+  if (r.address !== undefined) {
+    payload.address = r.address?.trim() || null;
+  }
+  if (r.serviceType !== undefined || r.service_type !== undefined) {
+    payload.service_type = (r.serviceType ?? r.service_type)?.trim() || "General";
+  }
+  if (r.applicationDate !== undefined || r.application_date !== undefined) {
+    payload.application_date = r.applicationDate ?? r.application_date;
+  }
+  if (r.appNumber !== undefined || r.app_user_id !== undefined) {
+    payload.app_user_id = (r.appNumber ?? r.app_user_id)?.trim() || null;
+  }
+  if (r.portalPassword !== undefined || r.app_password !== undefined) {
+    payload.app_password = (r.portalPassword ?? r.app_password)?.trim() || null;
+  }
+  if (r.finalServiceNo !== undefined || r.final_service_no !== undefined) {
+    payload.final_service_no = (r.finalServiceNo ?? r.final_service_no)?.trim() || null;
+  }
+  if (r.documentFileUrl !== undefined || r.document_file_url !== undefined) {
+    payload.document_file_url = r.documentFileUrl ?? r.document_file_url ?? null;
+  }
+  if (r.serialNo !== undefined || r.serial_no !== undefined) {
+    payload.serial_no = Number(r.serialNo ?? r.serial_no) || 1;
+  }
+
+  // Delivery milestone fields
+  if (r.issuedDate !== undefined || r.issued_date !== undefined) {
+    payload.issued_date = r.issuedDate ?? r.issued_date ?? null;
+  }
+  if (r.deliveredDate !== undefined || r.delivered_date !== undefined) {
+    payload.delivered_date = r.deliveredDate ?? r.delivered_date ?? null;
+  }
+  if (r.status !== undefined) {
+    payload.status = r.status;
+  }
+  if (r.notes !== undefined) {
+    payload.notes = r.notes;
+  }
+
+  // Do NOT append updated_at: citizen_services table does not have updated_at in schema cache
   return payload;
 }
 
@@ -293,6 +371,7 @@ function mapDbToCitizenRecord(row: any): CitizenServiceRecord {
  */
 export async function addCitizenRecord(record: CitizenServiceRecord): Promise<{ error: any; data?: any }> {
   const payload = sanitizeCitizenPayload(record);
+  delete payload.updated_at;
 
   try {
     const { data, error } = await (supabase as any)
@@ -318,18 +397,35 @@ export async function addCitizenRecord(record: CitizenServiceRecord): Promise<{ 
 }
 
 /**
- * Direct Update strictly in Supabase public.citizen_services
+ * Direct Update strictly in Supabase public.citizen_services.
+ * Uses partial payload mapper — only sends fields that were explicitly provided,
+ * preventing null overwrites of existing database values.
  */
 export async function updateCitizenRecord(id: string, updates: Partial<CitizenServiceRecord>): Promise<{ error: any }> {
   const tenantId = getCurrentCitizenTenantId();
-  const payload = sanitizeCitizenPayload(updates as any);
+  // Use partial mapper to avoid overwriting untouched columns
+  const payload = sanitizePartialCitizenPayload(updates as any);
+  delete payload.updated_at;
 
   try {
-    const { error } = await (supabase as any)
+    let { error } = await (supabase as any)
       .from("citizen_services")
       .update(payload)
       .eq("id", id)
       .eq("tenant_id", tenantId);
+
+    if (error && error.code === "PGRST204") {
+      console.warn("PGRST204 on citizen update - retrying with clean payload", error);
+      const cleanPayload = { ...payload };
+      delete cleanPayload.updated_at;
+      delete cleanPayload.created_at;
+      const retry = await (supabase as any)
+        .from("citizen_services")
+        .update(cleanPayload)
+        .eq("id", id)
+        .eq("tenant_id", tenantId);
+      error = retry.error;
+    }
 
     if (error) {
       console.error("Update citizen_services failure:", error);
@@ -339,7 +435,7 @@ export async function updateCitizenRecord(id: string, updates: Partial<CitizenSe
       throw error;
     }
 
-    // Sync live from Supabase
+    // Sync live from Supabase to refresh local cache
     await fetchCitizenRecordsFromSupabase();
     return { error: null };
   } catch (err: any) {
@@ -348,17 +444,41 @@ export async function updateCitizenRecord(id: string, updates: Partial<CitizenSe
   }
 }
 
-export async function settleCitizenDue(id: string, paymentMode: "Cash" | "UPI"): Promise<{ error: any }> {
+export async function settleCitizenDue(id: string, paymentMode: "Cash" | "UPI" = "Cash"): Promise<{ error: any }> {
+  const tenantId = getCurrentCitizenTenantId();
   const records = getCitizenRecords();
   const target = records.find(r => r.id === id);
-  if (!target) return { error: "Record not found" };
+  const total = target ? Number(target.totalAmount || 0) : 0;
 
-  return updateCitizenRecord(id, {
-    advancePaid: target.totalAmount,
-    dueAmount: 0,
-    paymentMode,
-    paymentStatus: "Full Paid",
-  });
+  try {
+    const payload: Record<string, any> = {
+      advance_amount: total,
+      due_amount: 0,
+      payment_status: "Full Paid",
+      payment_mode: paymentMode,
+    };
+    delete payload.updated_at;
+
+    const { error } = await (supabase as any)
+      .from("citizen_services")
+      .update(payload)
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
+
+    if (error) {
+      console.error("Settle due error:", error);
+      const msg = `Supabase Error (${error.code}): ${error.message}`;
+      alert(msg);
+      toast.error(msg);
+      throw error;
+    }
+
+    await fetchCitizenRecordsFromSupabase();
+    return { error: null };
+  } catch (err: any) {
+    console.error("Failed to settle citizen due:", err);
+    throw err;
+  }
 }
 
 /**

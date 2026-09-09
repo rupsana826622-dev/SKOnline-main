@@ -49,21 +49,27 @@ export default function CitizenDueLedger() {
     if (!settlingTarget) return;
     setLoading(true);
 
-    await settleCitizenDue(settlingTarget.id, selectedPaymentMode);
-    toast.success(`Due payment of ₹${settlingTarget.dueAmount} for SL #${settlingTarget.serialNo} settled via ${selectedPaymentMode}!`);
+    try {
+      await settleCitizenDue(settlingTarget.id, selectedPaymentMode);
+      toast.success(`Due payment of ₹${settlingTarget.dueAmount} for SL #${settlingTarget.serialNo} settled via ${selectedPaymentMode}!`);
 
-    // Fetch updated record for receipt
-    const updated = {
-      ...settlingTarget,
-      advancePaid: settlingTarget.totalAmount,
-      dueAmount: 0,
-      paymentMode: selectedPaymentMode,
-      paymentStatus: "Full Paid" as const,
-    };
+      // Prepare updated record for receipt display
+      const updated: CitizenServiceRecord = {
+        ...settlingTarget,
+        advancePaid: settlingTarget.totalAmount,
+        dueAmount: 0,
+        paymentMode: selectedPaymentMode,
+        paymentStatus: "Full Paid" as const,
+      };
 
-    setSettlingTarget(null);
-    setLoading(false);
-    setSelectedReceiptRecord(updated);
+      setSettlingTarget(null);
+      setSelectedReceiptRecord(updated);
+      setRecords(getCitizenRecords());
+    } catch (err: any) {
+      toast.error(`Settlement error: ${err?.message || "Database update failed"}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

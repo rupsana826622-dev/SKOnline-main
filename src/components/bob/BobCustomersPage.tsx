@@ -106,7 +106,7 @@ export default function BobCustomersPage() {
 
   const handleDelete = async (id: string, name: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!confirm(`Are you sure you want to delete Bank of Baroda account for "${name}"?`)) return;
+    if (!window.confirm(`Are you sure you want to permanently delete Bank of Baroda account for "${name}"?`)) return;
 
     setRecords(prev => prev.filter(r => r.id !== id));
     if (selectedRecord?.id === id) {
@@ -115,10 +115,18 @@ export default function BobCustomersPage() {
     }
 
     try {
-      await deleteBobCustomer(id);
+      const { error } = await deleteBobCustomer(id);
+      if (error) {
+        alert('Delete Failed: ' + (error.message || 'Unknown error'));
+        await loadData();
+        return;
+      }
       toast.success(`Account for "${name}" deleted.`);
+      await loadData();
     } catch (err: any) {
+      alert('Delete Failed: ' + (err?.message || 'Unknown error'));
       toast.error(`Error deleting: ${err?.message || "Unknown error"}`);
+      await loadData();
     }
   };
 
