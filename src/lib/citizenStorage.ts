@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import type { CitizenServiceRecord, CitizenSettings } from "@/types/citizen";
+import type { CitizenServiceRecord, CitizenSettings, CitizenDocumentAttachment } from "@/types/citizen";
 import { DEFAULT_CITIZEN_SETTINGS, DEFAULT_CITIZEN_SERVICES } from "@/types/citizen";
 import { getSession } from "./storage";
 import { sanitizeDob } from "./utils";
@@ -244,6 +244,13 @@ function sanitizeCitizenPayload(r: Partial<CitizenServiceRecord> & Record<string
     ? Number(r.due_amount)
     : Math.max(0, totalAmount - advanceAmount);
 
+  const docFiles = r.documentFiles ?? r.document_files ?? (r.documentFileUrl || r.document_file_url ? [{
+    name: "Attached Document",
+    url: r.documentFileUrl || r.document_file_url,
+    size_kb: 0,
+    uploaded_at: new Date().toISOString(),
+  }] : []);
+
   const payload: Record<string, any> = {
     tenant_id: tenantId,
     serial_no: Number(r.serialNo ?? r.serial_no) || 1,
@@ -255,7 +262,8 @@ function sanitizeCitizenPayload(r: Partial<CitizenServiceRecord> & Record<string
     app_user_id: (r.appNumber ?? r.app_user_id ?? r.app_number)?.trim() || null,
     app_password: (r.portalPassword ?? r.app_password ?? r.portal_password)?.trim() || null,
     final_service_no: (r.finalServiceNo ?? r.final_service_no)?.trim() || null,
-    document_file_url: (r.documentFileUrl ?? r.document_file_url) || null,
+    document_file_url: (r.documentFileUrl ?? r.document_file_url) || (docFiles.length > 0 ? docFiles[docFiles.length - 1].url : null),
+    document_files: docFiles,
     total_amount: totalAmount,
     advance_amount: advanceAmount,
     due_amount: dueAmount,
@@ -330,6 +338,9 @@ function sanitizePartialCitizenPayload(r: Partial<CitizenServiceRecord> & Record
   if (r.documentFileUrl !== undefined || r.document_file_url !== undefined) {
     payload.document_file_url = r.documentFileUrl ?? r.document_file_url ?? null;
   }
+  if (r.documentFiles !== undefined || r.document_files !== undefined) {
+    payload.document_files = r.documentFiles ?? r.document_files;
+  }
   if (r.serialNo !== undefined || r.serial_no !== undefined) {
     payload.serial_no = Number(r.serialNo ?? r.serial_no) || 1;
   }
@@ -361,6 +372,26 @@ function mapDbToCitizenRecord(row: any): CitizenServiceRecord {
   const paymentMode = (row.payment_mode || "Cash") as "Cash" | "UPI";
   const paymentStatus = (row.payment_status === "Due" ? "Partial" : row.payment_status || (dueAmount <= 0 ? "Full Paid" : "Partial")) as "Full Paid" | "Partial" | "Pending";
 
+  let docFiles: CitizenDocumentAttachment[] = [];
+  if (Array.isArray(row.document_files)) {
+    docFiles = row.document_files;
+  } else if (typeof row.document_files === "string") {
+    try {
+      const parsed = JSON.parse(row.document_files);
+      if (Array.isArray(parsed)) docFiles = parsed;
+    } catch {}
+  }
+
+  // Fallback if document_files is empty but document_file_url exists
+  if (docFiles.length === 0 && row.document_file_url) {
+    docFiles = [{
+      name: "Attached Document",
+      url: row.document_file_url,
+      size_kb: 0,
+      uploaded_at: row.created_at || new Date().toISOString(),
+    }];
+  }
+
   return {
     id: row.id,
     serialNo: Number(row.serial_no || row.sl_no || 1) || 1,
@@ -372,7 +403,9 @@ function mapDbToCitizenRecord(row: any): CitizenServiceRecord {
     appNumber: row.app_user_id || row.app_number || "",
     portalPassword: row.app_password || row.portal_password || "",
     finalServiceNo: row.final_service_no || "",
-    documentFileUrl: row.document_file_url || "",
+    documentFileUrl: row.document_file_url || (docFiles.length > 0 ? docFiles[docFiles.length - 1].url : ""),
+    documentFiles: docFiles,
+    document_files: docFiles,
     totalAmount,
     advancePaid,
     dueAmount,
@@ -683,12 +716,12 @@ export async function syncCitizenFromSupabase(): Promise<void> {
 }
 
 /**
- * Compresses multi-page PDF documents by rendering each page to a crisp canvas,
- * downscaling to standard printable resolution (~150 DPI / max 1600px dimension),
- * and re-encoding with jsPDF using JPEG compression (~70% quality).
- * Reduces 2 MB - 8 MB scanned PDFs down to ~150 KB - 300 KB while keeping text and ID details sharp.
+ * Compresses multi-page PDF documents by rendering each page onto canvas at 1.2x scale
+ * (maintaining crisp readability for government IDs and names), compressing canvas frames
+ * as JPEG with 0.60 quality, and recompiling into a compressed PDF stream via jsPDF.
+ * Reduces 2 MB - 8 MB scanned PDFs down to ~120 KB - 280 KB.
  */
-export async function compressPdfFile(file: File): Promise<File> {
+export async function compressPdfFile(file: File): Promise<{ file: File; size_kb: number }> {
   try {
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({
@@ -699,7 +732,7 @@ export async function compressPdfFile(file: File): Promise<File> {
     const pdf = await loadingTask.promise;
     const numPages = pdf.numPages;
 
-    if (numPages === 0) return file;
+    if (numPages === 0) return { file, size_kb: Math.round(file.size / 1024) };
 
     // Get first page to initialize jsPDF document orientation & size
     const firstPage = await pdf.getPage(1);
@@ -718,11 +751,8 @@ export async function compressPdfFile(file: File): Promise<File> {
       const vp1 = page.getViewport({ scale: 1.0 });
       const pageLandscape = vp1.width > vp1.height;
 
-      // Target max dimension of 1600px for sharp text & barcode/photo clarity
-      const maxDim = Math.max(vp1.width, vp1.height);
-      const targetMaxDim = 1600;
-      const renderScale = maxDim > 0 ? Math.min(2.0, Math.max(1.0, targetMaxDim / maxDim)) : 1.5;
-
+      // Render pages onto canvas at 1.2x scale
+      const renderScale = 1.2;
       const viewport = page.getViewport({ scale: renderScale });
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(viewport.width);
@@ -739,8 +769,8 @@ export async function compressPdfFile(file: File): Promise<File> {
         viewport,
       }).promise;
 
-      // JPEG quality 0.70 produces great readability at ~100-200 KB per page
-      const imgData = canvas.toDataURL("image/jpeg", 0.70);
+      // Compress canvas frames as JPEG with 0.60 quality
+      const imgData = canvas.toDataURL("image/jpeg", 0.60);
 
       if (pageNum > 1) {
         doc.addPage([vp1.width, vp1.height], pageLandscape ? "landscape" : "portrait");
@@ -760,26 +790,28 @@ export async function compressPdfFile(file: File): Promise<File> {
 
     const pdfBlob = doc.output("blob");
     const compressedFile = new File([pdfBlob], file.name, { type: "application/pdf" });
+    const size_kb = Math.round(compressedFile.size / 1024);
 
     console.log(
-      `[Citizen Storage PDF Compression] Original: ${(file.size / 1024).toFixed(1)} KB -> Compressed: ${(compressedFile.size / 1024).toFixed(1)} KB`
+      `[Storage Engine] Raw: ${(file.size / 1024).toFixed(1)} KB -> Compressed: ${(compressedFile.size / 1024).toFixed(1)} KB`
     );
 
-    // Enforce size gatekeeper: only use compressed version if it is smaller
+    // Enforce size gatekeeper
     if (compressedFile.size < file.size) {
-      return compressedFile;
+      return { file: compressedFile, size_kb };
     }
-    return file;
+    return { file, size_kb: Math.round(file.size / 1024) };
   } catch (err) {
     console.warn("PDF compression failed, falling back to original file:", err);
-    return file;
+    return { file, size_kb: Math.round(file.size / 1024) };
   }
 }
 
 /**
- * Compresses image files (JPG, PNG, WebP) down to max 1600px dimension and re-encodes at 0.72 JPEG quality.
+ * Compresses image files (JPG, PNG, WebP) onto offscreen canvas with maximum dimension
+ * threshold of 1400px (width or height), exporting at 0.65 JPEG quality (~100 KB - 250 KB).
  */
-export async function compressImageFile(file: File): Promise<File> {
+export async function compressImageFile(file: File): Promise<{ file: File; size_kb: number }> {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -792,15 +824,14 @@ export async function compressImageFile(file: File): Promise<File> {
           let width = img.width;
           let height = img.height;
 
-          const MAX_WIDTH = 1600;
-          const MAX_HEIGHT = 1600;
+          const MAX_DIM = 1400;
 
-          if (width > height && width > MAX_WIDTH) {
-            height = Math.round((height * MAX_WIDTH) / width);
-            width = MAX_WIDTH;
-          } else if (height > MAX_HEIGHT) {
-            width = Math.round((width * MAX_HEIGHT) / height);
-            height = MAX_HEIGHT;
+          if (width > height && width > MAX_DIM) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          } else if (height > MAX_DIM) {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
           }
 
           canvas.width = width;
@@ -812,42 +843,43 @@ export async function compressImageFile(file: File): Promise<File> {
             ctx.drawImage(img, 0, 0, width, height);
           }
 
+          // Export using canvas.toBlob(blob, 'image/jpeg', 0.65)
           canvas.toBlob(
             (blob) => {
               if (blob) {
                 const newName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
                 const compressed = new File([blob], newName, { type: "image/jpeg" });
+                const size_kb = Math.round(compressed.size / 1024);
                 console.log(
-                  `[Citizen Storage Image Compression] Original: ${(file.size / 1024).toFixed(1)} KB -> Compressed: ${(compressed.size / 1024).toFixed(1)} KB`
+                  `[Storage Engine] Raw: ${(file.size / 1024).toFixed(1)} KB -> Compressed: ${(compressed.size / 1024).toFixed(1)} KB`
                 );
-                // Enforce size gatekeeper
                 if (compressed.size < file.size) {
-                  resolve(compressed);
+                  resolve({ file: compressed, size_kb });
                 } else {
-                  resolve(file);
+                  resolve({ file, size_kb: Math.round(file.size / 1024) });
                 }
               } else {
-                resolve(file);
+                resolve({ file, size_kb: Math.round(file.size / 1024) });
               }
             },
             "image/jpeg",
-            0.72
+            0.65
           );
         } catch (err) {
           console.warn("Image canvas compression error:", err);
-          resolve(file);
+          resolve({ file, size_kb: Math.round(file.size / 1024) });
         }
       };
-      img.onerror = () => resolve(file);
+      img.onerror = () => resolve({ file, size_kb: Math.round(file.size / 1024) });
     };
-    reader.onerror = () => resolve(file);
+    reader.onerror = () => resolve({ file, size_kb: Math.round(file.size / 1024) });
   });
 }
 
 /**
  * In-Browser Automatic File Compression Engine for Digital Citizen Hub Documents
  */
-export const compressFileBeforeUpload = async (file: File): Promise<File> => {
+export const compressFileBeforeUpload = async (file: File): Promise<{ file: File; size_kb: number }> => {
   // 1. Handle Images (JPG, PNG, WebP)
   if (file.type.startsWith("image/")) {
     return compressImageFile(file);
@@ -858,20 +890,23 @@ export const compressFileBeforeUpload = async (file: File): Promise<File> => {
     return compressPdfFile(file);
   }
 
-  return file;
+  return { file, size_kb: Math.round(file.size / 1024) };
 };
 
 /**
- * Upload a document (e-PAN PDF, Acknowledgement, Certificate) to Supabase Storage bucket 'citizen-documents'
+ * Upload an attachment document to Supabase Storage bucket 'citizen-documents'
+ * and append it to the record's document_files JSONB array without overwriting.
  */
-export async function uploadCitizenDocument(
+export async function uploadCitizenDocumentAttachment(
   file: File,
-  recordId?: string
-): Promise<{ url: string | null; error: any }> {
+  recordId: string,
+  existingDocs: CitizenDocumentAttachment[] = []
+): Promise<{ doc: CitizenDocumentAttachment | null; updatedList: CitizenDocumentAttachment[]; error: any }> {
   try {
-    const fileToUpload = await compressFileBeforeUpload(file);
-    const cleanFileName = fileToUpload.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const filePath = `${recordId || "doc"}_${Date.now()}_${cleanFileName}`;
+    const { file: fileToUpload, size_kb } = await compressFileBeforeUpload(file);
+    const rawExt = fileToUpload.name.split('.').pop() || (fileToUpload.type === "application/pdf" ? "pdf" : "jpg");
+    const cleanExt = rawExt.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const filePath = `documents/${recordId || "doc"}_${Date.now()}.${cleanExt || "pdf"}`;
 
     const { data, error } = await supabase.storage
       .from("citizen-documents")
@@ -886,7 +921,100 @@ export async function uploadCitizenDocument(
       const msg = `Storage Upload Failed: ${error.message}`;
       alert(msg);
       toast.error(msg);
-      return { url: null, error };
+      return { doc: null, updatedList: existingDocs, error };
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("citizen-documents")
+      .getPublicUrl(filePath);
+
+    const publicUrl = publicUrlData?.publicUrl || "";
+    const newDoc: CitizenDocumentAttachment = {
+      name: file.name,
+      url: publicUrl,
+      size_kb: size_kb || Math.round(fileToUpload.size / 1024),
+      uploaded_at: new Date().toISOString(),
+      path: filePath,
+    };
+
+    const updatedList = [...existingDocs, newDoc];
+
+    if (recordId) {
+      await updateCitizenRecord(recordId, {
+        documentFiles: updatedList,
+        documentFileUrl: publicUrl,
+      });
+    }
+
+    return { doc: newDoc, updatedList, error: null };
+  } catch (err: any) {
+    console.error("Error in uploadCitizenDocumentAttachment:", err);
+    alert(`Upload Error: ${err.message || "Failed to upload"}`);
+    toast.error(`Upload Error: ${err.message || "Failed to upload"}`);
+    return { doc: null, updatedList: existingDocs, error: err };
+  }
+}
+
+/**
+ * Delete a specific document attachment from Supabase Storage and remove it from document_files.
+ */
+export async function deleteCitizenDocumentAttachment(
+  recordId: string,
+  docToDelete: CitizenDocumentAttachment,
+  currentDocs: CitizenDocumentAttachment[]
+): Promise<{ updatedList: CitizenDocumentAttachment[]; error: any }> {
+  try {
+    if (docToDelete.path) {
+      try {
+        await supabase.storage.from("citizen-documents").remove([docToDelete.path]);
+      } catch (e) {
+        console.warn("Storage removal note:", e);
+      }
+    }
+
+    const updatedList = currentDocs.filter(d => d.url !== docToDelete.url);
+
+    if (recordId) {
+      await updateCitizenRecord(recordId, {
+        documentFiles: updatedList,
+        documentFileUrl: updatedList.length > 0 ? updatedList[updatedList.length - 1].url : null,
+      });
+    }
+
+    return { updatedList, error: null };
+  } catch (err: any) {
+    console.error("Error deleting document attachment:", err);
+    toast.error(`Failed to delete document: ${err.message || "Error"}`);
+    return { updatedList: currentDocs, error: err };
+  }
+}
+
+/**
+ * Upload a document (single file helper for forms / legacy calls)
+ */
+export async function uploadCitizenDocument(
+  file: File,
+  recordId?: string
+): Promise<{ url: string | null; size_kb: number; error: any }> {
+  try {
+    const { file: fileToUpload, size_kb } = await compressFileBeforeUpload(file);
+    const cleanFileName = fileToUpload.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const filePath = `documents/${recordId || "doc"}_${Date.now()}_${cleanFileName}`;
+
+    const { data, error } = await supabase.storage
+      .from("citizen-documents")
+      .upload(filePath, fileToUpload, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: fileToUpload.type || "application/octet-stream",
+      });
+
+    if (error) {
+      console.error("Supabase Storage Upload Error:", error);
+      const msg = `Storage Upload Failed: ${error.message}`;
+      alert(msg);
+      toast.error(msg);
+      return { url: null, size_kb: 0, error };
     }
 
     const { data: publicUrlData } = supabase.storage
@@ -894,11 +1022,11 @@ export async function uploadCitizenDocument(
       .getPublicUrl(filePath);
 
     const publicUrl = publicUrlData?.publicUrl || null;
-    return { url: publicUrl, error: null };
+    return { url: publicUrl, size_kb, error: null };
   } catch (err: any) {
     console.error("Unexpected error in uploadCitizenDocument:", err);
     alert(`Upload Error: ${err.message || "Failed to upload"}`);
     toast.error(`Upload Error: ${err.message || "Failed to upload"}`);
-    return { url: null, error: err };
+    return { url: null, size_kb: 0, error: err };
   }
 }

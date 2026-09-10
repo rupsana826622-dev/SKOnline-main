@@ -1,31 +1,48 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   ArrowLeft, User, Phone, MapPin, Calendar, Tag, Lock, Eye, EyeOff,
   Copy, Check, FileText, Download, ExternalLink, Upload,
-  CreditCard, CheckCircle, Clock, AlertCircle, Trash2, Edit, Printer, Sparkles, X
+  CreditCard, CheckCircle, Clock, AlertCircle, Trash2, Edit, Printer, Sparkles, X, PlusCircle, ShieldCheck
 } from "lucide-react";
-import type { CitizenServiceRecord } from "@/types/citizen";
-import { updateCitizenRecord, uploadCitizenDocument, deleteCitizenRecord, settleCitizenDue } from "@/lib/citizenStorage";
-import { formatDateTime } from "@/lib/utils";
+import type { CitizenServiceRecord, CitizenDocumentAttachment } from "@/types/citizen";
+import {
+  updateCitizenRecord,
+  uploadCitizenDocumentAttachment,
+  deleteCitizenDocumentAttachment,
+  deleteCitizenRecord,
+  settleCitizenDue,
+  addCitizenRecord,
+  getCitizenSettings,
+  getNextSerialNo,
+  getCitizenRecords
+} from "@/lib/citizenStorage";
+import { formatDateTime, generateId } from "@/lib/utils";
 import { toast } from "sonner";
 import SEO from "@/components/common/SEO";
+import { DEFAULT_CITIZEN_SERVICES } from "@/types/citizen";
 
 interface CitizenCustomerProfileProps {
   record: CitizenServiceRecord;
+  allRecords?: CitizenServiceRecord[];
   onBack: () => void;
   onEdit: (record: CitizenServiceRecord) => void;
   onPrintReceipt: (record: CitizenServiceRecord) => void;
   onRecordUpdated: (record: CitizenServiceRecord) => void;
   onRecordDeleted: (id: string) => void;
+  onRefreshData?: () => void;
+  onSelectRecord?: (record: CitizenServiceRecord) => void;
 }
 
 export default function CitizenCustomerProfile({
   record,
+  allRecords = [],
   onBack,
   onEdit,
   onPrintReceipt,
   onRecordUpdated,
   onRecordDeleted,
+  onRefreshData,
+  onSelectRecord,
 }: CitizenCustomerProfileProps) {
   const [showPassword, setShowPassword] = useState(true);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -33,9 +50,56 @@ export default function CitizenCustomerProfile({
   const [currentRecord, setCurrentRecord] = useState<CitizenServiceRecord>(record);
   const [settlingPayment, setSettlingPayment] = useState(false);
 
+  // Modal for "+ Add New Service to This Customer"
+  const [addServiceModalOpen, setAddServiceModalOpen] = useState(false);
+  const [isAddingService, setIsAddingService] = useState(false);
+  const settings = getCitizenSettings();
+  const availableServices = settings.serviceTypes && settings.serviceTypes.length > 0
+    ? settings.serviceTypes
+    : DEFAULT_CITIZEN_SERVICES;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [newServiceType, setNewServiceType] = useState(availableServices[0] || "PAN Card");
+  const [newApplicationDate, setNewApplicationDate] = useState(todayStr);
+  const [newAppNumber, setNewAppNumber] = useState("");
+  const [newPortalPassword, setNewPortalPassword] = useState("");
+  const [newTotalAmount, setNewTotalAmount] = useState<number>(150);
+  const [newAdvancePaid, setNewAdvancePaid] = useState<number>(150);
+  const [newPaymentMode, setNewPaymentMode] = useState<"Cash" | "UPI">("Cash");
+  const [newNotes, setNewNotes] = useState("");
+
   React.useEffect(() => {
     setCurrentRecord(record);
   }, [record]);
+
+  // Compute all services taken by this customer
+  const customerServices = useMemo(() => {
+    const mobile = (currentRecord.contactNo || "").trim();
+    const name = (currentRecord.customerName || "").trim().toLowerCase();
+    const list = allRecords && allRecords.length > 0 ? allRecords : getCitizenRecords();
+
+    return list.filter(r => {
+      if (mobile && r.contactNo && r.contactNo.trim() === mobile) return true;
+      if (!mobile && r.customerName && r.customerName.trim().toLowerCase() === name) return true;
+      return r.id === currentRecord.id;
+    });
+  }, [allRecords, currentRecord]);
+
+  // Normalise attached documents list
+  const attachedDocuments: CitizenDocumentAttachment[] = useMemo(() => {
+    if (Array.isArray(currentRecord.documentFiles) && currentRecord.documentFiles.length > 0) {
+      return currentRecord.documentFiles;
+    }
+    if (currentRecord.documentFileUrl) {
+      return [{
+        name: "Attached Document",
+        url: currentRecord.documentFileUrl,
+        size_kb: 0,
+        uploaded_at: currentRecord.applicationDate || new Date().toISOString(),
+      }];
+    }
+    return [];
+  }, [currentRecord]);
 
   const handleCopy = (text: string, fieldName: string) => {
     if (!text) return;
@@ -50,30 +114,70 @@ export default function CitizenCustomerProfile({
     if (!file) return;
 
     setUploadingDoc(true);
-    const toastId = toast.loading("Uploading document to Supabase Cloud...");
+    const toastId = toast.loading("Optimizing & Compressing Document... Please wait");
 
     try {
-      const { url, error } = await uploadCitizenDocument(file, currentRecord.id);
-      if (error || !url) {
+      const { doc, updatedList, error } = await uploadCitizenDocumentAttachment(
+        file,
+        currentRecord.id,
+        attachedDocuments
+      );
+
+      if (error || !doc) {
         toast.error(`Document upload failed: ${error?.message || "Storage error"}`, { id: toastId });
         return;
       }
 
       const updated: CitizenServiceRecord = {
         ...currentRecord,
-        documentFileUrl: url,
+        documentFiles: updatedList,
+        documentFileUrl: doc.url,
         updatedAt: new Date().toISOString(),
       };
 
-      await updateCitizenRecord(currentRecord.id, { documentFileUrl: url });
       setCurrentRecord(updated);
       onRecordUpdated(updated);
+      if (onRefreshData) onRefreshData();
 
-      toast.success("Document attached successfully to customer record!", { id: toastId });
+      toast.success(`Document "${file.name}" compressed and attached successfully!`, { id: toastId });
     } catch (err: any) {
       toast.error(`Upload error: ${err.message || "Failed to upload file"}`, { id: toastId });
     } finally {
       setUploadingDoc(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleDeleteDoc = async (doc: CitizenDocumentAttachment) => {
+    if (!confirm(`Delete attached document "${doc.name}"? This will remove it from cloud storage.`)) return;
+
+    const toastId = toast.loading("Removing document...");
+    try {
+      const { updatedList, error } = await deleteCitizenDocumentAttachment(
+        currentRecord.id,
+        doc,
+        attachedDocuments
+      );
+
+      if (error) {
+        toast.error(`Failed to delete document: ${error.message || "Error"}`, { id: toastId });
+        return;
+      }
+
+      const updated: CitizenServiceRecord = {
+        ...currentRecord,
+        documentFiles: updatedList,
+        documentFileUrl: updatedList.length > 0 ? updatedList[updatedList.length - 1].url : undefined,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setCurrentRecord(updated);
+      onRecordUpdated(updated);
+      if (onRefreshData) onRefreshData();
+
+      toast.success("Document removed successfully.", { id: toastId });
+    } catch (err: any) {
+      toast.error(`Error deleting document: ${err.message || "Unknown error"}`, { id: toastId });
     }
   };
 
@@ -99,6 +203,7 @@ export default function CitizenCustomerProfile({
 
       setCurrentRecord(updated);
       onRecordUpdated(updated);
+      if (onRefreshData) onRefreshData();
       toast.success(`Due amount settled via ${mode}! Payment marked as Full Paid.`);
     } catch (err: any) {
       toast.error(`Error settling payment: ${err.message || "Unknown error"}`);
@@ -120,6 +225,80 @@ export default function CitizenCustomerProfile({
     }
   };
 
+  const handleOpenAddServiceModal = () => {
+    setNewServiceType(availableServices[0] || "PAN Card");
+    setNewApplicationDate(todayStr);
+    setNewAppNumber("");
+    setNewPortalPassword("");
+    setNewTotalAmount(150);
+    setNewAdvancePaid(150);
+    setNewPaymentMode("Cash");
+    setNewNotes("");
+    setAddServiceModalOpen(true);
+  };
+
+  const handleAddServiceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newServiceType) {
+      toast.error("Please select a service type.");
+      return;
+    }
+    if (!newAppNumber.trim()) {
+      toast.error("Application / User ID is required.");
+      return;
+    }
+
+    setIsAddingService(true);
+    const toastId = toast.loading("Adding new service to customer profile...");
+
+    try {
+      const nextSl = getNextSerialNo();
+      const total = Number(newTotalAmount) || 0;
+      const adv = Number(newAdvancePaid) || 0;
+      const due = Math.max(0, total - adv);
+      const pStatus = due === 0 ? "Full Paid" : adv > 0 ? "Partial" : "Pending";
+
+      const newRecord: CitizenServiceRecord = {
+        id: generateId(),
+        serialNo: nextSl,
+        customerName: currentRecord.customerName.trim(),
+        contactNo: currentRecord.contactNo.trim(),
+        address: currentRecord.address?.trim() || "",
+        serviceType: newServiceType,
+        applicationDate: newApplicationDate || todayStr,
+        appNumber: newAppNumber.trim(),
+        portalPassword: newPortalPassword.trim(),
+        finalServiceNo: "",
+        totalAmount: total,
+        advancePaid: adv,
+        dueAmount: due,
+        paymentMode: newPaymentMode,
+        paymentStatus: pStatus,
+        status: "Applied",
+        notes: newNotes.trim() || undefined,
+        documentFiles: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tenant_code: currentRecord.tenant_code || "new_csp",
+        tenant_id: currentRecord.tenant_id || "new_csp",
+      };
+
+      const { error } = await addCitizenRecord(newRecord);
+      if (error) {
+        toast.error(`Failed to add service: ${error.message || "Database error"}`, { id: toastId });
+        return;
+      }
+
+      toast.success(`Service "${newServiceType}" added successfully (SL #${nextSl})!`, { id: toastId });
+      setAddServiceModalOpen(false);
+      if (onRefreshData) onRefreshData();
+    } catch (err: any) {
+      toast.error(`Error adding service: ${err.message || "Unknown error"}`, { id: toastId });
+    } finally {
+      setIsAddingService(false);
+    }
+  };
+
   const getDynamicServiceDocTitle = (service: string) => {
     const s = service.toLowerCase();
     if (s.includes("pan")) return "Allotted PAN Card Number";
@@ -133,8 +312,21 @@ export default function CitizenCustomerProfile({
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-12 animate-fade-in">
+    <div className="max-w-7xl mx-auto space-y-6 pb-12 animate-fade-in relative">
       <SEO title={`${currentRecord.customerName} — Citizen Profile & Documentation Hub`} />
+
+      {/* Compression & Uploading Spinner Overlay */}
+      {uploadingDoc && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex flex-col items-center justify-center text-white">
+          <div className="bg-slate-900 p-8 rounded-2xl border border-slate-700 shadow-2xl flex flex-col items-center gap-4 max-w-md text-center animate-scale-in">
+            <div className="w-14 h-14 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div>
+              <h3 className="font-bold text-lg text-white">Optimizing & Compressing Document...</h3>
+              <p className="text-sm text-slate-300 mt-1">Please wait while our browser engine minimizes size for high quality.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Top Bar Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
@@ -164,8 +356,16 @@ export default function CitizenCustomerProfile({
           </div>
         </div>
 
-        {/* Status Badges */}
-        <div className="flex items-center gap-2">
+        {/* Action Buttons & Status Badges */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleOpenAddServiceModal}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-sm hover:shadow-md"
+          >
+            <PlusCircle size={15} />
+            <span>+ Add New Service to This Customer</span>
+          </button>
+
           {currentRecord.dueAmount === 0 ? (
             <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
               PAID ({currentRecord.paymentMode})
@@ -262,11 +462,11 @@ export default function CitizenCustomerProfile({
             </div>
           </div>
 
-          {/* SECTION 2: Final Document / Service Number & Supabase Cloud PDF Attachment */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+          {/* SECTION 2: Final Document Number & Multi-File Cloud Attachments */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
               <Tag size={15} className="text-blue-600" />
-              <span>Final Document & Cloud PDF Attachment</span>
+              <span>Final Document & Attached Cloud Documents</span>
             </h2>
 
             {/* Final Service / Document No */}
@@ -290,39 +490,20 @@ export default function CitizenCustomerProfile({
               )}
             </div>
 
-            {/* Cloud PDF File Section */}
-            <div className="p-5 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 space-y-4">
+            {/* Multi-Document Attachments Section */}
+            <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2.5">
-                  <FileText size={22} className={currentRecord.documentFileUrl ? "text-emerald-600" : "text-slate-400"} />
-                  <div>
-                    <div className="text-sm font-bold text-slate-900">
-                      {currentRecord.documentFileUrl ? "Attached Cloud Document (PDF / File)" : "No Document File Attached"}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {currentRecord.documentFileUrl ? "Stored securely on Supabase Storage" : "Attach e-PAN, Ticket, or Acknowledgement PDF"}
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <FileText size={18} className="text-blue-600" />
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                    Attached Cloud Documents ({attachedDocuments.length})
+                  </span>
                 </div>
 
-                {currentRecord.documentFileUrl && (
-                  <a
-                    href={currentRecord.documentFileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow-md transition-all"
-                  >
-                    <ExternalLink size={14} />
-                    <span>View / Download PDF</span>
-                  </a>
-                )}
-              </div>
-
-              {/* Upload or Replace button */}
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-between flex-wrap gap-2">
-                <label className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-300 cursor-pointer shadow-xs transition-colors">
-                  <Upload size={14} className="text-blue-600" />
-                  <span>{currentRecord.documentFileUrl ? "Upload New / Replace Document" : "Attach PDF File"}</span>
+                {/* + Add Another Document Button */}
+                <label className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs transition-all">
+                  <Upload size={14} />
+                  <span>+ Add Another Document</span>
                   <input
                     type="file"
                     accept=".pdf,image/*,.doc,.docx"
@@ -331,12 +512,159 @@ export default function CitizenCustomerProfile({
                     className="hidden"
                   />
                 </label>
-                {uploadingDoc && (
-                  <span className="text-xs text-blue-600 font-semibold animate-pulse">
-                    Uploading file to Supabase Cloud...
-                  </span>
-                )}
               </div>
+
+              {/* Itemized List of Uploaded Documents */}
+              {attachedDocuments.length > 0 ? (
+                <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl bg-white overflow-hidden shadow-2xs">
+                  {attachedDocuments.map((doc, idx) => (
+                    <div key={idx} className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                          <FileText size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate max-w-xs sm:max-w-md">
+                            {doc.name || `Attachment #${idx + 1}`}
+                          </p>
+                          <p className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                            <span className="font-semibold text-emerald-600">{doc.size_kb ? `${doc.size_kb} KB` : "Optimized"}</span>
+                            <span>•</span>
+                            <span>{doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString("en-IN") : "Recent"}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 text-xs font-bold rounded-lg border border-slate-200 transition-colors"
+                          title="Open Document in New Tab"
+                        >
+                          <ExternalLink size={13} />
+                          <span>View / Download</span>
+                        </a>
+
+                        <button
+                          onClick={() => handleDeleteDoc(doc)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200"
+                          title="Delete this document"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 border border-dashed border-slate-300 rounded-xl bg-white text-slate-400 text-xs">
+                  No cloud documents attached yet. Click "+ Add Another Document" to attach scans, PDFs, or photos.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* SECTION 3: Service History & Independent Receipts */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Clock size={15} className="text-blue-600" />
+                <span>Service History & Independent Receipts ({customerServices.length})</span>
+              </h2>
+
+              <button
+                onClick={handleOpenAddServiceModal}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+              >
+                <PlusCircle size={13} />
+                <span>+ New Service</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="px-3.5 py-2.5">SL & Service</th>
+                    <th className="px-3.5 py-2.5">Applied Date</th>
+                    <th className="px-3.5 py-2.5">User ID / App No</th>
+                    <th className="px-3.5 py-2.5">Billing</th>
+                    <th className="px-3.5 py-2.5">Status</th>
+                    <th className="px-3.5 py-2.5 text-right">Receipt Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {customerServices.map((srv) => (
+                    <tr
+                      key={srv.id}
+                      className={`hover:bg-slate-50 transition-colors ${srv.id === currentRecord.id ? "bg-blue-50/40" : ""}`}
+                    >
+                      <td className="px-3.5 py-3 font-semibold text-slate-900">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-slate-400">#{srv.serialNo}</span>
+                          <span className="font-bold text-blue-900">{srv.serviceType}</span>
+                          {srv.id === currentRecord.id && (
+                            <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 font-extrabold rounded">
+                              Current
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3.5 py-3 text-slate-600">{srv.applicationDate}</td>
+                      <td className="px-3.5 py-3 font-mono font-medium text-slate-800">{srv.appNumber || "—"}</td>
+                      <td className="px-3.5 py-3">
+                        <div className="font-medium">
+                          <span>₹{srv.totalAmount}</span>
+                          {srv.dueAmount > 0 ? (
+                            <span className="text-[10px] ml-1 text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-bold border border-amber-200">
+                              Due ₹{srv.dueAmount}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] ml-1 text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-bold border border-emerald-200">
+                              Paid
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3.5 py-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          srv.status === "Delivered" ? "bg-teal-50 text-teal-700 border border-teal-200" :
+                          srv.status === "Issued" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" :
+                          "bg-slate-100 text-slate-700 border border-slate-200"
+                        }`}>
+                          {srv.status || "Applied"}
+                        </span>
+                      </td>
+                      <td className="px-3.5 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {srv.id !== currentRecord.id && onSelectRecord && (
+                            <button
+                              onClick={() => {
+                                setCurrentRecord(srv);
+                                onSelectRecord(srv);
+                              }}
+                              className="px-2 py-1 text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                              title="View this service"
+                            >
+                              Switch
+                            </button>
+                          )}
+                          <button
+                            onClick={() => onPrintReceipt(srv)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors shadow-2xs"
+                            title={`Download Receipt for ${srv.serviceType}`}
+                          >
+                            <Printer size={12} />
+                            <span>Download Receipt</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -383,7 +711,7 @@ export default function CitizenCustomerProfile({
 
         {/* Right Column (1 Col on desktop) */}
         <div className="space-y-6">
-          {/* SECTION 3: Billing Breakdown Card */}
+          {/* SECTION 5: Billing Breakdown Card */}
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
@@ -448,7 +776,7 @@ export default function CitizenCustomerProfile({
             )}
           </div>
 
-          {/* SECTION 5: Service Delivery Lifecycle */}
+          {/* SECTION 6: Service Delivery Lifecycle */}
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
               <Clock size={15} className="text-indigo-600" />
@@ -509,6 +837,194 @@ export default function CitizenCustomerProfile({
           </div>
         </div>
       </div>
+
+      {/* MODAL: + Add Additional Service to This Customer */}
+      {addServiceModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-scale-in my-8">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  <PlusCircle size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Add New Service to Customer</h3>
+                  <p className="text-xs text-slate-500">Demographics locked from current customer profile</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAddServiceModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddServiceSubmit} className="space-y-4">
+              {/* Pre-populated & Locked Demographics */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                  <ShieldCheck size={14} className="text-emerald-600" />
+                  <span>Locked Customer Identity</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-800">
+                  <div>
+                    <span className="text-slate-400">Name: </span>
+                    <strong className="text-slate-900">{currentRecord.customerName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Mobile: </span>
+                    <strong className="text-slate-900">{currentRecord.contactNo}</strong>
+                  </div>
+                  {currentRecord.address && (
+                    <div className="sm:col-span-2">
+                      <span className="text-slate-400">Address: </span>
+                      <span className="text-slate-800 font-medium">{currentRecord.address}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Service Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Service Type *</label>
+                  <select
+                    value={newServiceType}
+                    onChange={(e) => setNewServiceType(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-medium"
+                  >
+                    {availableServices.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Application Date</label>
+                  <input
+                    type="date"
+                    value={newApplicationDate}
+                    onChange={(e) => setNewApplicationDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Application / User ID *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. ACK12345678"
+                    value={newAppNumber}
+                    onChange={(e) => setNewAppNumber(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Portal Password / DOB</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. DDMMYYYY or Password"
+                    value={newPortalPassword}
+                    onChange={(e) => setNewPortalPassword(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Billing Info */}
+              <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-3">
+                <div className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                  Service Billing Breakdown
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Total (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newTotalAmount}
+                      onChange={(e) => {
+                        const t = Math.max(0, Number(e.target.value));
+                        setNewTotalAmount(t);
+                      }}
+                      className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg focus:outline-none bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Advance (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newAdvancePaid}
+                      onChange={(e) => {
+                        const adv = Math.max(0, Number(e.target.value));
+                        setNewAdvancePaid(adv);
+                      }}
+                      className="w-full px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg focus:outline-none bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Due (₹)</label>
+                    <div className="w-full px-2.5 py-1.5 text-xs font-mono font-bold bg-slate-100 rounded-lg border border-slate-200 text-slate-700">
+                      ₹{Math.max(0, newTotalAmount - newAdvancePaid)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Payment Mode</label>
+                    <select
+                      value={newPaymentMode}
+                      onChange={(e) => setNewPaymentMode(e.target.value as "Cash" | "UPI")}
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none bg-white"
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="UPI">UPI</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Notes / Service ID</label>
+                    <input
+                      type="text"
+                      placeholder="Optional notes"
+                      value={newNotes}
+                      onChange={(e) => setNewNotes(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit / Cancel buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAddServiceModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAddingService}
+                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-sm disabled:opacity-50"
+                >
+                  {isAddingService ? "Saving..." : "Create & Add Service"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

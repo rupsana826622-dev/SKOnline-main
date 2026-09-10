@@ -1,11 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   X, User, Phone, MapPin, Calendar, Tag, Lock, Eye, EyeOff,
   Copy, Check, FileText, Download, ExternalLink, Upload,
-  CreditCard, CheckCircle, Clock, AlertCircle, Trash2, Edit, Printer, Sparkles
+  CreditCard, CheckCircle, Clock, AlertCircle, Trash2, Edit, Printer, Sparkles, PlusCircle
 } from "lucide-react";
-import type { CitizenServiceRecord } from "@/types/citizen";
-import { updateCitizenRecord, uploadCitizenDocument, deleteCitizenRecord } from "@/lib/citizenStorage";
+import type { CitizenServiceRecord, CitizenDocumentAttachment } from "@/types/citizen";
+import {
+  updateCitizenRecord,
+  uploadCitizenDocumentAttachment,
+  deleteCitizenDocumentAttachment,
+  deleteCitizenRecord
+} from "@/lib/citizenStorage";
 import { formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -38,6 +43,23 @@ export default function CitizenProfileDrawer({
     setCurrentRecord(record);
   }, [record]);
 
+  // Normalise attached documents list
+  const attachedDocuments: CitizenDocumentAttachment[] = useMemo(() => {
+    if (!currentRecord) return [];
+    if (Array.isArray(currentRecord.documentFiles) && currentRecord.documentFiles.length > 0) {
+      return currentRecord.documentFiles;
+    }
+    if (currentRecord.documentFileUrl) {
+      return [{
+        name: "Attached Document",
+        url: currentRecord.documentFileUrl,
+        size_kb: 0,
+        uploaded_at: currentRecord.applicationDate || new Date().toISOString(),
+      }];
+    }
+    return [];
+  }, [currentRecord]);
+
   if (!isOpen || !currentRecord) return null;
 
   const handleCopy = (text: string, fieldName: string) => {
@@ -53,31 +75,69 @@ export default function CitizenProfileDrawer({
     if (!file || !currentRecord) return;
 
     setUploadingDoc(true);
-    const toastId = toast.loading("Uploading document to Supabase Storage...");
+    const toastId = toast.loading("Optimizing & Compressing Document... Please wait");
 
     try {
-      const { url, error } = await uploadCitizenDocument(file, currentRecord.id);
-      if (error || !url) {
+      const { doc, updatedList, error } = await uploadCitizenDocumentAttachment(
+        file,
+        currentRecord.id,
+        attachedDocuments
+      );
+
+      if (error || !doc) {
         toast.error(`Document upload failed: ${error?.message || "Storage error"}`, { id: toastId });
         return;
       }
 
-      // Update record with the new URL
-      const updated = {
+      const updated: CitizenServiceRecord = {
         ...currentRecord,
-        documentFileUrl: url,
+        documentFiles: updatedList,
+        documentFileUrl: doc.url,
         updatedAt: new Date().toISOString(),
       };
 
-      await updateCitizenRecord(currentRecord.id, { documentFileUrl: url });
       setCurrentRecord(updated);
       if (onRecordUpdated) onRecordUpdated(updated);
 
-      toast.success("Document uploaded and attached successfully!", { id: toastId });
+      toast.success(`Document "${file.name}" compressed and attached successfully!`, { id: toastId });
     } catch (err: any) {
       toast.error(`Upload error: ${err.message || "Failed to upload file"}`, { id: toastId });
     } finally {
       setUploadingDoc(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleDeleteDoc = async (doc: CitizenDocumentAttachment) => {
+    if (!currentRecord) return;
+    if (!confirm(`Delete attached document "${doc.name}"?`)) return;
+
+    const toastId = toast.loading("Removing document...");
+    try {
+      const { updatedList, error } = await deleteCitizenDocumentAttachment(
+        currentRecord.id,
+        doc,
+        attachedDocuments
+      );
+
+      if (error) {
+        toast.error(`Failed to delete document: ${error.message || "Error"}`, { id: toastId });
+        return;
+      }
+
+      const updated: CitizenServiceRecord = {
+        ...currentRecord,
+        documentFiles: updatedList,
+        documentFileUrl: updatedList.length > 0 ? updatedList[updatedList.length - 1].url : undefined,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setCurrentRecord(updated);
+      if (onRecordUpdated) onRecordUpdated(updated);
+
+      toast.success("Document removed successfully.", { id: toastId });
+    } catch (err: any) {
+      toast.error(`Error deleting document: ${err.message || "Unknown error"}`, { id: toastId });
     }
   };
 
@@ -99,7 +159,7 @@ export default function CitizenProfileDrawer({
     const s = service.toLowerCase();
     if (s.includes("pan")) return "Allotted PAN Card Number";
     if (s.includes("passport")) return "Passport Number";
-    if (s.includes("voter")) return "EPIC / Voter Card Number";
+    if (s.includes("voter") || s.includes("epic")) return "EPIC / Voter Card Number";
     if (s.includes("ration")) return "Digital Ration Card Number";
     if (s.includes("trade")) return "Trade License Number";
     if (s.includes("food") || s.includes("fssai")) return "FSSAI License Number";
@@ -109,6 +169,19 @@ export default function CitizenProfileDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-900/60 backdrop-blur-xs transition-opacity animate-fade-in">
+      {/* Compression & Uploading Spinner Overlay */}
+      {uploadingDoc && (
+        <div className="fixed inset-0 z-60 bg-slate-900/70 backdrop-blur-xs flex flex-col items-center justify-center text-white">
+          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-700 shadow-2xl flex flex-col items-center gap-3 max-w-sm text-center">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div>
+              <h3 className="font-bold text-base text-white">Optimizing & Compressing Document...</h3>
+              <p className="text-xs text-slate-300 mt-1">Please wait</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         className="w-full max-w-2xl h-full bg-slate-50 shadow-2xl flex flex-col overflow-hidden border-l border-slate-200 animate-slide-left"
         onClick={e => e.stopPropagation()}
@@ -145,7 +218,7 @@ export default function CitizenProfileDrawer({
 
         {/* Drawer Scrollable Content */}
         <div className="flex-1 overflow-y-auto custom-scroll p-6 space-y-5">
-          {/* 1. Portal Credentials Card (Top Priority for Quick Operator Access) */}
+          {/* 1. Portal Credentials Card */}
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-5 shadow-md space-y-4">
             <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
               <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase tracking-wider">
@@ -215,7 +288,7 @@ export default function CitizenProfileDrawer({
           <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
               <Tag size={14} className="text-blue-600" />
-              <span>Final Document & Cloud Attachment</span>
+              <span>Final Document & Attached Cloud Documents</span>
             </h3>
 
             {/* Final Service / Document No */}
@@ -239,34 +312,19 @@ export default function CitizenProfileDrawer({
               )}
             </div>
 
-            {/* Cloud PDF File Section */}
-            <div className="p-4 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 space-y-3">
+            {/* Multi-Document Attachments Section */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <FileText size={18} className={currentRecord.documentFileUrl ? "text-emerald-600" : "text-slate-400"} />
+                  <FileText size={16} className="text-blue-600" />
                   <span className="text-xs font-bold text-slate-800">
-                    {currentRecord.documentFileUrl ? "Attached Cloud Document (PDF / File)" : "No Cloud PDF Attached"}
+                    Attached Documents ({attachedDocuments.length})
                   </span>
                 </div>
 
-                {currentRecord.documentFileUrl && (
-                  <a
-                    href={currentRecord.documentFileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors"
-                  >
-                    <ExternalLink size={13} />
-                    <span>View / Download PDF</span>
-                  </a>
-                )}
-              </div>
-
-              {/* Upload or Replace button */}
-              <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between">
-                <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg border border-slate-300 cursor-pointer shadow-2xs transition-colors">
-                  <Upload size={13} className="text-blue-600" />
-                  <span>{currentRecord.documentFileUrl ? "Upload New / Replace Document" : "Upload & Attach PDF"}</span>
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer shadow-2xs transition-colors">
+                  <Upload size={13} />
+                  <span>+ Attach Document</span>
                   <input
                     type="file"
                     accept=".pdf,image/*,.doc,.docx"
@@ -275,12 +333,42 @@ export default function CitizenProfileDrawer({
                     className="hidden"
                   />
                 </label>
-                {uploadingDoc && (
-                  <span className="text-xs text-blue-600 font-semibold animate-pulse">
-                    Uploading to Supabase Storage...
-                  </span>
-                )}
               </div>
+
+              {attachedDocuments.length > 0 ? (
+                <div className="divide-y divide-slate-200 border border-slate-200 rounded-lg bg-white overflow-hidden shadow-2xs">
+                  {attachedDocuments.map((doc, idx) => (
+                    <div key={idx} className="p-2.5 flex items-center justify-between gap-2 hover:bg-slate-50 transition-colors text-xs">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-slate-800 truncate">{doc.name || `File #${idx + 1}`}</p>
+                        <p className="text-[10px] text-slate-500">{doc.size_kb ? `${doc.size_kb} KB` : "Optimized"}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 rounded font-semibold transition-colors inline-flex items-center gap-1"
+                        >
+                          <ExternalLink size={12} />
+                          <span>View</span>
+                        </a>
+                        <button
+                          onClick={() => handleDeleteDoc(doc)}
+                          className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-xs text-slate-400">
+                  No documents attached yet.
+                </div>
+              )}
             </div>
           </div>
 

@@ -1,3 +1,11 @@
+export interface CitizenDocumentAttachment {
+  name: string;
+  url: string;
+  size_kb: number;
+  uploaded_at: string;
+  path?: string;
+}
+
 export interface CitizenServiceRecord {
   id: string;
   serialNo: number; // Numeric serial for physical register mapping
@@ -9,7 +17,9 @@ export interface CitizenServiceRecord {
   appNumber: string; // User ID / Application No / Acknowledgement No
   portalPassword?: string; // Passkey/DOB text input — strictly excluded from customer printouts
   finalServiceNo?: string; // Generated Service / Document No (e.g., PAN Number, Passport Number)
-  documentFileUrl?: string; // Supabase Storage public URL for attached PDF/document
+  documentFileUrl?: string; // Supabase Storage public URL for attached PDF/document (primary or latest)
+  documentFiles?: CitizenDocumentAttachment[]; // Multi-file attachments array
+  document_files?: CitizenDocumentAttachment[];
   totalAmount: number;
   advancePaid: number;
   dueAmount: number;
@@ -21,7 +31,8 @@ export interface CitizenServiceRecord {
   createdAt: string;
   updatedAt: string;
   notes?: string;
-  tenant_code: string;
+  tenant_code?: string;
+  tenant_id?: string;
 }
 
 export interface CitizenSettings {

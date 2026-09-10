@@ -196,6 +196,7 @@ export default function CitizenCustomersPage() {
       <div className="space-y-4 animate-fade-in">
         <CitizenCustomerProfile
           record={selectedRecord}
+          allRecords={records}
           onBack={() => setViewMode("list")}
           onEdit={rec => {
             setSelectedRecord(rec);
@@ -211,6 +212,8 @@ export default function CitizenCustomersPage() {
             setSelectedRecord(null);
             setViewMode("list");
           }}
+          onRefreshData={loadData}
+          onSelectRecord={rec => setSelectedRecord(rec)}
         />
 
         {/* Receipt Modal */}
