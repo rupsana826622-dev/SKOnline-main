@@ -214,13 +214,23 @@ export function mapDbToBobCustomer(row: any): BobCustomerRecord {
 
     passbookIssued: Boolean(pbIssuedDate),
     passbookIssuedAt: toDateStr(pbIssuedDate),
+    passbook_issued: toDateStr(pbIssuedDate),
+    passbook_issued_date: toDateStr(pbIssuedDate),
+
     passbookDelivered: Boolean(pbDeliveredDate),
     passbookDeliveredAt: toDateStr(pbDeliveredDate),
+    passbook_delivered: toDateStr(pbDeliveredDate),
+    passbook_delivered_date: toDateStr(pbDeliveredDate),
 
     atmIssued: Boolean(atmIssuedDate),
     atmIssuedAt: toDateStr(atmIssuedDate),
+    atm_issued: toDateStr(atmIssuedDate),
+    atm_issued_date: toDateStr(atmIssuedDate),
+
     atmDelivered: Boolean(atmDeliveredDate),
     atmDeliveredAt: toDateStr(atmDeliveredDate),
+    atm_delivered: toDateStr(atmDeliveredDate),
+    atm_delivered_date: toDateStr(atmDeliveredDate),
 
     notes: row.notes || "",
     createdAt: row.created_at || new Date().toISOString(),

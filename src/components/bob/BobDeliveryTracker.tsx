@@ -1,30 +1,58 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import ReactDOM from "react-dom";
 import { Search, Truck, Package, CreditCard, CheckCircle, Clock, Calendar, RefreshCw } from "lucide-react";
-import { getBobCustomers, updateBobCustomer, fetchBobCustomersFromSupabase } from "@/lib/bobStorage";
+import { supabase } from "@/lib/supabase";
+import { getBobCustomers, saveBobCustomers, fetchBobCustomersFromSupabase } from "@/lib/bobStorage";
 import type { BobCustomerRecord } from "@/types/bob";
 import { toast } from "sonner";
 import SEO from "@/components/common/SEO";
 
 type DeliveryFilter = "All" | "Passbook Pending" | "ATM Pending" | "Fully Delivered";
 
+type MilestoneKey = "passbook_issued" | "passbook_delivered" | "atm_issued" | "atm_delivered";
+
 type PickerTarget = {
   customerId: string;
-  field: "passbookIssued" | "passbookDelivered" | "atmIssued" | "atmDelivered";
+  milestoneKey: MilestoneKey;
   anchorRect: DOMRect;
+  currentDate?: string | null;
 } | null;
+
+const fmtDate = (val?: string | null) => {
+  if (!val || typeof val === "boolean") return "";
+  try {
+    const clean = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(clean)) {
+      const [y, m, d] = clean.slice(0, 10).split("-").map(Number);
+      const dt = new Date(y, m - 1, d);
+      return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    }
+    const dt = new Date(clean);
+    if (isNaN(dt.getTime())) return clean;
+    return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  } catch {
+    return String(val);
+  }
+};
 
 function DatePickerPopover({
   anchorRect,
+  currentDate,
   onConfirm,
+  onClear,
   onCancel,
 }: {
   anchorRect: DOMRect;
+  currentDate?: string | null;
   onConfirm: (isoDate: string) => void;
+  onClear?: () => void;
   onCancel: () => void;
 }) {
   const today = new Date().toISOString().slice(0, 10);
-  const [selectedDate, setSelectedDate] = useState(today);
+  const initialDate = currentDate && /^\d{4}-\d{2}-\d{2}/.test(currentDate)
+    ? currentDate.slice(0, 10)
+    : today;
+  const [selectedDate, setSelectedDate] = useState(initialDate);
   const ref = useRef<HTMLDivElement>(null);
 
   const style: React.CSSProperties = {
@@ -32,7 +60,7 @@ function DatePickerPopover({
     top: anchorRect.bottom + 6,
     left: Math.min(anchorRect.left, window.innerWidth - 250),
     zIndex: 9999,
-    minWidth: 230,
+    minWidth: 240,
   };
 
   useEffect(() => {
@@ -50,9 +78,7 @@ function DatePickerPopover({
 
   const handleConfirm = () => {
     if (!selectedDate) return;
-    const [y, m, d] = selectedDate.split("-").map(Number);
-    const dt = new Date(y, m - 1, d, 12, 0, 0);
-    onConfirm(dt.toISOString());
+    onConfirm(selectedDate);
   };
 
   const popover = (
@@ -76,63 +102,34 @@ function DatePickerPopover({
       />
       <div className="flex gap-2 mt-3">
         <button
+          type="button"
           onClick={handleConfirm}
           disabled={!selectedDate}
-          className="flex-1 py-1.5 text-xs font-bold bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
+          className="flex-1 py-1.5 text-xs font-bold bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-xs"
         >
           Confirm
         </button>
         <button
+          type="button"
           onClick={onCancel}
           className="flex-1 py-1.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
         >
           Cancel
         </button>
       </div>
+      {currentDate && onClear && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="w-full mt-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors text-center"
+        >
+          Reset / Clear Milestone
+        </button>
+      )}
     </div>
   );
 
   return ReactDOM.createPortal(popover, document.body);
-}
-
-function DeliveryToggle({
-  checked,
-  onToggle,
-  onRequestDate,
-  label,
-  disabled,
-}: {
-  checked: boolean;
-  onToggle: () => void;
-  onRequestDate: (rect: DOMRect) => void;
-  label: string;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="inline-block">
-      <button
-        onClick={(e) => {
-          if (checked) {
-            onToggle();
-          } else if (!disabled) {
-            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            onRequestDate(rect);
-          }
-        }}
-        disabled={disabled && !checked}
-        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-          checked
-            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300"
-            : disabled
-            ? "bg-slate-50 text-slate-300 border border-slate-200 cursor-not-allowed"
-            : "bg-slate-100 text-slate-600 hover:bg-orange-100 hover:text-orange-700 border border-slate-200"
-        }`}
-      >
-        {checked ? <CheckCircle size={13} className="flex-shrink-0" /> : <Clock size={13} className="flex-shrink-0" />}
-        <span className="whitespace-nowrap max-w-[85px] truncate">{label}</span>
-      </button>
-    </div>
-  );
 }
 
 export default function BobDeliveryTracker() {
@@ -165,77 +162,96 @@ export default function BobDeliveryTracker() {
     return () => window.removeEventListener("bob-data-updated", handleUpdate);
   }, []);
 
-  const uncheck = async (id: string, field: "passbookIssued" | "passbookDelivered" | "atmIssued" | "atmDelivered") => {
-    const c = customers.find(item => item.id === id);
-    if (!c) return;
+  const handleUpdateMilestone = async (
+    customerId: string,
+    milestoneKey: MilestoneKey,
+    selectedDate: string | null
+  ) => {
+    // Prepare synchronized payload
+    const updatePayload: Record<string, any> = {};
+    updatePayload[milestoneKey] = selectedDate;
+    updatePayload[`${milestoneKey}_date`] = selectedDate;
 
-    const updates: Partial<BobCustomerRecord> = {};
-    if (field === "passbookIssued") {
-      updates.passbookIssued = false;
-      updates.passbookIssuedAt = null;
-    } else if (field === "passbookDelivered") {
-      updates.passbookDelivered = false;
-      updates.passbookDeliveredAt = null;
-    } else if (field === "atmIssued") {
-      updates.atmIssued = false;
-      updates.atmIssuedAt = null;
-    } else if (field === "atmDelivered") {
-      updates.atmDelivered = false;
-      updates.atmDeliveredAt = null;
+    let { data, error } = await (supabase as any)
+      .from("bob_customers")
+      .update(updatePayload)
+      .eq("id", customerId)
+      .select();
+
+    if (error && error.code === "PGRST204") {
+      const fallbackPayload: Record<string, any> = {
+        [`${milestoneKey}_date`]: selectedDate,
+      };
+      const fallbackRes = await (supabase as any)
+        .from("bob_customers")
+        .update(fallbackPayload)
+        .eq("id", customerId)
+        .select();
+      data = fallbackRes.data;
+      error = fallbackRes.error;
     }
 
-    const res = await updateBobCustomer(id, updates);
-    if (res.error) {
-      toast.error("Failed to update status in Supabase.");
-    } else {
-      setCustomers(getBobCustomers());
-      toast.success("Delivery status reset.");
-    }
-  };
-
-  const confirmDate = async (isoDate: string) => {
-    if (!picker) return;
-    const { customerId, field } = picker;
-    const c = customers.find(item => item.id === customerId);
-    if (!c) {
-      setPicker(null);
+    if (error) {
+      console.error("BOB Tracker Update Error:", error);
+      alert("Database Update Failed: " + error.message);
       return;
     }
 
-    const updates: Partial<BobCustomerRecord> = {};
-    if (field === "passbookIssued") {
-      updates.passbookIssued = true;
-      updates.passbookIssuedAt = isoDate;
-    } else if (field === "passbookDelivered") {
-      updates.passbookDelivered = true;
-      updates.passbookDeliveredAt = isoDate;
-      // Auto mark issued if not already marked
-      if (!c.passbookIssued) {
-        updates.passbookIssued = true;
-        updates.passbookIssuedAt = isoDate;
-      }
-    } else if (field === "atmIssued") {
-      updates.atmIssued = true;
-      updates.atmIssuedAt = isoDate;
-    } else if (field === "atmDelivered") {
-      updates.atmDelivered = true;
-      updates.atmDeliveredAt = isoDate;
-      // Auto mark issued if not already marked
-      if (!c.atmIssued) {
-        updates.atmIssued = true;
-        updates.atmIssuedAt = isoDate;
-      }
+    if (!data || data.length === 0) {
+      console.warn("No customer row matched for id:", customerId);
+      alert("Error: Customer record not found in database.");
+      return;
     }
 
-    const res = await updateBobCustomer(customerId, updates);
-    setPicker(null);
+    // 2. Immediate Optimistic UI State Update
+    setCustomers(prev => {
+      const camelMap: Record<MilestoneKey, { boolKey: keyof BobCustomerRecord; atKey: keyof BobCustomerRecord }> = {
+        passbook_issued: { boolKey: "passbookIssued", atKey: "passbookIssuedAt" },
+        passbook_delivered: { boolKey: "passbookDelivered", atKey: "passbookDeliveredAt" },
+        atm_issued: { boolKey: "atmIssued", atKey: "atmIssuedAt" },
+        atm_delivered: { boolKey: "atmDelivered", atKey: "atmDeliveredAt" },
+      };
+      const keys = camelMap[milestoneKey];
 
-    if (res.error) {
-      toast.error("Failed to save delivery date to Supabase.");
-    } else {
-      setCustomers(getBobCustomers());
-      toast.success("Delivery date updated and saved to Supabase.");
+      const updated = prev.map(c => {
+        if (c.id === customerId) {
+          return {
+            ...c,
+            ...updatePayload,
+            [keys.boolKey]: Boolean(selectedDate),
+            [keys.atKey]: selectedDate,
+          };
+        }
+        return c;
+      });
+      saveBobCustomers(updated);
+      return updated;
+    });
+
+    toast.success(selectedDate ? "Milestone updated successfully!" : "Delivery status reset.");
+  };
+
+  const getMilestoneDate = (c: BobCustomerRecord, key: MilestoneKey): string | null => {
+    const directVal = c[key] || c[`${key}_date` as keyof BobCustomerRecord];
+    if (directVal && typeof directVal === "string" && directVal.trim() !== "" && directVal !== "null") {
+      return directVal;
     }
+    if (key === "passbook_issued" && c.passbookIssuedAt) return c.passbookIssuedAt;
+    if (key === "passbook_delivered" && c.passbookDeliveredAt) return c.passbookDeliveredAt;
+    if (key === "atm_issued" && c.atmIssuedAt) return c.atmIssuedAt;
+    if (key === "atm_delivered" && c.atmDeliveredAt) return c.atmDeliveredAt;
+    return null;
+  };
+
+  const isMilestoneDone = (c: BobCustomerRecord, key: MilestoneKey): boolean => {
+    const val = c[key] || c[`${key}_date` as keyof BobCustomerRecord];
+    if (val && typeof val === "string" && val.trim() !== "" && val !== "null") return true;
+    if (typeof val === "boolean") return val;
+    if (key === "passbook_issued") return Boolean(c.passbookIssued || c.passbookIssuedAt);
+    if (key === "passbook_delivered") return Boolean(c.passbookDelivered || c.passbookDeliveredAt);
+    if (key === "atm_issued") return Boolean(c.atmIssued || c.atmIssuedAt);
+    if (key === "atm_delivered") return Boolean(c.atmDelivered || c.atmDeliveredAt);
+    return false;
   };
 
   const filtered = useMemo(() => {
@@ -248,11 +264,14 @@ export default function BobDeliveryTracker() {
         c.mobile.includes(q) ||
         String(c.slNo).includes(q);
 
+      const pbDone = isMilestoneDone(c, "passbook_delivered");
+      const atmDone = isMilestoneDone(c, "atm_delivered");
+
       const filterMatch =
         filter === "All" ||
-        (filter === "Passbook Pending" && !c.passbookDelivered) ||
-        (filter === "ATM Pending" && !c.atmDelivered) ||
-        (filter === "Fully Delivered" && c.passbookDelivered && c.atmDelivered);
+        (filter === "Passbook Pending" && !pbDone) ||
+        (filter === "ATM Pending" && !atmDone) ||
+        (filter === "Fully Delivered" && pbDone && atmDone);
 
       return match && filterMatch;
     });
@@ -260,16 +279,65 @@ export default function BobDeliveryTracker() {
 
   const stats = {
     total: customers.length,
-    pbIssued: customers.filter(c => c.passbookIssued).length,
-    pbDelivered: customers.filter(c => c.passbookDelivered).length,
-    atmIssued: customers.filter(c => c.atmIssued).length,
-    atmDelivered: customers.filter(c => c.atmDelivered).length,
-    fullyDelivered: customers.filter(c => c.passbookDelivered && c.atmDelivered).length,
+    pbIssued: customers.filter(c => c.passbook_issued || c.passbook_issued_date || c.passbookIssued || c.passbookIssuedAt).length,
+    pbDelivered: customers.filter(c => c.passbook_delivered || c.passbook_delivered_date || c.passbookDelivered || c.passbookDeliveredAt).length,
+    atmIssued: customers.filter(c => c.atm_issued || c.atm_issued_date || c.atmIssued || c.atmIssuedAt).length,
+    atmDelivered: customers.filter(c => c.atm_delivered || c.atm_delivered_date || c.atmDelivered || c.atmDeliveredAt).length,
   };
 
-  const fmtDate = (iso?: string | null) => {
-    if (!iso) return "—";
-    return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+  const renderMilestoneCell = (
+    c: BobCustomerRecord,
+    key: MilestoneKey,
+    colorScheme: "blue" | "emerald" | "violet" | "orange"
+  ) => {
+    const dateVal = getMilestoneDate(c, key);
+
+    if (dateVal) {
+      const colorClasses = {
+        blue: "bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200",
+        emerald: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200",
+        violet: "bg-violet-50 text-violet-700 hover:bg-violet-100 border-violet-200",
+        orange: "bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200",
+      }[colorScheme];
+
+      return (
+        <button
+          onClick={(e) => {
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setPicker({
+              customerId: c.id,
+              milestoneKey: key,
+              anchorRect: rect,
+              currentDate: dateVal,
+            });
+          }}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all shadow-xs cursor-pointer ${colorClasses}`}
+          title="Click to update or reset date"
+        >
+          <CheckCircle size={13} className="flex-shrink-0" />
+          <span className="whitespace-nowrap">✓ {fmtDate(dateVal)}</span>
+        </button>
+      );
+    }
+
+    return (
+      <button
+        onClick={(e) => {
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          setPicker({
+            customerId: c.id,
+            milestoneKey: key,
+            anchorRect: rect,
+            currentDate: null,
+          });
+        }}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-50 text-slate-600 hover:bg-orange-50 hover:text-orange-700 border border-slate-200 hover:border-orange-300 transition-all shadow-xs cursor-pointer"
+        title="Set date"
+      >
+        <Clock size={13} className="text-slate-400 flex-shrink-0" />
+        <span className="whitespace-nowrap">⏱ Set Date</span>
+      </button>
+    );
   };
 
   return (
@@ -290,14 +358,14 @@ export default function BobDeliveryTracker() {
 
         <button
           onClick={loadData}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
         >
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>
 
-      {/* Stats Cards: 4 Milestones + Fully Delivered */}
+      {/* Stats Cards: 4 Milestones */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Passbook Issued", value: stats.pbIssued, icon: Package, color: "text-blue-600", bg: "bg-blue-50" },
@@ -331,7 +399,7 @@ export default function BobDeliveryTracker() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
                 filter === f
                   ? "bg-orange-600 text-white border-orange-600 shadow-xs"
                   : "bg-white text-slate-600 border-slate-200 hover:border-orange-300"
@@ -378,42 +446,22 @@ export default function BobDeliveryTracker() {
 
                   {/* 1. Passbook Issued */}
                   <td className="py-3 px-2 text-center">
-                    <DeliveryToggle
-                      checked={c.passbookIssued}
-                      onToggle={() => uncheck(c.id, "passbookIssued")}
-                      onRequestDate={(rect) => setPicker({ customerId: c.id, field: "passbookIssued", anchorRect: rect })}
-                      label={c.passbookIssued ? `✓ ${fmtDate(c.passbookIssuedAt)}` : "Set Date"}
-                    />
+                    {renderMilestoneCell(c, "passbook_issued", "blue")}
                   </td>
 
                   {/* 2. Passbook Delivered */}
                   <td className="py-3 px-2 text-center">
-                    <DeliveryToggle
-                      checked={c.passbookDelivered}
-                      onToggle={() => uncheck(c.id, "passbookDelivered")}
-                      onRequestDate={(rect) => setPicker({ customerId: c.id, field: "passbookDelivered", anchorRect: rect })}
-                      label={c.passbookDelivered ? `✓ ${fmtDate(c.passbookDeliveredAt)}` : "Set Date"}
-                    />
+                    {renderMilestoneCell(c, "passbook_delivered", "emerald")}
                   </td>
 
                   {/* 3. ATM Issued */}
                   <td className="py-3 px-2 text-center">
-                    <DeliveryToggle
-                      checked={c.atmIssued}
-                      onToggle={() => uncheck(c.id, "atmIssued")}
-                      onRequestDate={(rect) => setPicker({ customerId: c.id, field: "atmIssued", anchorRect: rect })}
-                      label={c.atmIssued ? `✓ ${fmtDate(c.atmIssuedAt)}` : "Set Date"}
-                    />
+                    {renderMilestoneCell(c, "atm_issued", "violet")}
                   </td>
 
                   {/* 4. ATM Delivered */}
                   <td className="py-3 px-2 text-center">
-                    <DeliveryToggle
-                      checked={c.atmDelivered}
-                      onToggle={() => uncheck(c.id, "atmDelivered")}
-                      onRequestDate={(rect) => setPicker({ customerId: c.id, field: "atmDelivered", anchorRect: rect })}
-                      label={c.atmDelivered ? `✓ ${fmtDate(c.atmDeliveredAt)}` : "Set Date"}
-                    />
+                    {renderMilestoneCell(c, "atm_delivered", "orange")}
                   </td>
                 </tr>
               ))}
@@ -430,11 +478,21 @@ export default function BobDeliveryTracker() {
         </div>
       </div>
 
-      {/* Portal-rendered date picker — renders at document.body to escape overflow clipping */}
+      {/* Portal-rendered date picker */}
       {picker && (
         <DatePickerPopover
           anchorRect={picker.anchorRect}
-          onConfirm={confirmDate}
+          currentDate={picker.currentDate}
+          onConfirm={(dateStr) => {
+            const { customerId, milestoneKey } = picker;
+            setPicker(null);
+            handleUpdateMilestone(customerId, milestoneKey, dateStr);
+          }}
+          onClear={() => {
+            const { customerId, milestoneKey } = picker;
+            setPicker(null);
+            handleUpdateMilestone(customerId, milestoneKey, null);
+          }}
           onCancel={() => setPicker(null)}
         />
       )}

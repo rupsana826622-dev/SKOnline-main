@@ -28,12 +28,23 @@ export interface BobCustomerRecord {
   atmDelivered: boolean;
   atmDeliveredAt?: string | null;
 
+  // Direct database date column mapping
+  passbook_issued?: string | boolean | null;
+  passbook_issued_date?: string | null;
+  passbook_delivered?: string | boolean | null;
+  passbook_delivered_date?: string | null;
+  atm_issued?: string | boolean | null;
+  atm_issued_date?: string | null;
+  atm_delivered?: string | boolean | null;
+  atm_delivered_date?: string | null;
+
   // Metadata
   notes?: string;
   createdAt: string;
   updatedAt: string;
   tenant_code: string;
   tenant_id?: string;
+  [key: string]: any;
 }
 
 export interface BobSettings {

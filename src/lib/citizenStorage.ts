@@ -673,6 +673,76 @@ export async function syncCitizenFromSupabase(): Promise<void> {
 }
 
 /**
+ * In-Browser Automatic File Compression for Digital Citizen Hub Documents
+ * Resizes large image scans/photos down to max 1600px dimension and re-encodes at 0.72 JPEG quality (~150KB - 250KB)
+ * while preserving high legibility for government service documents (PAN cards, certificates, forms).
+ */
+export const compressFileBeforeUpload = async (file: File): Promise<File> => {
+  // 1. Handle Images (JPG, PNG, WebP) via Canvas downscaling
+  if (file.type.startsWith("image/")) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            let width = img.width;
+            let height = img.height;
+
+            // Restrict max resolution to standard A4 printable dimension (approx 1600px width max)
+            const MAX_WIDTH = 1600;
+            const MAX_HEIGHT = 1600;
+
+            if (width > height && width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            } else if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.fillStyle = "#FFFFFF";
+              ctx.fillRect(0, 0, width, height);
+              ctx.drawImage(img, 0, 0, width, height);
+            }
+
+            // Export at 0.72 quality (~150KB - 250KB output)
+            canvas.toBlob(
+              (blob) => {
+                if (blob) {
+                  const newName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+                  resolve(new File([blob], newName, { type: "image/jpeg" }));
+                } else {
+                  resolve(file); // Fallback
+                }
+              },
+              "image/jpeg",
+              0.72
+            );
+          } catch (err) {
+            console.warn("Canvas compression error, falling back to original:", err);
+            resolve(file);
+          }
+        };
+        img.onerror = () => resolve(file);
+      };
+      reader.onerror = () => resolve(file);
+    });
+  }
+
+  // 2. Handle PDF Files:
+  // Upload as-is or optimize chunk size ensuring standard MIME transfer.
+  return file;
+};
+
+/**
  * Upload a document (e-PAN PDF, Acknowledgement, Certificate) to Supabase Storage bucket 'citizen-documents'
  */
 export async function uploadCitizenDocument(
@@ -680,14 +750,16 @@ export async function uploadCitizenDocument(
   recordId?: string
 ): Promise<{ url: string | null; error: any }> {
   try {
-    const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const fileToUpload = await compressFileBeforeUpload(file);
+    const cleanFileName = fileToUpload.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const filePath = `${recordId || "doc"}_${Date.now()}_${cleanFileName}`;
 
     const { data, error } = await supabase.storage
       .from("citizen-documents")
-      .upload(filePath, file, {
+      .upload(filePath, fileToUpload, {
         cacheControl: "3600",
         upsert: true,
+        contentType: fileToUpload.type || "application/octet-stream",
       });
 
     if (error) {
