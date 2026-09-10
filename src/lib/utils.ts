@@ -106,7 +106,7 @@ export function replaceTemplateVars(
 ): string {
   let result = template;
   for (const [key, val] of Object.entries(vars)) {
-    result = result.replaceAll(`{${key}}`, val);
+    result = result.split(`{${key}}`).join(val);
   }
   return result;
 }
@@ -119,3 +119,55 @@ export function maskPhone(phone: string): string {
   if (phone.length < 4) return phone;
   return phone.slice(0, 2) + "****" + phone.slice(-4);
 }
+
+/**
+ * Strict DOB Date Sanitizer to prevent Postgres out-of-range errors (Code: 22008).
+ * Accepts DD/MM/YYYY or YYYY-MM-DD and validates actual calendar validity and year range (1900-2100).
+ * Returns safe YYYY-MM-DD or null.
+ */
+export const sanitizeDob = (inputDob: string | null | undefined): string | null => {
+  if (!inputDob) return null;
+  const clean = inputDob.trim();
+  
+  // If entered as DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(clean)) {
+    const [day, month, year] = clean.split('/').map(Number);
+    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2100) {
+      return null; // Invalid calendar date -> save as null
+    }
+    // Verify valid date via Date object
+    const d = new Date(year, month - 1, day);
+    if (d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    return null;
+  }
+
+  // If already in YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+    const parts = clean.split('-').map(Number);
+    if (parts[1] < 1 || parts[1] > 12 || parts[2] < 1 || parts[2] > 31 || parts[0] < 1900 || parts[0] > 2100) {
+      return null;
+    }
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    if (d.getFullYear() === parts[0] && d.getMonth() === parts[1] - 1 && d.getDate() === parts[2]) {
+      return clean;
+    }
+    return null;
+  }
+
+  return null;
+};
+
+/**
+ * Masks Application / User ID so that only the last 3 digits are visible and prefix is masked with XXXX.
+ * Format: XXXX-{last3Digits}
+ */
+export const maskUserId = (id: string | null | undefined): string => {
+  if (!id) return 'N/A';
+  const str = String(id).trim();
+  if (str.length <= 3) return str;
+  const visible = str.slice(-3);
+  return `XXXX-${visible}`;
+};
+

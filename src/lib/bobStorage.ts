@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import type { BobCustomerRecord, BobSettings } from "@/types/bob";
 import { DEFAULT_BOB_SETTINGS } from "@/types/bob";
 import { getSession } from "./storage";
+import { sanitizeDob } from "./utils";
 import { toast } from "sonner";
 
 const STORAGE_KEYS = {
@@ -282,11 +283,11 @@ export async function addBobCustomer(formData: {
 
   const payload = {
     tenant_id: currentTenantId,
-    account_opening_date: formData.account_opening_date || new Date().toISOString().split("T")[0],
+    account_opening_date: sanitizeDob(formData.account_opening_date) || new Date().toISOString().split("T")[0],
     sl_no: formData.sl_no ? parseInt(String(formData.sl_no), 10) : 1,
     customer_name: formData.customer_name?.trim() || "",
     care_of: formData.care_of?.trim() || null,
-    dob: formData.dob?.trim() || null,
+    dob: sanitizeDob(formData.dob),
     mobile: formData.mobile?.trim() || null,
     address: formData.address?.trim() || null,
     aadhaar_no: formData.aadhaar_no?.trim() || null,
@@ -329,7 +330,7 @@ export async function updateBobCustomer(
 
   const payload: Record<string, any> = {};
   if (updates.accountOpeningDate !== undefined) {
-    payload.account_opening_date = updates.accountOpeningDate || new Date().toISOString().split("T")[0];
+    payload.account_opening_date = sanitizeDob(updates.accountOpeningDate) || new Date().toISOString().split("T")[0];
   }
   if (updates.slNo !== undefined) {
     payload.sl_no = updates.slNo ? parseInt(String(updates.slNo), 10) : 1;
@@ -341,7 +342,7 @@ export async function updateBobCustomer(
     payload.care_of = updates.guardianName?.trim() || null;
   }
   if (updates.dob !== undefined) {
-    payload.dob = updates.dob?.trim() || null;
+    payload.dob = sanitizeDob(updates.dob);
   }
   if (updates.mobile !== undefined) {
     payload.mobile = updates.mobile?.trim() || null;
@@ -375,8 +376,8 @@ export async function updateBobCustomer(
   // boolean-alias column so we cover whichever name the DB schema exposes.
   // This prevents PGRST204 "column not found" errors.
   if (updates.passbookIssued !== undefined || updates.passbookIssuedAt !== undefined) {
-    const dateVal = updates.passbookIssuedAt ?? null;
-    if (dateVal !== undefined) {
+    const dateVal = sanitizeDob(updates.passbookIssuedAt) ?? null;
+    if (dateVal !== null) {
       payload.passbook_issued_date = dateVal;
       // Also attempt the short-form alias; Supabase ignores unknown columns on
       // update only if the key doesn't exist — wrap safely:
@@ -386,15 +387,15 @@ export async function updateBobCustomer(
     }
   }
   if (updates.passbookDelivered !== undefined || updates.passbookDeliveredAt !== undefined) {
-    const dateVal = updates.passbookDeliveredAt ?? null;
-    if (dateVal !== undefined) {
+    const dateVal = sanitizeDob(updates.passbookDeliveredAt) ?? null;
+    if (dateVal !== null) {
       payload.passbook_delivered_date = dateVal;
       payload.passbook_delivered = dateVal;
     }
   }
   if (updates.atmIssued !== undefined || updates.atmIssuedAt !== undefined) {
-    const dateVal = updates.atmIssuedAt ?? null;
-    if (dateVal !== undefined) {
+    const dateVal = sanitizeDob(updates.atmIssuedAt) ?? null;
+    if (dateVal !== null) {
       payload.atm_issued_date = dateVal;
       payload.atm_issued = dateVal;
     } else if (updates.atmIssued !== undefined) {
@@ -402,8 +403,8 @@ export async function updateBobCustomer(
     }
   }
   if (updates.atmDelivered !== undefined || updates.atmDeliveredAt !== undefined) {
-    const dateVal = updates.atmDeliveredAt ?? null;
-    if (dateVal !== undefined) {
+    const dateVal = sanitizeDob(updates.atmDeliveredAt) ?? null;
+    if (dateVal !== null) {
       payload.atm_delivered_date = dateVal;
       payload.atm_delivered = dateVal;
     }

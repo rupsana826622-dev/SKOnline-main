@@ -12,7 +12,7 @@ export interface Customer {
   fatherName: string;
   motherName: string;
   spouseName: string;
-  spouseType?: "Husband" | "Wife";
+  spouseType?: "None" | "Husband" | "Wife";
   sex: "Male" | "Female" | "Other";
   age: number;
   dob: string; // DD-MM-YYYY

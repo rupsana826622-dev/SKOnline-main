@@ -158,8 +158,9 @@ export default function CitizenDeliveryTracker() {
       } else if (action === "deliver") {
         await updateCitizenRecord(recordId, {
           deliveredDate: dateStr,
+          delivery_date: dateStr,
           status: "Delivered",
-        });
+        } as any);
         toast.success(`SL #${target.serialNo} marked as Delivered on ${dateStr}`);
       }
       await syncCitizenFromSupabase();

@@ -132,7 +132,7 @@ function defaultForm(settings: ReturnType<typeof getSettings>) {
     customer_number: "",
     accountOpeningDate: todayFormatted,
     // Personal
-    name: "", fatherName: "", motherName: "", spouseName: "", spouseType: "Husband",
+    name: "", fatherName: "", motherName: "", spouseName: "", spouseType: "None",
     sex: "Male", age: "", dob: "", profession: "", category: "OBC",
     // Address
     address: "", village: "", mandal: "", district: "North 24 Parganas", state: "West Bengal",
@@ -596,27 +596,38 @@ export default function AddCustomerPage() {
               <Field label="Mother's Name">
                 <Inp k="motherName" form={form} set={set} placeholder="Mother's full name" uppercase />
               </Field>
-              <Field label={`Spouse Name (${form.spouseType || "Husband"})`}>
-                <div className="flex gap-2">
-                  <select
-                    className="form-input w-28 shrink-0 bg-slate-50 text-xs font-semibold"
-                    value={form.spouseType || "Husband"}
-                    onChange={e => set("spouseType", e.target.value)}
-                  >
-                    <option value="Husband">Husband</option>
-                    <option value="Wife">Wife</option>
-                  </select>
-                  <div className="flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <Field label="SPOUSE RELATION">
+                    <select
+                      className="form-input w-full bg-slate-50 text-xs font-semibold"
+                      value={form.spouseType || "None"}
+                      onChange={e => {
+                        const val = e.target.value;
+                        set("spouseType", val);
+                        if (val === "None") {
+                          set("spouseName", "");
+                        }
+                      }}
+                    >
+                      <option value="None">None</option>
+                      <option value="Husband">Husband</option>
+                      <option value="Wife">Wife</option>
+                    </select>
+                  </Field>
+                </div>
+                <div className="sm:col-span-2">
+                  <Field label="SPOUSE NAME">
                     <Inp
                       k="spouseName"
                       form={form}
                       set={set}
-                      placeholder={`${form.spouseType || "Spouse"}'s full name (if married)`}
+                      placeholder="Enter spouse full name"
                       uppercase
                     />
-                  </div>
+                  </Field>
                 </div>
-              </Field>
+              </div>
             </Grid>
             <Grid cols={4}>
               <Field label="Sex">

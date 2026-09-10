@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import type { BobCustomerRecord } from "@/types/bob";
 import { getBobSettings, getNextBobSerialNo, addBobCustomer, updateBobCustomer } from "@/lib/bobStorage";
-import { generateId } from "@/lib/utils";
+import { generateId, sanitizeDob } from "@/lib/utils";
 import { toast } from "sonner";
 import BobReceiptModal from "./BobReceiptModal";
 
@@ -80,16 +80,11 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
   };
 
   /**
-   * Convert DD/MM/YYYY → YYYY-MM-DD for Supabase storage.
-   * Falls back to the raw value if not in expected format.
+   * Convert DD/MM/YYYY or YYYY-MM-DD → YYYY-MM-DD for Supabase storage.
+   * Uses sanitizeDob to validate actual calendar validity and year range.
    */
   const toIsoDob = (val: string): string | null => {
-    if (!val) return null;
-    const parts = val.split("/");
-    if (parts.length === 3 && parts[2].length === 4) {
-      return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-    }
-    return val || null; // already ISO or empty
+    return sanitizeDob(val);
   };
 
   const resetForm = () => {
@@ -132,11 +127,11 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
 
     try {
       const formData = {
-        account_opening_date: accountOpeningDate || todayStr,
+        account_opening_date: sanitizeDob(accountOpeningDate) || todayStr,
         sl_no: slNo ? parseInt(String(slNo), 10) : null,
         customer_name: customerName.trim(),
         care_of: guardianName.trim() || null,
-        dob: toIsoDob(dob.trim()),
+        dob: sanitizeDob(dob.trim()),
         mobile: mobile.trim() || null,
         address: address.trim() || null,
         aadhaar_no: aadhaarNo.trim() || null,
@@ -152,11 +147,11 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
 
       if (initialRecord) {
         await updateBobCustomer(initialRecord.id, {
-          accountOpeningDate: accountOpeningDate || todayStr,
+          accountOpeningDate: sanitizeDob(accountOpeningDate) || todayStr,
           slNo: Number(slNo) || 1,
           customerName: customerName.trim(),
           guardianName: guardianName.trim(),
-          dob: toIsoDob(dob.trim()) ?? "",
+          dob: sanitizeDob(dob.trim()) ?? "",
           mobile: mobile.trim(),
           address: address.trim(),
           aadhaarNo: aadhaarNo.trim(),

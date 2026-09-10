@@ -287,28 +287,42 @@ export default function CustomerProfileView({
               )}
             </div>
 
-            <div>
-              <label className="form-label">Spouse Name</label>
-              {isEditing ? (
-                <div className="flex gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="sm:col-span-1">
+                <label className="form-label">SPOUSE RELATION</label>
+                {isEditing ? (
                   <select
-                    className="form-input w-28 shrink-0 bg-slate-50 text-xs font-semibold"
-                    value={editForm.spouseType || "Husband"}
-                    onChange={e => handleInputChange("spouseType", e.target.value)}
+                    className="form-input w-full bg-slate-50 text-xs font-semibold"
+                    value={editForm.spouseType || (editForm.spouseName ? "Husband" : "None")}
+                    onChange={e => {
+                      const val = e.target.value;
+                      handleInputChange("spouseType", val);
+                      if (val === "None") {
+                        handleInputChange("spouseName", "");
+                      }
+                    }}
                   >
+                    <option value="None">None</option>
                     <option value="Husband">Husband</option>
                     <option value="Wife">Wife</option>
                   </select>
+                ) : (
+                  <div className="font-semibold text-slate-800">{customer.spouseType || (customer.spouseName ? "Husband" : "None")}</div>
+                )}
+              </div>
+              <div className="sm:col-span-2">
+                <label className="form-label">SPOUSE NAME</label>
+                {isEditing ? (
                   <input
-                    className="form-input uppercase flex-1"
+                    className="form-input uppercase w-full"
                     value={editForm.spouseName}
                     onChange={e => handleInputChange("spouseName", e.target.value.toUpperCase())}
-                    placeholder={`${editForm.spouseType || "Spouse"}'s full name`}
+                    placeholder="Enter spouse full name"
                   />
-                </div>
-              ) : (
-                <div className="font-semibold text-slate-800">{customer.spouseName || "—"}</div>
-              )}
+                ) : (
+                  <div className="font-semibold text-slate-800">{customer.spouseName || "—"}</div>
+                )}
+              </div>
             </div>
 
             <div>

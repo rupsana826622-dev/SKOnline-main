@@ -1,6 +1,7 @@
 import React from "react";
 import type { CitizenServiceRecord, CitizenSettings } from "@/types/citizen";
 import { getCitizenSettings } from "@/lib/citizenStorage";
+import { maskUserId } from "@/lib/utils";
 import { Printer, CheckCircle, Clock, Sparkles, Building2, Phone, MapPin } from "lucide-react";
 
 interface CitizenReceiptProps {
@@ -330,7 +331,7 @@ export function printCitizenReceipt(record: CitizenServiceRecord, customSettings
       <div class="detail-col">
         <div class="section-title">Service Applied For</div>
         <div class="service-name">${record.serviceType || "Digital Citizen Service"}</div>
-        <div>App ID: <span class="app-number">${record.appNumber || "PENDING"}</span></div>
+        <div>App / User ID: <span class="app-number">${maskUserId(record.appNumber)}</span></div>
         <div>Applied: <strong>${record.applicationDate || receiptDate}</strong></div>
       </div>
     </div>
@@ -551,7 +552,7 @@ export default function CitizenReceipt({
             <div className="text-xs text-slate-600">
               App / User ID:{" "}
               <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-300 inline-block">
-                {record.appNumber || "PENDING"}
+                {maskUserId(record.appNumber)}
               </span>
             </div>
             <div className="text-xs text-slate-500">

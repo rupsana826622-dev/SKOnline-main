@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import type { CitizenServiceRecord, CitizenSettings } from "@/types/citizen";
 import { DEFAULT_CITIZEN_SETTINGS, DEFAULT_CITIZEN_SERVICES } from "@/types/citizen";
 import { getSession } from "./storage";
+import { sanitizeDob } from "./utils";
 import { toast } from "sonner";
 
 const STORAGE_KEYS = {
@@ -240,7 +241,7 @@ function sanitizeCitizenPayload(r: Partial<CitizenServiceRecord> & Record<string
     contact_no: (r.contactNo ?? r.contact_no ?? r.mobile)?.trim() || null,
     address: (r.address)?.trim() || null,
     service_type: (r.serviceType ?? r.service_type)?.trim() || "General",
-    application_date: (r.applicationDate ?? r.application_date) || new Date().toISOString().split("T")[0],
+    application_date: sanitizeDob(r.applicationDate ?? r.application_date) || new Date().toISOString().split("T")[0],
     app_user_id: (r.appNumber ?? r.app_user_id ?? r.app_number)?.trim() || null,
     app_password: (r.portalPassword ?? r.app_password ?? r.portal_password)?.trim() || null,
     final_service_no: (r.finalServiceNo ?? r.final_service_no)?.trim() || null,
@@ -251,6 +252,15 @@ function sanitizeCitizenPayload(r: Partial<CitizenServiceRecord> & Record<string
     payment_mode: (r.paymentMode ?? r.payment_mode) || "Cash",
     payment_status: dueAmount <= 0 ? "Full Paid" : "Due",
   };
+
+  if (r.issuedDate !== undefined || r.issued_date !== undefined) {
+    payload.issued_date = sanitizeDob(r.issuedDate ?? r.issued_date);
+  }
+  if (r.deliveredDate !== undefined || r.delivered_date !== undefined || r.delivery_date !== undefined || r.deliveryDate !== undefined) {
+    const dVal = sanitizeDob(r.deliveredDate ?? r.delivered_date ?? r.delivery_date ?? r.deliveryDate);
+    payload.delivered_date = dVal;
+    payload.delivery_date = dVal;
+  }
 
   return payload;
 }
@@ -296,7 +306,7 @@ function sanitizePartialCitizenPayload(r: Partial<CitizenServiceRecord> & Record
     payload.service_type = (r.serviceType ?? r.service_type)?.trim() || "General";
   }
   if (r.applicationDate !== undefined || r.application_date !== undefined) {
-    payload.application_date = r.applicationDate ?? r.application_date;
+    payload.application_date = sanitizeDob(r.applicationDate ?? r.application_date) || new Date().toISOString().split("T")[0];
   }
   if (r.appNumber !== undefined || r.app_user_id !== undefined) {
     payload.app_user_id = (r.appNumber ?? r.app_user_id)?.trim() || null;
@@ -316,10 +326,12 @@ function sanitizePartialCitizenPayload(r: Partial<CitizenServiceRecord> & Record
 
   // Delivery milestone fields
   if (r.issuedDate !== undefined || r.issued_date !== undefined) {
-    payload.issued_date = r.issuedDate ?? r.issued_date ?? null;
+    payload.issued_date = sanitizeDob(r.issuedDate ?? r.issued_date);
   }
-  if (r.deliveredDate !== undefined || r.delivered_date !== undefined) {
-    payload.delivered_date = r.deliveredDate ?? r.delivered_date ?? null;
+  if (r.deliveredDate !== undefined || r.delivered_date !== undefined || r.delivery_date !== undefined || r.deliveryDate !== undefined) {
+    const dVal = sanitizeDob(r.deliveredDate ?? r.delivered_date ?? r.delivery_date ?? r.deliveryDate);
+    payload.delivered_date = dVal;
+    payload.delivery_date = dVal;
   }
   if (r.status !== undefined) {
     payload.status = r.status;
@@ -358,7 +370,7 @@ function mapDbToCitizenRecord(row: any): CitizenServiceRecord {
     paymentStatus,
     status: (row.status as any) || (dueAmount <= 0 ? "Delivered" : "Applied"),
     issuedDate: row.issued_date || null,
-    deliveredDate: row.delivered_date || null,
+    deliveredDate: row.delivered_date || row.delivery_date || null,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
     notes: row.notes || "",
@@ -374,10 +386,36 @@ export async function addCitizenRecord(record: CitizenServiceRecord): Promise<{ 
   delete payload.updated_at;
 
   try {
-    const { data, error } = await (supabase as any)
+    let { data, error } = await (supabase as any)
       .from("citizen_services")
       .insert([payload])
       .select();
+
+    if (error && error.code === "PGRST204") {
+      console.warn("PGRST204 on citizen insert - retrying with alternate column payload", error);
+      // If delivered_date or delivery_date was unknown, fallback
+      if (payload.delivered_date !== undefined && payload.delivery_date !== undefined) {
+        const payloadDeliveryOnly = { ...payload };
+        delete payloadDeliveryOnly.delivered_date;
+        const retry1 = await (supabase as any)
+          .from("citizen_services")
+          .insert([payloadDeliveryOnly])
+          .select();
+        if (!retry1.error) {
+          data = retry1.data;
+          error = null;
+        } else {
+          const payloadDeliveredOnly = { ...payload };
+          delete payloadDeliveredOnly.delivery_date;
+          const retry2 = await (supabase as any)
+            .from("citizen_services")
+            .insert([payloadDeliveredOnly])
+            .select();
+          data = retry2.data;
+          error = retry2.error;
+        }
+      }
+    }
 
     if (error) {
       console.error("Insert citizen_services failure:", error);
@@ -415,16 +453,40 @@ export async function updateCitizenRecord(id: string, updates: Partial<CitizenSe
       .eq("tenant_id", tenantId);
 
     if (error && error.code === "PGRST204") {
-      console.warn("PGRST204 on citizen update - retrying with clean payload", error);
-      const cleanPayload = { ...payload };
-      delete cleanPayload.updated_at;
-      delete cleanPayload.created_at;
-      const retry = await (supabase as any)
-        .from("citizen_services")
-        .update(cleanPayload)
-        .eq("id", id)
-        .eq("tenant_id", tenantId);
-      error = retry.error;
+      console.warn("PGRST204 on citizen update - retrying with alternate column payload", error);
+      // If payload contained both delivery_date and delivered_date, try one by one
+      if (payload.delivered_date !== undefined && payload.delivery_date !== undefined) {
+        const payloadDeliveryOnly = { ...payload };
+        delete payloadDeliveryOnly.delivered_date;
+        const retry1 = await (supabase as any)
+          .from("citizen_services")
+          .update(payloadDeliveryOnly)
+          .eq("id", id)
+          .eq("tenant_id", tenantId);
+        
+        if (!retry1.error) {
+          error = null;
+        } else {
+          const payloadDeliveredOnly = { ...payload };
+          delete payloadDeliveredOnly.delivery_date;
+          const retry2 = await (supabase as any)
+            .from("citizen_services")
+            .update(payloadDeliveredOnly)
+            .eq("id", id)
+            .eq("tenant_id", tenantId);
+          error = retry2.error;
+        }
+      } else {
+        const cleanPayload = { ...payload };
+        delete cleanPayload.updated_at;
+        delete cleanPayload.created_at;
+        const retry = await (supabase as any)
+          .from("citizen_services")
+          .update(cleanPayload)
+          .eq("id", id)
+          .eq("tenant_id", tenantId);
+        error = retry.error;
+      }
     }
 
     if (error) {

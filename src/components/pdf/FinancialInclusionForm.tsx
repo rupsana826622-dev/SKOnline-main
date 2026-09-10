@@ -61,7 +61,7 @@ export const FinancialInclusionForm: React.FC<FinancialInclusionFormProps> = ({ 
         </div>
         <div className="flex items-center">
           <span className="w-36 font-semibold flex-shrink-0">Name of the Spouse</span>
-          <CharacterGrid value={customer.spouseName} length={35} boxWidth="16px" boxHeight="18px" fontSize="11px" />
+          <CharacterGrid value={customer.spouseType === "None" ? "" : (customer.spouseName || "")} length={35} boxWidth="16px" boxHeight="18px" fontSize="11px" />
         </div>
         <div className="flex items-center">
           <span className="w-36 font-semibold flex-shrink-0">Address</span>
