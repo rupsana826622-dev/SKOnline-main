@@ -181,19 +181,23 @@ export function getNextBobSerialNo(): number {
 }
 
 export function mapDbToBobCustomer(row: any): BobCustomerRecord {
-  // Derive boolean flags from the date columns — avoids relying on boolean
-  // columns that may not exist in the Supabase schema cache.
-  const pbIssuedDate = row.passbook_issued_date || row.passbook_issued || null;
-  const pbDeliveredDate = row.passbook_delivered_date || row.passbook_delivered || null;
-  const atmIssuedDate = row.atm_issued_date || row.atm_issued || null;
-  const atmDeliveredDate = row.atm_delivered_date || row.atm_delivered || null;
-
-  // Normalise: if value is boolean true (old schema), treat as issued but no date
   const toDateStr = (val: any): string | null => {
     if (!val) return null;
-    if (typeof val === "boolean") return null; // boolean=true but no date stored
+    if (typeof val === "boolean") return null;
     return String(val);
   };
+
+  const pbIssuedDate = toDateStr(row.passbook_issued_date) || (typeof row.passbook_issued === "string" ? row.passbook_issued : null);
+  const pbIssuedFlag = Boolean(row.passbook_issued || row.passbook_issued_date);
+
+  const pbDeliveredDate = toDateStr(row.passbook_delivered_date) || (typeof row.passbook_delivered === "string" ? row.passbook_delivered : null);
+  const pbDeliveredFlag = Boolean(row.passbook_delivered || row.passbook_delivered_date);
+
+  const atmIssuedDate = toDateStr(row.atm_issued_date) || (typeof row.atm_issued === "string" ? row.atm_issued : null);
+  const atmIssuedFlag = Boolean(row.atm_issued || row.atm_issued_date);
+
+  const atmDeliveredDate = toDateStr(row.atm_delivered_date) || (typeof row.atm_delivered === "string" ? row.atm_delivered : null);
+  const atmDeliveredFlag = Boolean(row.atm_delivered || row.atm_delivered_date);
 
   return {
     id: row.id,
@@ -212,25 +216,25 @@ export function mapDbToBobCustomer(row: any): BobCustomerRecord {
     enrollPMSBY: Boolean(row.has_pmsby),
     enrollPMJJBY: Boolean(row.has_pmjjby),
 
-    passbookIssued: Boolean(pbIssuedDate),
-    passbookIssuedAt: toDateStr(pbIssuedDate),
-    passbook_issued: toDateStr(pbIssuedDate),
-    passbook_issued_date: toDateStr(pbIssuedDate),
+    passbookIssued: pbIssuedFlag,
+    passbookIssuedAt: pbIssuedDate,
+    passbook_issued: pbIssuedFlag,
+    passbook_issued_date: pbIssuedDate,
 
-    passbookDelivered: Boolean(pbDeliveredDate),
-    passbookDeliveredAt: toDateStr(pbDeliveredDate),
-    passbook_delivered: toDateStr(pbDeliveredDate),
-    passbook_delivered_date: toDateStr(pbDeliveredDate),
+    passbookDelivered: pbDeliveredFlag,
+    passbookDeliveredAt: pbDeliveredDate,
+    passbook_delivered: pbDeliveredFlag,
+    passbook_delivered_date: pbDeliveredDate,
 
-    atmIssued: Boolean(atmIssuedDate),
-    atmIssuedAt: toDateStr(atmIssuedDate),
-    atm_issued: toDateStr(atmIssuedDate),
-    atm_issued_date: toDateStr(atmIssuedDate),
+    atmIssued: atmIssuedFlag,
+    atmIssuedAt: atmIssuedDate,
+    atm_issued: atmIssuedFlag,
+    atm_issued_date: atmIssuedDate,
 
-    atmDelivered: Boolean(atmDeliveredDate),
-    atmDeliveredAt: toDateStr(atmDeliveredDate),
-    atm_delivered: toDateStr(atmDeliveredDate),
-    atm_delivered_date: toDateStr(atmDeliveredDate),
+    atmDelivered: atmDeliveredFlag,
+    atmDeliveredAt: atmDeliveredDate,
+    atm_delivered: atmDeliveredFlag,
+    atm_delivered_date: atmDeliveredDate,
 
     notes: row.notes || "",
     createdAt: row.created_at || new Date().toISOString(),
@@ -382,42 +386,31 @@ export async function updateBobCustomer(
     payload.has_pmjjby = Boolean(updates.enrollPMJJBY);
   }
 
-  // Delivery tracking columns — write BOTH the primary date column and its
-  // boolean-alias column so we cover whichever name the DB schema exposes.
-  // This prevents PGRST204 "column not found" errors.
-  if (updates.passbookIssued !== undefined || updates.passbookIssuedAt !== undefined) {
-    const dateVal = sanitizeDob(updates.passbookIssuedAt) ?? null;
-    if (dateVal !== null) {
-      payload.passbook_issued_date = dateVal;
-      // Also attempt the short-form alias; Supabase ignores unknown columns on
-      // update only if the key doesn't exist — wrap safely:
-      payload.passbook_issued = dateVal; // date string acts as truthy
-    } else if (updates.passbookIssued !== undefined) {
-      payload.passbook_issued = Boolean(updates.passbookIssued) ? null : null;
-    }
+  // Delivery tracking columns — write boolean flags to boolean columns and
+  // date strings to _date columns.
+  if (updates.passbookIssued !== undefined || updates.passbookIssuedAt !== undefined || updates.passbook_issued !== undefined || updates.passbook_issued_date !== undefined) {
+    const dateVal = sanitizeDob(updates.passbookIssuedAt ?? updates.passbook_issued_date) ?? null;
+    const boolVal = updates.passbookIssued !== undefined ? Boolean(updates.passbookIssued) : updates.passbook_issued !== undefined ? Boolean(updates.passbook_issued) : dateVal !== null;
+    payload.passbook_issued = boolVal;
+    payload.passbook_issued_date = dateVal;
   }
-  if (updates.passbookDelivered !== undefined || updates.passbookDeliveredAt !== undefined) {
-    const dateVal = sanitizeDob(updates.passbookDeliveredAt) ?? null;
-    if (dateVal !== null) {
-      payload.passbook_delivered_date = dateVal;
-      payload.passbook_delivered = dateVal;
-    }
+  if (updates.passbookDelivered !== undefined || updates.passbookDeliveredAt !== undefined || updates.passbook_delivered !== undefined || updates.passbook_delivered_date !== undefined) {
+    const dateVal = sanitizeDob(updates.passbookDeliveredAt ?? updates.passbook_delivered_date) ?? null;
+    const boolVal = updates.passbookDelivered !== undefined ? Boolean(updates.passbookDelivered) : updates.passbook_delivered !== undefined ? Boolean(updates.passbook_delivered) : dateVal !== null;
+    payload.passbook_delivered = boolVal;
+    payload.passbook_delivered_date = dateVal;
   }
-  if (updates.atmIssued !== undefined || updates.atmIssuedAt !== undefined) {
-    const dateVal = sanitizeDob(updates.atmIssuedAt) ?? null;
-    if (dateVal !== null) {
-      payload.atm_issued_date = dateVal;
-      payload.atm_issued = dateVal;
-    } else if (updates.atmIssued !== undefined) {
-      payload.atm_issued = Boolean(updates.atmIssued) ? null : null;
-    }
+  if (updates.atmIssued !== undefined || updates.atmIssuedAt !== undefined || updates.atm_issued !== undefined || updates.atm_issued_date !== undefined) {
+    const dateVal = sanitizeDob(updates.atmIssuedAt ?? updates.atm_issued_date) ?? null;
+    const boolVal = updates.atmIssued !== undefined ? Boolean(updates.atmIssued) : updates.atm_issued !== undefined ? Boolean(updates.atm_issued) : dateVal !== null;
+    payload.atm_issued = boolVal;
+    payload.atm_issued_date = dateVal;
   }
-  if (updates.atmDelivered !== undefined || updates.atmDeliveredAt !== undefined) {
-    const dateVal = sanitizeDob(updates.atmDeliveredAt) ?? null;
-    if (dateVal !== null) {
-      payload.atm_delivered_date = dateVal;
-      payload.atm_delivered = dateVal;
-    }
+  if (updates.atmDelivered !== undefined || updates.atmDeliveredAt !== undefined || updates.atm_delivered !== undefined || updates.atm_delivered_date !== undefined) {
+    const dateVal = sanitizeDob(updates.atmDeliveredAt ?? updates.atm_delivered_date) ?? null;
+    const boolVal = updates.atmDelivered !== undefined ? Boolean(updates.atmDelivered) : updates.atm_delivered !== undefined ? Boolean(updates.atm_delivered) : dateVal !== null;
+    payload.atm_delivered = boolVal;
+    payload.atm_delivered_date = dateVal;
   }
 
   if (Object.keys(payload).length > 0) {

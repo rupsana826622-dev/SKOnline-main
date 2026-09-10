@@ -164,13 +164,27 @@ export default function BobDeliveryTracker() {
 
   const handleUpdateMilestone = async (
     customerId: string,
-    milestoneKey: MilestoneKey,
+    milestoneType: MilestoneKey,
     selectedDate: string | null
   ) => {
-    // Prepare synchronized payload
-    const updatePayload: Record<string, any> = {};
-    updatePayload[milestoneKey] = selectedDate;
-    updatePayload[`${milestoneKey}_date`] = selectedDate;
+    const isCompleted = Boolean(selectedDate);
+    const updatePayload: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (milestoneType === "passbook_issued") {
+      updatePayload.passbook_issued = isCompleted;
+      updatePayload.passbook_issued_date = selectedDate;
+    } else if (milestoneType === "passbook_delivered") {
+      updatePayload.passbook_delivered = isCompleted;
+      updatePayload.passbook_delivered_date = selectedDate;
+    } else if (milestoneType === "atm_issued") {
+      updatePayload.atm_issued = isCompleted;
+      updatePayload.atm_issued_date = selectedDate;
+    } else if (milestoneType === "atm_delivered") {
+      updatePayload.atm_delivered = isCompleted;
+      updatePayload.atm_delivered_date = selectedDate;
+    }
 
     let { data, error } = await (supabase as any)
       .from("bob_customers")
@@ -180,7 +194,8 @@ export default function BobDeliveryTracker() {
 
     if (error && error.code === "PGRST204") {
       const fallbackPayload: Record<string, any> = {
-        [`${milestoneKey}_date`]: selectedDate,
+        [`${milestoneType}_date`]: selectedDate,
+        updated_at: new Date().toISOString(),
       };
       const fallbackRes = await (supabase as any)
         .from("bob_customers")
@@ -203,7 +218,7 @@ export default function BobDeliveryTracker() {
       return;
     }
 
-    // 2. Immediate Optimistic UI State Update
+    // Immediate Optimistic UI State Update
     setCustomers(prev => {
       const camelMap: Record<MilestoneKey, { boolKey: keyof BobCustomerRecord; atKey: keyof BobCustomerRecord }> = {
         passbook_issued: { boolKey: "passbookIssued", atKey: "passbookIssuedAt" },
@@ -211,14 +226,14 @@ export default function BobDeliveryTracker() {
         atm_issued: { boolKey: "atmIssued", atKey: "atmIssuedAt" },
         atm_delivered: { boolKey: "atmDelivered", atKey: "atmDeliveredAt" },
       };
-      const keys = camelMap[milestoneKey];
+      const keys = camelMap[milestoneType];
 
       const updated = prev.map(c => {
         if (c.id === customerId) {
           return {
             ...c,
             ...updatePayload,
-            [keys.boolKey]: Boolean(selectedDate),
+            [keys.boolKey]: isCompleted,
             [keys.atKey]: selectedDate,
           };
         }
@@ -228,29 +243,37 @@ export default function BobDeliveryTracker() {
       return updated;
     });
 
-    toast.success(selectedDate ? "Milestone updated successfully!" : "Delivery status reset.");
+    toast.success(isCompleted ? "Milestone updated successfully!" : "Delivery status reset.");
   };
 
   const getMilestoneDate = (c: BobCustomerRecord, key: MilestoneKey): string | null => {
-    const directVal = c[key] || c[`${key}_date` as keyof BobCustomerRecord];
-    if (directVal && typeof directVal === "string" && directVal.trim() !== "" && directVal !== "null") {
-      return directVal;
+    const directDate = c[`${key}_date` as keyof BobCustomerRecord];
+    if (directDate && typeof directDate === "string" && directDate.trim() !== "" && directDate !== "null") {
+      return directDate;
     }
     if (key === "passbook_issued" && c.passbookIssuedAt) return c.passbookIssuedAt;
     if (key === "passbook_delivered" && c.passbookDeliveredAt) return c.passbookDeliveredAt;
     if (key === "atm_issued" && c.atmIssuedAt) return c.atmIssuedAt;
     if (key === "atm_delivered" && c.atmDeliveredAt) return c.atmDeliveredAt;
+    if (typeof c[key] === "string" && c[key] !== "null" && c[key] !== "true" && c[key] !== "false") {
+      return c[key] as string;
+    }
     return null;
   };
 
   const isMilestoneDone = (c: BobCustomerRecord, key: MilestoneKey): boolean => {
-    const val = c[key] || c[`${key}_date` as keyof BobCustomerRecord];
-    if (val && typeof val === "string" && val.trim() !== "" && val !== "null") return true;
-    if (typeof val === "boolean") return val;
-    if (key === "passbook_issued") return Boolean(c.passbookIssued || c.passbookIssuedAt);
-    if (key === "passbook_delivered") return Boolean(c.passbookDelivered || c.passbookDeliveredAt);
-    if (key === "atm_issued") return Boolean(c.atmIssued || c.atmIssuedAt);
-    if (key === "atm_delivered") return Boolean(c.atmDelivered || c.atmDeliveredAt);
+    if (key === "passbook_issued") {
+      return c.passbook_issued === true || Boolean(c.passbook_issued_date) || c.passbookIssued === true || Boolean(c.passbookIssuedAt);
+    }
+    if (key === "passbook_delivered") {
+      return c.passbook_delivered === true || Boolean(c.passbook_delivered_date) || c.passbookDelivered === true || Boolean(c.passbookDeliveredAt);
+    }
+    if (key === "atm_issued") {
+      return c.atm_issued === true || Boolean(c.atm_issued_date) || c.atmIssued === true || Boolean(c.atmIssuedAt);
+    }
+    if (key === "atm_delivered") {
+      return c.atm_delivered === true || Boolean(c.atm_delivered_date) || c.atmDelivered === true || Boolean(c.atmDeliveredAt);
+    }
     return false;
   };
 
@@ -279,10 +302,10 @@ export default function BobDeliveryTracker() {
 
   const stats = {
     total: customers.length,
-    pbIssued: customers.filter(c => c.passbook_issued || c.passbook_issued_date || c.passbookIssued || c.passbookIssuedAt).length,
-    pbDelivered: customers.filter(c => c.passbook_delivered || c.passbook_delivered_date || c.passbookDelivered || c.passbookDeliveredAt).length,
-    atmIssued: customers.filter(c => c.atm_issued || c.atm_issued_date || c.atmIssued || c.atmIssuedAt).length,
-    atmDelivered: customers.filter(c => c.atm_delivered || c.atm_delivered_date || c.atmDelivered || c.atmDeliveredAt).length,
+    pbIssued: customers.filter(c => c.passbook_issued === true || Boolean(c.passbook_issued_date) || c.passbookIssued === true || Boolean(c.passbookIssuedAt)).length,
+    pbDelivered: customers.filter(c => c.passbook_delivered === true || Boolean(c.passbook_delivered_date) || c.passbookDelivered === true || Boolean(c.passbookDeliveredAt)).length,
+    atmIssued: customers.filter(c => c.atm_issued === true || Boolean(c.atm_issued_date) || c.atmIssued === true || Boolean(c.atmIssuedAt)).length,
+    atmDelivered: customers.filter(c => c.atm_delivered === true || Boolean(c.atm_delivered_date) || c.atmDelivered === true || Boolean(c.atmDeliveredAt)).length,
   };
 
   const renderMilestoneCell = (
@@ -290,15 +313,18 @@ export default function BobDeliveryTracker() {
     key: MilestoneKey,
     colorScheme: "blue" | "emerald" | "violet" | "orange"
   ) => {
+    const isDone = isMilestoneDone(c, key);
     const dateVal = getMilestoneDate(c, key);
 
-    if (dateVal) {
+    if (isDone || dateVal) {
       const colorClasses = {
         blue: "bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200",
         emerald: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200",
         violet: "bg-violet-50 text-violet-700 hover:bg-violet-100 border-violet-200",
         orange: "bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200",
       }[colorScheme];
+
+      const displayText = dateVal ? `✓ ${fmtDate(dateVal)}` : "✓ Done";
 
       return (
         <button
@@ -315,7 +341,7 @@ export default function BobDeliveryTracker() {
           title="Click to update or reset date"
         >
           <CheckCircle size={13} className="flex-shrink-0" />
-          <span className="whitespace-nowrap">✓ {fmtDate(dateVal)}</span>
+          <span className="whitespace-nowrap">{displayText}</span>
         </button>
       );
     }

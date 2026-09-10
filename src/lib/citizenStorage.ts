@@ -4,6 +4,16 @@ import { DEFAULT_CITIZEN_SETTINGS, DEFAULT_CITIZEN_SERVICES } from "@/types/citi
 import { getSession } from "./storage";
 import { sanitizeDob } from "./utils";
 import { toast } from "sonner";
+import * as pdfjsLib from "pdfjs-dist";
+import jsPDF from "jspdf";
+
+if (typeof window !== "undefined" && pdfjsLib?.GlobalWorkerOptions) {
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || "3.11.174"}/pdf.worker.min.js`;
+  } catch {
+    // Ignore worker configuration if not supported
+  }
+}
 
 const STORAGE_KEYS = {
   records: "sk_online_citizen_services_new_csp",
@@ -673,72 +683,181 @@ export async function syncCitizenFromSupabase(): Promise<void> {
 }
 
 /**
- * In-Browser Automatic File Compression for Digital Citizen Hub Documents
- * Resizes large image scans/photos down to max 1600px dimension and re-encodes at 0.72 JPEG quality (~150KB - 250KB)
- * while preserving high legibility for government service documents (PAN cards, certificates, forms).
+ * Compresses multi-page PDF documents by rendering each page to a crisp canvas,
+ * downscaling to standard printable resolution (~150 DPI / max 1600px dimension),
+ * and re-encoding with jsPDF using JPEG compression (~70% quality).
+ * Reduces 2 MB - 8 MB scanned PDFs down to ~150 KB - 300 KB while keeping text and ID details sharp.
+ */
+export async function compressPdfFile(file: File): Promise<File> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(arrayBuffer),
+      useSystemFonts: true,
+      stopAtErrors: false,
+    });
+    const pdf = await loadingTask.promise;
+    const numPages = pdf.numPages;
+
+    if (numPages === 0) return file;
+
+    // Get first page to initialize jsPDF document orientation & size
+    const firstPage = await pdf.getPage(1);
+    const firstVp = firstPage.getViewport({ scale: 1.0 });
+    const isLandscape = firstVp.width > firstVp.height;
+
+    const doc = new jsPDF({
+      orientation: isLandscape ? "landscape" : "portrait",
+      unit: "pt",
+      format: [firstVp.width, firstVp.height],
+      compress: true,
+    });
+
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      const page = pageNum === 1 ? firstPage : await pdf.getPage(pageNum);
+      const vp1 = page.getViewport({ scale: 1.0 });
+      const pageLandscape = vp1.width > vp1.height;
+
+      // Target max dimension of 1600px for sharp text & barcode/photo clarity
+      const maxDim = Math.max(vp1.width, vp1.height);
+      const targetMaxDim = 1600;
+      const renderScale = maxDim > 0 ? Math.min(2.0, Math.max(1.0, targetMaxDim / maxDim)) : 1.5;
+
+      const viewport = page.getViewport({ scale: renderScale });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+      if (ctx) {
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      await page.render({
+        canvasContext: ctx!,
+        viewport,
+      }).promise;
+
+      // JPEG quality 0.70 produces great readability at ~100-200 KB per page
+      const imgData = canvas.toDataURL("image/jpeg", 0.70);
+
+      if (pageNum > 1) {
+        doc.addPage([vp1.width, vp1.height], pageLandscape ? "landscape" : "portrait");
+      }
+
+      doc.addImage(
+        imgData,
+        "JPEG",
+        0,
+        0,
+        vp1.width,
+        vp1.height,
+        undefined,
+        "FAST"
+      );
+    }
+
+    const pdfBlob = doc.output("blob");
+    const compressedFile = new File([pdfBlob], file.name, { type: "application/pdf" });
+
+    console.log(
+      `[Citizen Storage PDF Compression] Original: ${(file.size / 1024).toFixed(1)} KB -> Compressed: ${(compressedFile.size / 1024).toFixed(1)} KB`
+    );
+
+    // Enforce size gatekeeper: only use compressed version if it is smaller
+    if (compressedFile.size < file.size) {
+      return compressedFile;
+    }
+    return file;
+  } catch (err) {
+    console.warn("PDF compression failed, falling back to original file:", err);
+    return file;
+  }
+}
+
+/**
+ * Compresses image files (JPG, PNG, WebP) down to max 1600px dimension and re-encodes at 0.72 JPEG quality.
+ */
+export async function compressImageFile(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+
+          const MAX_WIDTH = 1600;
+          const MAX_HEIGHT = 1600;
+
+          if (width > height && width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          } else if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+          }
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const newName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+                const compressed = new File([blob], newName, { type: "image/jpeg" });
+                console.log(
+                  `[Citizen Storage Image Compression] Original: ${(file.size / 1024).toFixed(1)} KB -> Compressed: ${(compressed.size / 1024).toFixed(1)} KB`
+                );
+                // Enforce size gatekeeper
+                if (compressed.size < file.size) {
+                  resolve(compressed);
+                } else {
+                  resolve(file);
+                }
+              } else {
+                resolve(file);
+              }
+            },
+            "image/jpeg",
+            0.72
+          );
+        } catch (err) {
+          console.warn("Image canvas compression error:", err);
+          resolve(file);
+        }
+      };
+      img.onerror = () => resolve(file);
+    };
+    reader.onerror = () => resolve(file);
+  });
+}
+
+/**
+ * In-Browser Automatic File Compression Engine for Digital Citizen Hub Documents
  */
 export const compressFileBeforeUpload = async (file: File): Promise<File> => {
-  // 1. Handle Images (JPG, PNG, WebP) via Canvas downscaling
+  // 1. Handle Images (JPG, PNG, WebP)
   if (file.type.startsWith("image/")) {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          try {
-            const canvas = document.createElement("canvas");
-            let width = img.width;
-            let height = img.height;
-
-            // Restrict max resolution to standard A4 printable dimension (approx 1600px width max)
-            const MAX_WIDTH = 1600;
-            const MAX_HEIGHT = 1600;
-
-            if (width > height && width > MAX_WIDTH) {
-              height = Math.round((height * MAX_WIDTH) / width);
-              width = MAX_WIDTH;
-            } else if (height > MAX_HEIGHT) {
-              width = Math.round((width * MAX_HEIGHT) / height);
-              height = MAX_HEIGHT;
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-              ctx.fillStyle = "#FFFFFF";
-              ctx.fillRect(0, 0, width, height);
-              ctx.drawImage(img, 0, 0, width, height);
-            }
-
-            // Export at 0.72 quality (~150KB - 250KB output)
-            canvas.toBlob(
-              (blob) => {
-                if (blob) {
-                  const newName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
-                  resolve(new File([blob], newName, { type: "image/jpeg" }));
-                } else {
-                  resolve(file); // Fallback
-                }
-              },
-              "image/jpeg",
-              0.72
-            );
-          } catch (err) {
-            console.warn("Canvas compression error, falling back to original:", err);
-            resolve(file);
-          }
-        };
-        img.onerror = () => resolve(file);
-      };
-      reader.onerror = () => resolve(file);
-    });
+    return compressImageFile(file);
   }
 
-  // 2. Handle PDF Files:
-  // Upload as-is or optimize chunk size ensuring standard MIME transfer.
+  // 2. Handle PDF Files
+  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+    return compressPdfFile(file);
+  }
+
   return file;
 };
 
