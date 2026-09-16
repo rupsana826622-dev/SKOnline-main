@@ -369,7 +369,7 @@ export function printBobReceipt(record: BobCustomerRecord, customSettings?: BobS
     </div>
 
     <!-- 4. Banking Identifiers (Clean White Ink-Saving Card) -->
-    <div class="financial-card" style="grid-template-columns: ${record.crfNo || record.crf_number ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr'};">
+    <div class="financial-card" style="grid-template-columns: ${(record.hbNo || record.hb_no) || (record.svNo || record.sv_no) ? 'repeat(auto-fit, minmax(100px, 1fr))' : '1fr 1fr 1fr'};">
       <div class="amount-item">
         <div class="lbl">Account Number</div>
         <div class="val">${record.accountNo || "PENDING"}</div>
@@ -382,10 +382,16 @@ export function printBobReceipt(record: BobCustomerRecord, customSettings?: BobS
         <div class="lbl">Reference Number</div>
         <div class="val">${record.refNo || "—"}</div>
       </div>
-      ${record.crfNo || record.crf_number ? `
+      ${record.hbNo || record.hb_no ? `
       <div class="amount-item">
-        <div class="lbl">CRF Number</div>
-        <div class="val">${record.crfNo || record.crf_number}</div>
+        <div class="lbl">HB Number</div>
+        <div class="val">${record.hbNo || record.hb_no}</div>
+      </div>
+      ` : ""}
+      ${record.svNo || record.sv_no ? `
+      <div class="amount-item">
+        <div class="lbl">SV Number</div>
+        <div class="val">${record.svNo || record.sv_no}</div>
       </div>
       ` : ""}
     </div>
@@ -559,7 +565,7 @@ export default function BobReceipt({
       </div>
 
       {/* Account Number Box (Ink-Saving White) */}
-      <div className={`grid ${record.crfNo || record.crf_number ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"} gap-2 p-3 bg-white border-2 border-orange-500 rounded-xl text-center`}>
+      <div className={`grid ${(record.hbNo || record.hb_no) || (record.svNo || record.sv_no) ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"} gap-2 p-3 bg-white border-2 border-orange-500 rounded-xl text-center`}>
         <div>
           <div className="text-[9px] font-bold text-slate-500 uppercase">Account Number</div>
           <div className="font-mono font-black text-slate-900 text-sm">{record.accountNo || "PENDING"}</div>
@@ -572,10 +578,16 @@ export default function BobReceipt({
           <div className="text-[9px] font-bold text-slate-500 uppercase">Reference Number</div>
           <div className="font-mono font-bold text-slate-900 text-xs">{record.refNo || "—"}</div>
         </div>
-        {(record.crfNo || record.crf_number) && (
+        {(record.hbNo || record.hb_no) && (
           <div>
-            <div className="text-[9px] font-bold text-slate-500 uppercase">CRF Number</div>
-            <div className="font-mono font-bold text-orange-700 text-xs">{record.crfNo || record.crf_number}</div>
+            <div className="text-[9px] font-bold text-slate-500 uppercase">HB Number</div>
+            <div className="font-mono font-bold text-slate-800 text-xs">{record.hbNo || record.hb_no}</div>
+          </div>
+        )}
+        {(record.svNo || record.sv_no) && (
+          <div>
+            <div className="text-[9px] font-bold text-slate-500 uppercase">SV Number</div>
+            <div className="font-mono font-bold text-orange-700 text-xs">{record.svNo || record.sv_no}</div>
           </div>
         )}
       </div>

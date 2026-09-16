@@ -194,7 +194,12 @@ export default function BobDeliveryTracker() {
       .eq("id", customerId)
       .select();
 
-    if (error && error.code === "PGRST204") {
+    if (error && (
+      error.code === "PGRST204" || 
+      error.code === "22007" || 
+      error.code === "22P02" || 
+      String(error.message || "").toLowerCase().includes("invalid input syntax for type date")
+    )) {
       const fallbackPayload: Record<string, any> = {
         [`${milestoneType}_date`]: selectedDate,
         updated_at: new Date().toISOString(),
@@ -258,7 +263,7 @@ export default function BobDeliveryTracker() {
     if (key === "passbook_delivered" && c.passbookDeliveredAt) return c.passbookDeliveredAt;
     if (key === "atm_issued" && c.atmIssuedAt) return c.atmIssuedAt;
     if (key === "atm_delivered" && c.atmDeliveredAt) return c.atmDeliveredAt;
-    if (key === "form_submitted" && (c.formSubmittedAt || c.form_submitted_date)) return c.form_submitted_date || c.formSubmittedAt || null;
+    if (key === "form_submitted" && (c.formSubmittedAt || c.form_submitted_date)) return c.formSubmittedAt || c.form_submitted_date || null;
     if (typeof c[key] === "string" && c[key] !== "null" && c[key] !== "true" && c[key] !== "false") {
       return c[key] as string;
     }
@@ -293,7 +298,8 @@ export default function BobDeliveryTracker() {
         c.accountNo.toLowerCase().includes(q) ||
         c.mobile.includes(q) ||
         String(c.slNo).includes(q) ||
-        (c.crfNo && c.crfNo.toLowerCase().includes(q));
+        (c.hbNo && c.hbNo.toLowerCase().includes(q)) ||
+        (c.svNo && c.svNo.toLowerCase().includes(q));
 
       const pbDone = isMilestoneDone(c, "passbook_delivered");
       const atmDone = isMilestoneDone(c, "atm_delivered");

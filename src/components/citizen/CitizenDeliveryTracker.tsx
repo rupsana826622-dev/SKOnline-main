@@ -143,9 +143,9 @@ export default function CitizenDeliveryTracker() {
   // Strict numeric serial sorting
   const sortedRecords = useMemo(() => {
     return [...filtered].sort((a, b) => {
-      const numA = parseInt(String(a.serialNo || a.serial_no || 0).replace(/\D/g, ""), 10) || 0;
-      const numB = parseInt(String(b.serialNo || b.sl_no || 0).replace(/\D/g, ""), 10) || 0;
-      return numA - numB;
+      const valA = parseInt(String(a.serial_no || a.serialNo || a.sl_no || 0).replace(/\D/g, ""), 10) || 0;
+      const valB = parseInt(String(b.serial_no || b.serialNo || b.sl_no || 0).replace(/\D/g, ""), 10) || 0;
+      return valA - valB;
     });
   }, [filtered]);
 

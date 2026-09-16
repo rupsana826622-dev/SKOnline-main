@@ -129,10 +129,11 @@ function mapCustomerToDb(c: Customer, tenantCode?: string): Record<string, any> 
     atm_received_at: sanitizeTimestamp(c.atmReceivedAt, false),
     form_submitted: !!c.formSubmitted,
     form_submitted_at: sanitizeTimestamp(c.formSubmittedAt, false),
-    form_submitted_date: sanitizeNullableString(c.formSubmittedDate || c.formSubmittedAt),
     customer_number: c.customer_number ?? null,
     spouse_type: c.spouseType || null,
     family_id: c.familyId || null,
+    hb_no: sanitizeNullableString(c.hbNo),
+    sv_no: sanitizeNullableString(c.svNo),
   };
   // Attach tenant_code for non-boi_csp rows (boi_csp rows stay untagged for backward compat)
   if (tenantCode && tenantCode !== "boi_csp") {
@@ -205,10 +206,11 @@ function mapPartialCustomerToDb(c: Partial<Customer>): Record<string, any> {
   }
   if (c.form_submitted !== undefined) db.form_submitted = c.form_submitted;
   if (c.form_submitted_at !== undefined) db.form_submitted_at = sanitizeTimestamp(c.form_submitted_at, false);
-  if (c.form_submitted_date !== undefined) db.form_submitted_date = sanitizeNullableString(c.form_submitted_date);
   if (c.customer_number !== undefined) db.customer_number = c.customer_number ?? null;
   if (c.spouseType !== undefined) db.spouse_type = c.spouseType || null;
   if (c.familyId !== undefined) db.family_id = c.familyId || null;
+  if (c.hbNo !== undefined) db.hb_no = sanitizeNullableString(c.hbNo);
+  if (c.svNo !== undefined) db.sv_no = sanitizeNullableString(c.svNo);
 
   return db;
 }
@@ -339,6 +341,8 @@ function mapDbToCustomer(row: any): Customer {
     customer_number: row.customer_number ?? undefined,
     spouseType: (row.spouse_type as Customer["spouseType"]) || undefined,
     familyId: row.family_id || undefined,
+    hbNo: row.hb_no || "",
+    svNo: row.sv_no || "",
   };
 }
 

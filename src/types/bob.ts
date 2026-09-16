@@ -9,10 +9,21 @@ export interface BobCustomerRecord {
   address: string;
   aadhaarNo: string;
   refNo: string;
+  reference_no?: string;
+  reference_number?: string;
   cifNo: string;
+  cif_no?: string;
+  cif_number?: string;
   accountNo: string;
-  crfNo?: string;
-  crf_number?: string;
+  account_no?: string;
+  account_number?: string;
+  sbNo?: string;
+  sb_no?: string;
+  sb_number?: string;
+  hbNo?: string;
+  hb_no?: string;
+  svNo?: string;
+  sv_no?: string;
 
   // Social Security Schemes (SSS)
   enrollAPY: boolean;
@@ -65,8 +76,15 @@ export interface BobSettings {
   operatorName: string;
   operatorContact: string;
   refPrefix: string;
+  default_ref_prefix?: string;
   accountPrefix: string;
-  crfPrefix?: string;
+  default_account_prefix?: string;
+  cifPrefix?: string;
+  default_cif_prefix?: string;
+  sbPrefix?: string;
+  default_sb_prefix?: string;
+  hbPrefix?: string;
+  svPrefix?: string;
   logoUrl?: string;
   stampSignatureUrl?: string;
 }
@@ -82,8 +100,15 @@ export const DEFAULT_BOB_SETTINGS: BobSettings = {
   operatorName: "CSP Operator",
   operatorContact: "9876543210",
   refPrefix: "BOB-2026-",
+  default_ref_prefix: "BOB-2026-",
   accountPrefix: "",
-  crfPrefix: "CRF",
+  default_account_prefix: "",
+  cifPrefix: "",
+  default_cif_prefix: "",
+  sbPrefix: "",
+  default_sb_prefix: "",
+  hbPrefix: "",
+  svPrefix: "",
   logoUrl: "",
   stampSignatureUrl: "",
 };

@@ -40,10 +40,10 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
   const [mobile, setMobile] = useState(initialRecord?.mobile || "");
   const [address, setAddress] = useState(initialRecord?.address || "");
   const [aadhaarNo, setAadhaarNo] = useState(initialRecord?.aadhaarNo || "");
-  const [refNo, setRefNo] = useState(initialRecord?.refNo || settings.refPrefix || "BOB-2026-");
-  const [cifNo, setCifNo] = useState(initialRecord?.cifNo || "");
-  const [crfNo, setCrfNo] = useState(initialRecord?.crfNo || initialRecord?.crf_number || settings.crfPrefix || "CRF");
-  const [accountNo, setAccountNo] = useState(initialRecord?.accountNo || settings.accountPrefix || "");
+  const [refNo, setRefNo] = useState(initialRecord?.refNo || initialRecord?.reference_no || settings.refPrefix || settings.default_ref_prefix || "BOB-2026-");
+  const [cifNo, setCifNo] = useState(initialRecord?.cifNo || initialRecord?.cif_no || settings.cifPrefix || settings.default_cif_prefix || "");
+  const [accountNo, setAccountNo] = useState(initialRecord?.accountNo || initialRecord?.account_no || settings.accountPrefix || settings.default_account_prefix || "");
+  const [sbNo, setSbNo] = useState(initialRecord?.sbNo || initialRecord?.sb_no || initialRecord?.sb_number || settings.sbPrefix || settings.default_sb_prefix || "");
 
   // Social Security Schemes (SSS)
   const [enrollAPY, setEnrollAPY] = useState<boolean>(initialRecord?.enrollAPY ?? false);
@@ -54,6 +54,21 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedRecord, setSubmittedRecord] = useState<BobCustomerRecord | null>(null);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!initialRecord) {
+      const freshSettings = getBobSettings();
+      const defRef = freshSettings.refPrefix || freshSettings.default_ref_prefix || "";
+      const defCif = freshSettings.cifPrefix || freshSettings.default_cif_prefix || "";
+      const defAcc = freshSettings.accountPrefix || freshSettings.default_account_prefix || "";
+      const defSb = freshSettings.sbPrefix || freshSettings.default_sb_prefix || "";
+
+      if (!refNo && defRef) setRefNo(defRef);
+      if (!cifNo && defCif) setCifNo(defCif);
+      if (!accountNo && defAcc) setAccountNo(defAcc);
+      if (!sbNo && defSb) setSbNo(defSb);
+    }
+  }, [initialRecord]);
 
   const formatAadhaar = (val: string) => {
     const digits = val.replace(/\D/g, "").slice(0, 12);
@@ -89,6 +104,7 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
   };
 
   const resetForm = () => {
+    const freshSettings = getBobSettings();
     setSlNo(getNextBobSerialNo());
     setAccountOpeningDate(todayStr);
     setCustomerName("");
@@ -97,10 +113,10 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
     setMobile("");
     setAddress("");
     setAadhaarNo("");
-    setRefNo(settings.refPrefix || "BOB-2026-");
-    setCifNo("");
-    setCrfNo(settings.crfPrefix || "CRF");
-    setAccountNo(settings.accountPrefix || "");
+    setRefNo(freshSettings.refPrefix || freshSettings.default_ref_prefix || "BOB-2026-");
+    setCifNo(freshSettings.cifPrefix || freshSettings.default_cif_prefix || "");
+    setAccountNo(freshSettings.accountPrefix || freshSettings.default_account_prefix || "");
+    setSbNo(freshSettings.sbPrefix || freshSettings.default_sb_prefix || "");
     setEnrollAPY(false);
     setEnrollPMSBY(false);
     setEnrollPMJJBY(false);
@@ -138,9 +154,14 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
         address: address.trim() || null,
         aadhaar_no: aadhaarNo.trim() || null,
         reference_no: refNo.trim() || null,
+        reference_number: refNo.trim() || null,
         cif_no: cifNo.trim() || null,
-        crf_number: crfNo.trim() || null,
+        cif_number: cifNo.trim() || null,
         account_no: accountNo.trim() || null,
+        account_number: accountNo.trim() || null,
+        sb_number: sbNo.trim() || null,
+        sb_no: sbNo.trim() || null,
+        sbNo: sbNo.trim() || null,
         has_apy: Boolean(enrollAPY),
         has_pmsby: Boolean(enrollPMSBY),
         has_pmjjby: Boolean(enrollPMJJBY),
@@ -159,10 +180,17 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
           address: address.trim(),
           aadhaarNo: aadhaarNo.trim(),
           refNo: refNo.trim(),
+          reference_no: refNo.trim(),
+          reference_number: refNo.trim(),
           cifNo: cifNo.trim(),
-          crfNo: crfNo.trim(),
-          crf_number: crfNo.trim(),
+          cif_no: cifNo.trim(),
+          cif_number: cifNo.trim(),
           accountNo: accountNo.trim(),
+          account_no: accountNo.trim(),
+          account_number: accountNo.trim(),
+          sbNo: sbNo.trim(),
+          sb_no: sbNo.trim(),
+          sb_number: sbNo.trim(),
           enrollAPY,
           enrollPMSBY,
           enrollPMJJBY,
@@ -178,10 +206,17 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
           address: address.trim(),
           aadhaarNo: aadhaarNo.trim(),
           refNo: refNo.trim(),
+          reference_no: refNo.trim(),
+          reference_number: refNo.trim(),
           cifNo: cifNo.trim(),
-          crfNo: crfNo.trim(),
-          crf_number: crfNo.trim(),
+          cif_no: cifNo.trim(),
+          cif_number: cifNo.trim(),
           accountNo: accountNo.trim(),
+          account_no: accountNo.trim(),
+          account_number: accountNo.trim(),
+          sbNo: sbNo.trim(),
+          sb_no: sbNo.trim(),
+          sb_number: sbNo.trim(),
           enrollAPY,
           enrollPMSBY,
           enrollPMJJBY,
@@ -196,29 +231,26 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
       setSubmittedRecord(savedRecord);
       setReceiptModalOpen(true);
 
-      if (!initialRecord) {
-        resetForm();
-      }
-
       if (onSuccess) {
         onSuccess(savedRecord);
+      } else {
+        if (!initialRecord) {
+          resetForm();
+        }
       }
     } catch (err: any) {
-      console.error("Error saving BOB account:", err);
-      // Explicit error is already alerted in addBobCustomer/updateBobCustomer
+      console.error("Submit Error:", err);
+      toast.error(`Submission failed: ${err.message || "Unknown error"}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-6 max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-orange-200 pb-4 flex-wrap gap-2">
+    <div className="space-y-4">
+      {/* Top Header Card */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center font-bold shadow-md">
-            <PlusCircle size={20} />
-          </div>
           <div>
             <h2 className="text-lg font-bold text-slate-900">
               {initialRecord
@@ -359,57 +391,15 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
           </div>
         </div>
 
-        {/* 2. Banking Identification & Numbers */}
+        {/* 2. Banking Identification & Numbers (4 Prefills: Account, CIF, Ref, SB) */}
         <div className="bg-orange-50/50 rounded-xl p-4 border border-orange-200 space-y-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-orange-800 flex items-center gap-1.5">
             <CreditCard size={14} className="text-orange-600" />
-            <span>2. Banking Identification & Account Numbers</span>
+            <span>2. Banking Identification & Account Numbers (Dynamic Pre-fills)</span>
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Reference Number */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Reference Number
-              </label>
-              <input
-                type="text"
-                placeholder="BOB-2026-XXXX"
-                value={refNo}
-                onChange={e => setRefNo(e.target.value.toUpperCase())}
-                className="w-full px-3.5 py-2 text-sm font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
-              />
-            </div>
-
-            {/* CIF Number */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                CIF Number
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. CIF98765432"
-                value={cifNo}
-                onChange={e => setCifNo(e.target.value.toUpperCase())}
-                className="w-full px-3.5 py-2 text-sm font-mono font-bold text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
-              />
-            </div>
-
-            {/* CRF Number */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                CRF Number
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. CRF123456"
-                value={crfNo}
-                onChange={e => setCrfNo(e.target.value.toUpperCase())}
-                className="w-full px-3.5 py-2 text-sm font-mono font-bold text-slate-800 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
-              />
-            </div>
-
-            {/* Account Number */}
+            {/* 1. Account Number */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Account Number
@@ -420,6 +410,48 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
                 value={accountNo}
                 onChange={e => setAccountNo(e.target.value.trim())}
                 className="w-full px-3.5 py-2 text-sm font-mono font-black text-orange-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
+              />
+            </div>
+
+            {/* 2. CIF Number */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                CIF Number
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 987654"
+                value={cifNo}
+                onChange={e => setCifNo(e.target.value.toUpperCase())}
+                className="w-full px-3.5 py-2 text-sm font-mono font-bold text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
+              />
+            </div>
+
+            {/* 3. Reference Number */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Reference Number (Ref No)
+              </label>
+              <input
+                type="text"
+                placeholder="BOB-2026-XXXX"
+                value={refNo}
+                onChange={e => setRefNo(e.target.value.toUpperCase())}
+                className="w-full px-3.5 py-2 text-sm font-mono uppercase border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
+              />
+            </div>
+
+            {/* 4. SB Number */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                SB Number
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. SB-1001"
+                value={sbNo}
+                onChange={e => setSbNo(e.target.value.toUpperCase())}
+                className="w-full px-3.5 py-2 text-sm font-mono font-bold text-slate-800 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
               />
             </div>
           </div>

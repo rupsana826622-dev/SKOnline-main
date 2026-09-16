@@ -118,6 +118,8 @@ export interface Customer {
   createdAt: string;
   familyId?: string;
   customer_number?: number;
+  hbNo?: string;
+  svNo?: string;
 }
 
 export interface AppSettings {
@@ -139,6 +141,9 @@ export interface AppSettings {
   // Prefixes
   accountPrefix: string;
   refPrefix: string;
+  cifPrefix?: string;
+  hbPrefix?: string;
+  svPrefix?: string;
   // WhatsApp
   waGatewayUrl: string;
   waToken: string;

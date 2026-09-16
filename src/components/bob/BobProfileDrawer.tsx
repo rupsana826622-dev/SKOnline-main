@@ -159,20 +159,39 @@ export default function BobProfileDrawer({
                 </div>
               </div>
 
-              {/* CRF Number */}
+              {/* HB Number */}
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/70">
-                <div className="text-[11px] text-slate-400 font-medium">CRF Number</div>
+                <div className="text-[11px] text-slate-400 font-medium">HB Number</div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="font-mono text-sm font-bold text-slate-200 truncate">
+                    {record.hbNo || record.hb_no || "—"}
+                  </span>
+                  {(record.hbNo || record.hb_no) && (
+                    <button
+                      onClick={() => handleCopy(record.hbNo || record.hb_no || "", "HB Number")}
+                      className="p-1 text-slate-400 hover:text-white rounded transition-colors"
+                      title="Copy HB"
+                    >
+                      {copiedField === "HB Number" ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* SV Number */}
+              <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/70">
+                <div className="text-[11px] text-slate-400 font-medium">SV Number (BOB)</div>
                 <div className="flex items-center justify-between mt-1">
                   <span className="font-mono text-sm font-bold text-orange-400 truncate">
-                    {record.crfNo || record.crf_number || "—"}
+                    {record.svNo || record.sv_no || "—"}
                   </span>
-                  {(record.crfNo || record.crf_number) && (
+                  {(record.svNo || record.sv_no) && (
                     <button
-                      onClick={() => handleCopy(record.crfNo || record.crf_number || "", "CRF Number")}
+                      onClick={() => handleCopy(record.svNo || record.sv_no || "", "SV Number")}
                       className="p-1 text-slate-400 hover:text-white rounded transition-colors"
-                      title="Copy CRF"
+                      title="Copy SV"
                     >
-                      {copiedField === "CRF Number" ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                      {copiedField === "SV Number" ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
                     </button>
                   )}
                 </div>

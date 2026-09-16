@@ -56,7 +56,8 @@ export default function BobCustomersPage() {
         r.accountNo.toLowerCase().includes(q) ||
         r.cifNo.toLowerCase().includes(q) ||
         r.refNo.toLowerCase().includes(q) ||
-        (r.crfNo || "").toLowerCase().includes(q) ||
+        (r.hbNo || "").toLowerCase().includes(q) ||
+        (r.svNo || "").toLowerCase().includes(q) ||
         (r.guardianName || "").toLowerCase().includes(q) ||
         String(r.slNo).includes(q);
 
@@ -92,7 +93,8 @@ export default function BobCustomersPage() {
         "Account Number": r.accountNo,
         "CIF Number": r.cifNo,
         "Reference Number": r.refNo,
-        "CRF Number": r.crfNo || "",
+        "HB Number": r.hbNo || "",
+        "SV Number": r.svNo || "",
         Mobile: r.mobile,
         DOB: r.dob,
         Address: r.address,
@@ -357,11 +359,12 @@ export default function BobCustomersPage() {
                     {r.accountNo || "—"}
                   </td>
 
-                  {/* CIF, Reference & CRF */}
+                  {/* CIF, Reference, HB & SV */}
                   <td className="py-3 px-4">
                     <div className="font-mono text-slate-700 text-[11px] font-semibold">CIF: {r.cifNo || "—"}</div>
                     <div className="font-mono text-slate-500 text-[10px]">REF: {r.refNo || "—"}</div>
-                    {r.crfNo && <div className="font-mono text-orange-700 text-[10px] font-bold">CRF: {r.crfNo}</div>}
+                    {r.hbNo && <div className="font-mono text-slate-600 text-[10px] font-bold">HB: {r.hbNo}</div>}
+                    {r.svNo && <div className="font-mono text-orange-700 text-[10px] font-bold">SV: {r.svNo}</div>}
                   </td>
 
                   {/* Account Opening Date */}
