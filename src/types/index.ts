@@ -109,6 +109,11 @@ export interface Customer {
   atmIssuedAt: string;
   atmReceived: boolean;
   atmReceivedAt: string;
+  formSubmitted?: boolean;
+  formSubmittedAt?: string;
+  form_submitted?: boolean;
+  form_submitted_at?: string;
+  form_submitted_date?: string;
   // Meta
   createdAt: string;
   familyId?: string;

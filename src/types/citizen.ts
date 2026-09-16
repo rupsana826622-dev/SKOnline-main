@@ -9,6 +9,8 @@ export interface CitizenDocumentAttachment {
 export interface CitizenServiceRecord {
   id: string;
   serialNo: number; // Numeric serial for physical register mapping
+  serial_no?: number;
+  sl_no?: number;
   customerName: string;
   contactNo: string;
   address: string;

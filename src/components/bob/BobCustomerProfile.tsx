@@ -120,9 +120,9 @@ export default function BobCustomerProfile({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Account Number */}
-              <div className="bg-slate-800/90 p-4 rounded-xl border border-slate-700/80 sm:col-span-3">
+              <div className="bg-slate-800/90 p-4 rounded-xl border border-slate-700/80 sm:col-span-2 lg:col-span-4">
                 <div className="text-xs text-slate-400 font-medium">Bank Account Number</div>
                 <div className="flex items-center justify-between mt-1.5">
                   <span className="font-mono text-xl font-extrabold text-white tracking-wider">
@@ -173,6 +173,25 @@ export default function BobCustomerProfile({
                       title="Copy Ref"
                     >
                       {copiedField === "Reference Number" ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* CRF Number */}
+              <div className="bg-slate-800/90 p-4 rounded-xl border border-slate-700/80">
+                <div className="text-xs text-slate-400 font-medium">CRF Number</div>
+                <div className="flex items-center justify-between mt-1.5">
+                  <span className="font-mono text-sm font-bold text-orange-400 truncate">
+                    {record.crfNo || record.crf_number || "—"}
+                  </span>
+                  {(record.crfNo || record.crf_number) && (
+                    <button
+                      onClick={() => handleCopy(record.crfNo || record.crf_number || "", "CRF Number")}
+                      className="p-1 text-slate-400 hover:text-white rounded-md transition-colors"
+                      title="Copy CRF"
+                    >
+                      {copiedField === "CRF Number" ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                     </button>
                   )}
                 </div>

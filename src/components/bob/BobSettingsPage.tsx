@@ -235,6 +235,32 @@ export default function BobSettingsPage() {
                 className="w-full px-3.5 py-2 text-sm font-mono uppercase font-bold text-slate-800 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
               />
             </div>
+
+            {/* Default Account Number Prefix */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Default Account Number Prefix</label>
+              <input
+                type="text"
+                value={settings.accountPrefix || ""}
+                onChange={e => setSettings({ ...settings, accountPrefix: e.target.value.trim() })}
+                placeholder="e.g. 208801000"
+                className="w-full px-3.5 py-2 text-sm font-mono font-bold text-orange-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">Pre-populates the Account Number input in Add Customer form</p>
+            </div>
+
+            {/* Default CRF Number Prefix */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Default CRF Number Prefix</label>
+              <input
+                type="text"
+                value={settings.crfPrefix || ""}
+                onChange={e => setSettings({ ...settings, crfPrefix: e.target.value.trim().toUpperCase() })}
+                placeholder="e.g. CRF"
+                className="w-full px-3.5 py-2 text-sm font-mono uppercase font-bold text-slate-800 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">Pre-populates the CRF Number input in Add Customer form</p>
+            </div>
           </div>
         </div>
 

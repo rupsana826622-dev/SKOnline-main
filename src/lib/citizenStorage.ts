@@ -627,7 +627,7 @@ export async function fetchCitizenRecordsFromSupabase(): Promise<CitizenServiceR
       .from("citizen_services")
       .select("*")
       .eq("tenant_id", tenantId)
-      .order("created_at", { ascending: false });
+      .order("serial_no", { ascending: true });
 
     if (error) {
       console.error("Supabase Citizen Services Select Error:", error);
@@ -637,6 +637,12 @@ export async function fetchCitizenRecordsFromSupabase(): Promise<CitizenServiceR
     }
 
     const mapped = (data || []).map(mapDbToCitizenRecord);
+    // Apply numeric sort fallback
+    mapped.sort((a, b) => {
+      const numA = parseInt(String(a.serialNo || a.serial_no || 0).replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(String(b.serialNo || b.serial_no || 0).replace(/\D/g, ""), 10) || 0;
+      return numA - numB;
+    });
     saveCitizenRecords(mapped);
     return mapped;
   } catch (err: any) {

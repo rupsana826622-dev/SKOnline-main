@@ -42,7 +42,8 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
   const [aadhaarNo, setAadhaarNo] = useState(initialRecord?.aadhaarNo || "");
   const [refNo, setRefNo] = useState(initialRecord?.refNo || settings.refPrefix || "BOB-2026-");
   const [cifNo, setCifNo] = useState(initialRecord?.cifNo || "");
-  const [accountNo, setAccountNo] = useState(initialRecord?.accountNo || "");
+  const [crfNo, setCrfNo] = useState(initialRecord?.crfNo || initialRecord?.crf_number || settings.crfPrefix || "CRF");
+  const [accountNo, setAccountNo] = useState(initialRecord?.accountNo || settings.accountPrefix || "");
 
   // Social Security Schemes (SSS)
   const [enrollAPY, setEnrollAPY] = useState<boolean>(initialRecord?.enrollAPY ?? false);
@@ -98,7 +99,8 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
     setAadhaarNo("");
     setRefNo(settings.refPrefix || "BOB-2026-");
     setCifNo("");
-    setAccountNo("");
+    setCrfNo(settings.crfPrefix || "CRF");
+    setAccountNo(settings.accountPrefix || "");
     setEnrollAPY(false);
     setEnrollPMSBY(false);
     setEnrollPMJJBY(false);
@@ -137,6 +139,7 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
         aadhaar_no: aadhaarNo.trim() || null,
         reference_no: refNo.trim() || null,
         cif_no: cifNo.trim() || null,
+        crf_number: crfNo.trim() || null,
         account_no: accountNo.trim() || null,
         has_apy: Boolean(enrollAPY),
         has_pmsby: Boolean(enrollPMSBY),
@@ -157,6 +160,8 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
           aadhaarNo: aadhaarNo.trim(),
           refNo: refNo.trim(),
           cifNo: cifNo.trim(),
+          crfNo: crfNo.trim(),
+          crf_number: crfNo.trim(),
           accountNo: accountNo.trim(),
           enrollAPY,
           enrollPMSBY,
@@ -174,6 +179,8 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
           aadhaarNo: aadhaarNo.trim(),
           refNo: refNo.trim(),
           cifNo: cifNo.trim(),
+          crfNo: crfNo.trim(),
+          crf_number: crfNo.trim(),
           accountNo: accountNo.trim(),
           enrollAPY,
           enrollPMSBY,
@@ -359,7 +366,7 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
             <span>2. Banking Identification & Account Numbers</span>
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Reference Number */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -385,6 +392,20 @@ export default function BobCustomerForm({ initialRecord, onSuccess, onCancel }: 
                 value={cifNo}
                 onChange={e => setCifNo(e.target.value.toUpperCase())}
                 className="w-full px-3.5 py-2 text-sm font-mono font-bold text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
+              />
+            </div>
+
+            {/* CRF Number */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                CRF Number
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. CRF123456"
+                value={crfNo}
+                onChange={e => setCrfNo(e.target.value.toUpperCase())}
+                className="w-full px-3.5 py-2 text-sm font-mono font-bold text-slate-800 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
               />
             </div>
 

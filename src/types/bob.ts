@@ -11,13 +11,15 @@ export interface BobCustomerRecord {
   refNo: string;
   cifNo: string;
   accountNo: string;
+  crfNo?: string;
+  crf_number?: string;
 
   // Social Security Schemes (SSS)
   enrollAPY: boolean;
   enrollPMSBY: boolean;
   enrollPMJJBY: boolean;
 
-  // 4-Stage Delivery Tracking
+  // Delivery Tracking Milestones
   passbookIssued: boolean;
   passbookIssuedAt?: string | null;
   passbookDelivered: boolean;
@@ -28,6 +30,9 @@ export interface BobCustomerRecord {
   atmDelivered: boolean;
   atmDeliveredAt?: string | null;
 
+  formSubmitted?: boolean;
+  formSubmittedAt?: string | null;
+
   // Direct database date column mapping
   passbook_issued?: string | boolean | null;
   passbook_issued_date?: string | null;
@@ -37,6 +42,8 @@ export interface BobCustomerRecord {
   atm_issued_date?: string | null;
   atm_delivered?: string | boolean | null;
   atm_delivered_date?: string | null;
+  form_submitted?: string | boolean | null;
+  form_submitted_date?: string | null;
 
   // Metadata
   notes?: string;
@@ -59,6 +66,7 @@ export interface BobSettings {
   operatorContact: string;
   refPrefix: string;
   accountPrefix: string;
+  crfPrefix?: string;
   logoUrl?: string;
   stampSignatureUrl?: string;
 }
@@ -75,6 +83,7 @@ export const DEFAULT_BOB_SETTINGS: BobSettings = {
   operatorContact: "9876543210",
   refPrefix: "BOB-2026-",
   accountPrefix: "",
+  crfPrefix: "CRF",
   logoUrl: "",
   stampSignatureUrl: "",
 };

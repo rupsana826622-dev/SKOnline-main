@@ -56,6 +56,7 @@ export default function BobCustomersPage() {
         r.accountNo.toLowerCase().includes(q) ||
         r.cifNo.toLowerCase().includes(q) ||
         r.refNo.toLowerCase().includes(q) ||
+        (r.crfNo || "").toLowerCase().includes(q) ||
         (r.guardianName || "").toLowerCase().includes(q) ||
         String(r.slNo).includes(q);
 
@@ -72,9 +73,18 @@ export default function BobCustomersPage() {
     });
   }, [records, search, schemeFilter]);
 
+  // Strict numeric serial sorting
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const numA = parseInt(String(a.slNo || a.sl_no || 0).replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(String(b.slNo || b.sl_no || 0).replace(/\D/g, ""), 10) || 0;
+      return numA - numB;
+    });
+  }, [filtered]);
+
   const handleExport = () => {
     exportToCSV(
-      filtered.map(r => ({
+      sorted.map(r => ({
         "SL NO": r.slNo,
         "Customer Name": r.customerName,
         "C/O (Guardian)": r.guardianName,
@@ -82,6 +92,7 @@ export default function BobCustomersPage() {
         "Account Number": r.accountNo,
         "CIF Number": r.cifNo,
         "Reference Number": r.refNo,
+        "CRF Number": r.crfNo || "",
         Mobile: r.mobile,
         DOB: r.dob,
         Address: r.address,
@@ -89,6 +100,8 @@ export default function BobCustomersPage() {
         APY: r.enrollAPY ? "Yes" : "No",
         PMSBY: r.enrollPMSBY ? "Yes" : "No",
         PMJJBY: r.enrollPMJJBY ? "Yes" : "No",
+        "Form Submitted": r.formSubmitted ? "Yes" : "No",
+        "Form Submitted Date": r.formSubmittedAt || r.form_submitted_date || "",
         "Passbook Issued": r.passbookIssued ? "Yes" : "No",
         "Passbook Issued Date": r.passbookIssuedAt || "",
         "Passbook Delivered": r.passbookDelivered ? "Yes" : "No",
@@ -312,7 +325,7 @@ export default function BobCustomersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-              {filtered.map((r, index) => (
+              {sorted.map((r, index) => (
                 <tr
                   key={r.id}
                   onClick={() => {
@@ -344,10 +357,11 @@ export default function BobCustomersPage() {
                     {r.accountNo || "—"}
                   </td>
 
-                  {/* CIF & Reference */}
+                  {/* CIF, Reference & CRF */}
                   <td className="py-3 px-4">
                     <div className="font-mono text-slate-700 text-[11px] font-semibold">CIF: {r.cifNo || "—"}</div>
                     <div className="font-mono text-slate-500 text-[10px]">REF: {r.refNo || "—"}</div>
+                    {r.crfNo && <div className="font-mono text-orange-700 text-[10px] font-bold">CRF: {r.crfNo}</div>}
                   </td>
 
                   {/* Account Opening Date */}

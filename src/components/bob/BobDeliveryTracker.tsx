@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import ReactDOM from "react-dom";
-import { Search, Truck, Package, CreditCard, CheckCircle, Clock, Calendar, RefreshCw } from "lucide-react";
+import { Search, Truck, Package, CreditCard, CheckCircle, Clock, Calendar, RefreshCw, FileCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getBobCustomers, saveBobCustomers, fetchBobCustomersFromSupabase } from "@/lib/bobStorage";
 import type { BobCustomerRecord } from "@/types/bob";
 import { toast } from "sonner";
 import SEO from "@/components/common/SEO";
 
-type DeliveryFilter = "All" | "Passbook Pending" | "ATM Pending" | "Fully Delivered";
+type DeliveryFilter = "All" | "Forms Pending" | "Passbook Pending" | "ATM Pending" | "Fully Delivered";
 
-type MilestoneKey = "passbook_issued" | "passbook_delivered" | "atm_issued" | "atm_delivered";
+type MilestoneKey = "passbook_issued" | "passbook_delivered" | "atm_issued" | "atm_delivered" | "form_submitted";
 
 type PickerTarget = {
   customerId: string;
@@ -90,13 +90,12 @@ function DatePickerPopover({
     >
       <div className="flex items-center gap-2 mb-3">
         <Calendar size={14} className="text-orange-600" />
-        <span className="text-xs font-bold text-slate-700">Select Date</span>
+        <span className="text-xs font-bold text-slate-700">Select Milestone Date</span>
       </div>
       <input
         type="date"
         className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 font-mono bg-slate-50"
         value={selectedDate}
-        max={today}
         onChange={e => setSelectedDate(e.target.value)}
         autoFocus
       />
@@ -105,14 +104,14 @@ function DatePickerPopover({
           type="button"
           onClick={handleConfirm}
           disabled={!selectedDate}
-          className="flex-1 py-1.5 text-xs font-bold bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-xs"
+          className="flex-1 py-1.5 text-xs font-bold bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
         >
           Confirm
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 py-1.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+          className="flex-1 py-1.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
         >
           Cancel
         </button>
@@ -121,7 +120,7 @@ function DatePickerPopover({
         <button
           type="button"
           onClick={onClear}
-          className="w-full mt-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors text-center"
+          className="w-full mt-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors text-center cursor-pointer"
         >
           Reset / Clear Milestone
         </button>
@@ -184,6 +183,9 @@ export default function BobDeliveryTracker() {
     } else if (milestoneType === "atm_delivered") {
       updatePayload.atm_delivered = isCompleted;
       updatePayload.atm_delivered_date = selectedDate;
+    } else if (milestoneType === "form_submitted") {
+      updatePayload.form_submitted = isCompleted;
+      updatePayload.form_submitted_date = selectedDate;
     }
 
     let { data, error } = await (supabase as any)
@@ -225,6 +227,7 @@ export default function BobDeliveryTracker() {
         passbook_delivered: { boolKey: "passbookDelivered", atKey: "passbookDeliveredAt" },
         atm_issued: { boolKey: "atmIssued", atKey: "atmIssuedAt" },
         atm_delivered: { boolKey: "atmDelivered", atKey: "atmDeliveredAt" },
+        form_submitted: { boolKey: "formSubmitted", atKey: "formSubmittedAt" },
       };
       const keys = camelMap[milestoneType];
 
@@ -255,6 +258,7 @@ export default function BobDeliveryTracker() {
     if (key === "passbook_delivered" && c.passbookDeliveredAt) return c.passbookDeliveredAt;
     if (key === "atm_issued" && c.atmIssuedAt) return c.atmIssuedAt;
     if (key === "atm_delivered" && c.atmDeliveredAt) return c.atmDeliveredAt;
+    if (key === "form_submitted" && (c.formSubmittedAt || c.form_submitted_date)) return c.form_submitted_date || c.formSubmittedAt || null;
     if (typeof c[key] === "string" && c[key] !== "null" && c[key] !== "true" && c[key] !== "false") {
       return c[key] as string;
     }
@@ -274,6 +278,9 @@ export default function BobDeliveryTracker() {
     if (key === "atm_delivered") {
       return c.atm_delivered === true || Boolean(c.atm_delivered_date) || c.atmDelivered === true || Boolean(c.atmDeliveredAt);
     }
+    if (key === "form_submitted") {
+      return c.form_submitted === true || Boolean(c.form_submitted_date) || c.formSubmitted === true || Boolean(c.formSubmittedAt);
+    }
     return false;
   };
 
@@ -285,23 +292,36 @@ export default function BobDeliveryTracker() {
         c.customerName.toLowerCase().includes(q) ||
         c.accountNo.toLowerCase().includes(q) ||
         c.mobile.includes(q) ||
-        String(c.slNo).includes(q);
+        String(c.slNo).includes(q) ||
+        (c.crfNo && c.crfNo.toLowerCase().includes(q));
 
       const pbDone = isMilestoneDone(c, "passbook_delivered");
       const atmDone = isMilestoneDone(c, "atm_delivered");
+      const formDone = isMilestoneDone(c, "form_submitted");
 
       const filterMatch =
         filter === "All" ||
         (filter === "Passbook Pending" && !pbDone) ||
         (filter === "ATM Pending" && !atmDone) ||
+        (filter === "Forms Pending" && !formDone) ||
         (filter === "Fully Delivered" && pbDone && atmDone);
 
       return match && filterMatch;
     });
   }, [customers, search, filter]);
 
+  // Strict numeric serial sorting
+  const sortedCustomers = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const numA = parseInt(String(a.slNo || a.sl_no || 0).replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(String(b.slNo || b.sl_no || 0).replace(/\D/g, ""), 10) || 0;
+      return numA - numB;
+    });
+  }, [filtered]);
+
   const stats = {
     total: customers.length,
+    formsSubmitted: customers.filter(c => c.form_submitted === true || Boolean(c.form_submitted_date) || c.formSubmitted === true || Boolean(c.formSubmittedAt)).length,
     pbIssued: customers.filter(c => c.passbook_issued === true || Boolean(c.passbook_issued_date) || c.passbookIssued === true || Boolean(c.passbookIssuedAt)).length,
     pbDelivered: customers.filter(c => c.passbook_delivered === true || Boolean(c.passbook_delivered_date) || c.passbookDelivered === true || Boolean(c.passbookDeliveredAt)).length,
     atmIssued: customers.filter(c => c.atm_issued === true || Boolean(c.atm_issued_date) || c.atmIssued === true || Boolean(c.atmIssuedAt)).length,
@@ -311,7 +331,7 @@ export default function BobDeliveryTracker() {
   const renderMilestoneCell = (
     c: BobCustomerRecord,
     key: MilestoneKey,
-    colorScheme: "blue" | "emerald" | "violet" | "orange"
+    colorScheme: "blue" | "emerald" | "violet" | "orange" | "amber"
   ) => {
     const isDone = isMilestoneDone(c, key);
     const dateVal = getMilestoneDate(c, key);
@@ -322,6 +342,7 @@ export default function BobDeliveryTracker() {
         emerald: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200",
         violet: "bg-violet-50 text-violet-700 hover:bg-violet-100 border-violet-200",
         orange: "bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200",
+        amber: "bg-amber-50 text-amber-800 hover:bg-amber-100 border-amber-300",
       }[colorScheme];
 
       const displayText = dateVal ? `✓ ${fmtDate(dateVal)}` : "✓ Done";
@@ -368,7 +389,7 @@ export default function BobDeliveryTracker() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
-      <SEO title="Bank of Baroda 4-Stage Delivery Tracker" />
+      <SEO title="Bank of Baroda Delivery Tracker" />
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -378,7 +399,7 @@ export default function BobDeliveryTracker() {
             Bank of Baroda Delivery Tracker
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            4-Stage lifecycle management for Passbooks and ATM cards with instant calendar date logging
+            Physical lifecycle management: Form Branch Submission, Passbook, and ATM card delivery tracking
           </p>
         </div>
 
@@ -391,13 +412,14 @@ export default function BobDeliveryTracker() {
         </button>
       </div>
 
-      {/* Stats Cards: 4 Milestones */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Stats Cards: 5 Milestones */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
+          { label: "Forms Submitted", value: stats.formsSubmitted, icon: FileCheck, color: "text-amber-700", bg: "bg-amber-50" },
           { label: "Passbook Issued", value: stats.pbIssued, icon: Package, color: "text-blue-600", bg: "bg-blue-50" },
           { label: "Passbook Delivered", value: stats.pbDelivered, icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50" },
           { label: "ATM Issued", value: stats.atmIssued, icon: CreditCard, color: "text-violet-600", bg: "bg-violet-50" },
-          { label: "ATM Delivered / Complete", value: stats.atmDelivered, icon: CheckCircle, color: "text-orange-600", bg: "bg-orange-50" },
+          { label: "ATM Delivered", value: stats.atmDelivered, icon: CheckCircle, color: "text-orange-600", bg: "bg-orange-50" },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
             <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center mb-2`}>
@@ -421,7 +443,7 @@ export default function BobDeliveryTracker() {
           />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {(["All", "Passbook Pending", "ATM Pending", "Fully Delivered"] as DeliveryFilter[]).map(f => (
+          {(["All", "Forms Pending", "Passbook Pending", "ATM Pending", "Fully Delivered"] as DeliveryFilter[]).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -437,7 +459,7 @@ export default function BobDeliveryTracker() {
         </div>
       </div>
 
-      {/* 4-Stage Delivery Table */}
+      {/* Milestone Delivery Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
@@ -447,6 +469,7 @@ export default function BobDeliveryTracker() {
                 <th className="py-3 px-3">Customer Details</th>
                 <th className="py-3 px-3">Account Number</th>
                 <th className="py-3 px-3">Mobile</th>
+                <th className="py-3 px-2 text-center text-amber-800">Form Submitted</th>
                 <th className="py-3 px-2 text-center text-blue-800">Passbook Issued</th>
                 <th className="py-3 px-2 text-center text-emerald-800">Passbook Delivered</th>
                 <th className="py-3 px-2 text-center text-violet-800">ATM Issued</th>
@@ -454,7 +477,7 @@ export default function BobDeliveryTracker() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-              {filtered.map(c => (
+              {sortedCustomers.map(c => (
                 <tr key={c.id} className="hover:bg-orange-50/30 transition-colors">
                   <td className="py-3 px-3 font-mono font-bold text-slate-900">
                     {c.slNo}
@@ -470,31 +493,36 @@ export default function BobDeliveryTracker() {
                     {c.mobile}
                   </td>
 
-                  {/* 1. Passbook Issued */}
+                  {/* 1. Form Submitted */}
+                  <td className="py-3 px-2 text-center">
+                    {renderMilestoneCell(c, "form_submitted", "amber")}
+                  </td>
+
+                  {/* 2. Passbook Issued */}
                   <td className="py-3 px-2 text-center">
                     {renderMilestoneCell(c, "passbook_issued", "blue")}
                   </td>
 
-                  {/* 2. Passbook Delivered */}
+                  {/* 3. Passbook Delivered */}
                   <td className="py-3 px-2 text-center">
                     {renderMilestoneCell(c, "passbook_delivered", "emerald")}
                   </td>
 
-                  {/* 3. ATM Issued */}
+                  {/* 4. ATM Issued */}
                   <td className="py-3 px-2 text-center">
                     {renderMilestoneCell(c, "atm_issued", "violet")}
                   </td>
 
-                  {/* 4. ATM Delivered */}
+                  {/* 5. ATM Delivered */}
                   <td className="py-3 px-2 text-center">
                     {renderMilestoneCell(c, "atm_delivered", "orange")}
                   </td>
                 </tr>
               ))}
 
-              {filtered.length === 0 && (
+              {sortedCustomers.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={9} className="py-12 text-center text-slate-400">
                     No matching delivery records found.
                   </td>
                 </tr>

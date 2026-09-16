@@ -1,15 +1,15 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Search, Truck, Package, CreditCard, CheckCircle, Clock, Calendar } from "lucide-react";
+import { Search, Truck, Package, CreditCard, CheckCircle, Clock, Calendar, FileCheck } from "lucide-react";
 import { getCustomers, updateCustomer } from "@/lib/storage";
 import type { Customer } from "@/types";
 import { toast } from "sonner";
 import SEO from "@/components/common/SEO";
 
-type DeliveryFilter = "All" | "Passbook Pending" | "ATM Pending" | "Fully Delivered";
+type DeliveryFilter = "All" | "Forms Pending" | "Passbook Pending" | "ATM Pending" | "Fully Delivered";
 
 type PickerTarget = {
   customerId: string;
-  field: "passbookIssued" | "passbookReceived" | "atmIssued" | "atmReceived";
+  field: "passbookIssued" | "passbookReceived" | "atmIssued" | "atmReceived" | "formSubmitted";
 } | null;
 
 // ─── Date Picker Popover ────────────────────────────────────────────────────
@@ -58,7 +58,6 @@ function DatePickerPopover({
         type="date"
         className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 font-mono bg-slate-50"
         value={selectedDate}
-        max={today}
         onChange={e => setSelectedDate(e.target.value)}
         autoFocus
       />
@@ -66,13 +65,13 @@ function DatePickerPopover({
         <button
           onClick={handleConfirm}
           disabled={!selectedDate}
-          className="flex-1 py-1.5 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="flex-1 py-1.5 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors cursor-pointer"
         >
           Confirm
         </button>
         <button
           onClick={onCancel}
-          className="flex-1 py-1.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+          className="flex-1 py-1.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
         >
           Cancel
         </button>
@@ -106,7 +105,7 @@ function DeliveryToggle({
           }
         }}
         disabled={disabled && !checked}
-        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
           checked
             ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
             : disabled
@@ -115,12 +114,12 @@ function DeliveryToggle({
         }`}
       >
         {checked ? <CheckCircle size={13} /> : <Clock size={13} />}
-        <span className="whitespace-nowrap max-w-[90px] truncate">{label}</span>
+        <span className="whitespace-nowrap max-w-[100px] truncate">{label}</span>
       </button>
       {pickerOpen && (
         <DatePickerPopover
           onConfirm={onPickerConfirm}
-          onCancel={onPickerCancel}
+          onPickerCancel={onPickerCancel}
         />
       )}
     </div>
@@ -171,12 +170,15 @@ export default function DeliveryTrackerPage() {
   }, []);
 
   // Un-check toggle (no date needed)
-  const uncheck = (id: string, field: keyof Customer) => {
+  const uncheck = (id: string, field: keyof Customer | "formSubmitted") => {
     const c = customers.find(c => c.id === id);
     if (!c) return;
 
     const updates: Partial<Customer> = {};
-    if (field === "passbookIssued") {
+    if (field === "formSubmitted") {
+      updates.formSubmitted = false;
+      updates.formSubmittedAt = "";
+    } else if (field === "passbookIssued") {
       updates.passbookIssued = false;
       updates.passbookIssuedAt = "";
       updates.passbookReceived = false;
@@ -207,7 +209,10 @@ export default function DeliveryTrackerPage() {
     if (!c) { setPicker(null); return; }
 
     const updates: Partial<Customer> = {};
-    if (field === "passbookIssued") {
+    if (field === "formSubmitted") {
+      updates.formSubmitted = true;
+      updates.formSubmittedAt = isoDate;
+    } else if (field === "passbookIssued") {
       updates.passbookIssued = true;
       updates.passbookIssuedAt = isoDate;
     } else if (field === "passbookReceived") {
@@ -232,6 +237,7 @@ export default function DeliveryTrackerPage() {
     return customers.filter(c => {
       const match = !search || c.name.toLowerCase().includes(lower) || c.accountNumber.includes(search) || c.mobile.includes(search);
       const filterMatch = filter === "All" ||
+        (filter === "Forms Pending" && !c.formSubmitted) ||
         (filter === "Passbook Pending" && !c.passbookReceived) ||
         (filter === "ATM Pending" && !c.atmReceived) ||
         (filter === "Fully Delivered" && c.passbookReceived && c.atmReceived);
@@ -240,6 +246,7 @@ export default function DeliveryTrackerPage() {
   }, [customers, search, filter]);
 
   const stats = {
+    formsSubmitted: customers.filter(c => c.formSubmitted).length,
     pbIssued: customers.filter(c => c.passbookIssued).length,
     pbReceived: customers.filter(c => c.passbookReceived).length,
     atmIssued: customers.filter(c => c.atmIssued).length,
@@ -261,12 +268,13 @@ export default function DeliveryTrackerPage() {
           <Truck size={20} className="text-amber-600" />
           Delivery Tracker
         </h1>
-        <p className="text-sm text-slate-500 mt-0.5">Track passbook and ATM card delivery status</p>
+        <p className="text-sm text-slate-500 mt-0.5">Track branch form submission, passbook, and ATM card delivery status</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         {[
+          { label: "Forms Submitted", value: stats.formsSubmitted, icon: FileCheck, color: "text-amber-700", bg: "bg-amber-50" },
           { label: "Passbook Issued", value: stats.pbIssued, icon: Package, color: "text-blue-600", bg: "bg-blue-50" },
           { label: "Passbook Received", value: stats.pbReceived, icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50" },
           { label: "ATM Issued", value: stats.atmIssued, icon: CreditCard, color: "text-violet-600", bg: "bg-violet-50" },
@@ -295,11 +303,11 @@ export default function DeliveryTrackerPage() {
           />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {(["All", "Passbook Pending", "ATM Pending", "Fully Delivered"] as DeliveryFilter[]).map(f => (
+          {(["All", "Forms Pending", "Passbook Pending", "ATM Pending", "Fully Delivered"] as DeliveryFilter[]).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
                 filter === f ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-200 hover:border-blue-300"
               }`}
             >
@@ -318,6 +326,7 @@ export default function DeliveryTrackerPage() {
                 <th>Customer</th>
                 <th>Account No.</th>
                 <th>Mobile</th>
+                <th>Form Submitted</th>
                 <th>Passbook Issued</th>
                 <th>Passbook Received</th>
                 <th>ATM Issued</th>
@@ -341,6 +350,19 @@ export default function DeliveryTrackerPage() {
                     </td>
                     <td><span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded">{c.accountNumber}</span></td>
                     <td className="text-slate-600">{c.mobile}</td>
+
+                    {/* Form Submitted */}
+                    <td>
+                      <DeliveryToggle
+                        checked={Boolean(c.formSubmitted)}
+                        onToggle={() => uncheck(c.id, "formSubmitted")}
+                        onRequestDate={() => setPicker({ customerId: c.id, field: "formSubmitted" })}
+                        label={c.formSubmitted ? fmtDate(c.formSubmittedAt || "") : "Mark Submitted"}
+                        pickerOpen={picker?.customerId === c.id && picker?.field === "formSubmitted"}
+                        onPickerConfirm={confirmDate}
+                        onPickerCancel={() => setPicker(null)}
+                      />
+                    </td>
 
                     {/* Passbook Issued */}
                     <td>
@@ -400,7 +422,7 @@ export default function DeliveryTrackerPage() {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center text-slate-400 py-10">No records match your filter.</td>
+                  <td colSpan={8} className="text-center text-slate-400 py-10">No records match your filter.</td>
                 </tr>
               )}
             </tbody>

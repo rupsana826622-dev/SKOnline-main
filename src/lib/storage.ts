@@ -127,6 +127,9 @@ function mapCustomerToDb(c: Customer, tenantCode?: string): Record<string, any> 
     atm_issued_at: sanitizeTimestamp(c.atmIssuedAt, false),
     atm_received: !!c.atmReceived,
     atm_received_at: sanitizeTimestamp(c.atmReceivedAt, false),
+    form_submitted: !!c.formSubmitted,
+    form_submitted_at: sanitizeTimestamp(c.formSubmittedAt, false),
+    form_submitted_date: sanitizeNullableString(c.formSubmittedDate || c.formSubmittedAt),
     customer_number: c.customer_number ?? null,
     spouse_type: c.spouseType || null,
     family_id: c.familyId || null,
@@ -195,6 +198,14 @@ function mapPartialCustomerToDb(c: Partial<Customer>): Record<string, any> {
   if (c.atmIssuedAt !== undefined) db.atm_issued_at = sanitizeTimestamp(c.atmIssuedAt, false);
   if (c.atmReceived !== undefined) db.atm_received = c.atmReceived;
   if (c.atmReceivedAt !== undefined) db.atm_received_at = sanitizeTimestamp(c.atmReceivedAt, false);
+  if (c.formSubmitted !== undefined) db.form_submitted = c.formSubmitted;
+  if (c.formSubmittedAt !== undefined) {
+    db.form_submitted_at = sanitizeTimestamp(c.formSubmittedAt, false);
+    db.form_submitted_date = sanitizeNullableString(c.formSubmittedAt);
+  }
+  if (c.form_submitted !== undefined) db.form_submitted = c.form_submitted;
+  if (c.form_submitted_at !== undefined) db.form_submitted_at = sanitizeTimestamp(c.form_submitted_at, false);
+  if (c.form_submitted_date !== undefined) db.form_submitted_date = sanitizeNullableString(c.form_submitted_date);
   if (c.customer_number !== undefined) db.customer_number = c.customer_number ?? null;
   if (c.spouseType !== undefined) db.spouse_type = c.spouseType || null;
   if (c.familyId !== undefined) db.family_id = c.familyId || null;
@@ -320,6 +331,11 @@ function mapDbToCustomer(row: any): Customer {
     atmIssuedAt: row.atm_issued_at || "",
     atmReceived: row.atm_received || false,
     atmReceivedAt: row.atm_received_at || "",
+    formSubmitted: row.form_submitted || Boolean(row.form_submitted_at || row.form_submitted_date) || false,
+    formSubmittedAt: row.form_submitted_at || row.form_submitted_date || "",
+    form_submitted: row.form_submitted || Boolean(row.form_submitted_at || row.form_submitted_date) || false,
+    form_submitted_at: row.form_submitted_at || "",
+    form_submitted_date: row.form_submitted_date || "",
     customer_number: row.customer_number ?? undefined,
     spouseType: (row.spouse_type as Customer["spouseType"]) || undefined,
     familyId: row.family_id || undefined,

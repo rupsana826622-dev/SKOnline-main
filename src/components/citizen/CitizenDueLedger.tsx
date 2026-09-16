@@ -40,6 +40,11 @@ export default function CitizenDueLedger() {
           r.appNumber.toLowerCase().includes(q) ||
           String(r.serialNo).includes(q)
         );
+      })
+      .sort((a, b) => {
+        const numA = typeof a.serialNo === "number" ? a.serialNo : (parseInt(String(a.serialNo || a.serial_no || a.sl_no || 0).replace(/\D/g, ""), 10) || 0);
+        const numB = typeof b.serialNo === "number" ? b.serialNo : (parseInt(String(b.serialNo || b.serial_no || b.sl_no || 0).replace(/\D/g, ""), 10) || 0);
+        return numA - numB;
       });
   }, [records, search]);
 

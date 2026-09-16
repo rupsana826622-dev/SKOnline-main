@@ -140,6 +140,15 @@ export default function CitizenDeliveryTracker() {
     });
   }, [records, search, statusFilter]);
 
+  // Strict numeric serial sorting
+  const sortedRecords = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const numA = parseInt(String(a.serialNo || a.serial_no || 0).replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(String(b.serialNo || b.sl_no || 0).replace(/\D/g, ""), 10) || 0;
+      return numA - numB;
+    });
+  }, [filtered]);
+
   const handleConfirmDate = async (dateStr: string) => {
     if (!pickerTarget) return;
     const { recordId, action } = pickerTarget;
@@ -232,7 +241,7 @@ export default function CitizenDeliveryTracker() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-              {filtered.map(r => {
+              {sortedRecords.map(r => {
                 const isIssued = !!r.issuedDate;
                 const isDelivered = !!r.deliveredDate || r.status === "Delivered";
 

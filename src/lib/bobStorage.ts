@@ -116,6 +116,8 @@ export async function saveBobSettingsAsync(settings: BobSettings): Promise<{ err
           operator_name: settings.operatorName,
           operator_contact: settings.operatorContact,
           ref_prefix: settings.refPrefix,
+          account_prefix: settings.accountPrefix,
+          crf_prefix: settings.crfPrefix,
           stamp_signature_url: settings.stampSignatureUrl,
           updated_at: new Date().toISOString(),
         }, { onConflict: "tenant_id" })
@@ -199,6 +201,9 @@ export function mapDbToBobCustomer(row: any): BobCustomerRecord {
   const atmDeliveredDate = toDateStr(row.atm_delivered_date) || (typeof row.atm_delivered === "string" ? row.atm_delivered : null);
   const atmDeliveredFlag = Boolean(row.atm_delivered || row.atm_delivered_date);
 
+  const formSubmittedDate = toDateStr(row.form_submitted_date) || (typeof row.form_submitted === "string" ? row.form_submitted : null);
+  const formSubmittedFlag = Boolean(row.form_submitted || row.form_submitted_date);
+
   return {
     id: row.id,
     slNo: Number(row.sl_no || 1),
@@ -212,6 +217,8 @@ export function mapDbToBobCustomer(row: any): BobCustomerRecord {
     refNo: row.reference_no || "",
     cifNo: row.cif_no || "",
     accountNo: row.account_no || "",
+    crfNo: row.crf_number || row.crf_no || "",
+    crf_number: row.crf_number || row.crf_no || "",
     enrollAPY: Boolean(row.has_apy),
     enrollPMSBY: Boolean(row.has_pmsby),
     enrollPMJJBY: Boolean(row.has_pmjjby),
@@ -236,6 +243,11 @@ export function mapDbToBobCustomer(row: any): BobCustomerRecord {
     atm_delivered: atmDeliveredFlag,
     atm_delivered_date: atmDeliveredDate,
 
+    formSubmitted: formSubmittedFlag,
+    formSubmittedAt: formSubmittedDate,
+    form_submitted: formSubmittedFlag,
+    form_submitted_date: formSubmittedDate,
+
     notes: row.notes || "",
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
@@ -255,7 +267,7 @@ export async function fetchBobCustomersFromSupabase(): Promise<BobCustomerRecord
       .from("bob_customers")
       .select("*")
       .eq("tenant_id", currentTenantId)
-      .order("created_at", { ascending: false });
+      .order("sl_no", { ascending: true });
 
     if (error) {
       console.error("Supabase BOB Select Error:", error);
@@ -265,6 +277,12 @@ export async function fetchBobCustomersFromSupabase(): Promise<BobCustomerRecord
     }
 
     const mapped = (data || []).map(mapDbToBobCustomer);
+    // Apply numeric sort fallback
+    mapped.sort((a, b) => {
+      const numA = parseInt(String(a.slNo || a.sl_no || 0).replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(String(b.slNo || b.sl_no || 0).replace(/\D/g, ''), 10) || 0;
+      return numA - numB;
+    });
     saveBobCustomers(mapped);
     return mapped;
   } catch (err: any) {
@@ -289,13 +307,16 @@ export async function addBobCustomer(formData: {
   reference_no?: string | null;
   cif_no?: string | null;
   account_no?: string | null;
+  crf_number?: string | null;
+  crf_no?: string | null;
+  crfNo?: string | null;
   has_apy?: boolean;
   has_pmsby?: boolean;
   has_pmjjby?: boolean;
 }): Promise<{ data: BobCustomerRecord | null; error: any }> {
   const currentTenantId = getCurrentTenantId();
 
-  const payload = {
+  const payload: Record<string, any> = {
     tenant_id: currentTenantId,
     account_opening_date: sanitizeDob(formData.account_opening_date) || new Date().toISOString().split("T")[0],
     sl_no: formData.sl_no ? parseInt(String(formData.sl_no), 10) : 1,
@@ -308,6 +329,7 @@ export async function addBobCustomer(formData: {
     reference_no: formData.reference_no?.trim() || null,
     cif_no: formData.cif_no?.trim() || null,
     account_no: formData.account_no?.trim() || null,
+    crf_number: (formData.crf_number || formData.crf_no || formData.crfNo)?.trim() || null,
     has_apy: Boolean(formData.has_apy),
     has_pmsby: Boolean(formData.has_pmsby),
     has_pmjjby: Boolean(formData.has_pmjjby),
@@ -376,6 +398,9 @@ export async function updateBobCustomer(
   if (updates.accountNo !== undefined) {
     payload.account_no = updates.accountNo?.trim() || null;
   }
+  if (updates.crfNo !== undefined || updates.crf_number !== undefined) {
+    payload.crf_number = (updates.crfNo ?? updates.crf_number)?.trim() || null;
+  }
   if (updates.enrollAPY !== undefined) {
     payload.has_apy = Boolean(updates.enrollAPY);
   }
@@ -411,6 +436,12 @@ export async function updateBobCustomer(
     const boolVal = updates.atmDelivered !== undefined ? Boolean(updates.atmDelivered) : updates.atm_delivered !== undefined ? Boolean(updates.atm_delivered) : dateVal !== null;
     payload.atm_delivered = boolVal;
     payload.atm_delivered_date = dateVal;
+  }
+  if (updates.formSubmitted !== undefined || updates.formSubmittedAt !== undefined || updates.form_submitted !== undefined || updates.form_submitted_date !== undefined) {
+    const dateVal = sanitizeDob(updates.formSubmittedAt ?? updates.form_submitted_date) ?? null;
+    const boolVal = updates.formSubmitted !== undefined ? Boolean(updates.formSubmitted) : updates.form_submitted !== undefined ? Boolean(updates.form_submitted) : dateVal !== null;
+    payload.form_submitted = boolVal;
+    payload.form_submitted_date = dateVal;
   }
 
   if (Object.keys(payload).length > 0) {
@@ -529,6 +560,8 @@ export async function syncBobFromSupabase(): Promise<void> {
           operatorName: data.operator_name || liveSettings?.operatorName || DEFAULT_BOB_SETTINGS.operatorName,
           operatorContact: data.operator_contact || liveSettings?.operatorContact || DEFAULT_BOB_SETTINGS.operatorContact,
           refPrefix: data.ref_prefix || liveSettings?.refPrefix || DEFAULT_BOB_SETTINGS.refPrefix,
+          accountPrefix: data.account_prefix || liveSettings?.accountPrefix || DEFAULT_BOB_SETTINGS.accountPrefix,
+          crfPrefix: data.crf_prefix || liveSettings?.crfPrefix || DEFAULT_BOB_SETTINGS.crfPrefix,
           stampSignatureUrl: data.stamp_signature_url || liveSettings?.stampSignatureUrl || "",
         };
       }

@@ -369,7 +369,7 @@ export function printBobReceipt(record: BobCustomerRecord, customSettings?: BobS
     </div>
 
     <!-- 4. Banking Identifiers (Clean White Ink-Saving Card) -->
-    <div class="financial-card">
+    <div class="financial-card" style="grid-template-columns: ${record.crfNo || record.crf_number ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr'};">
       <div class="amount-item">
         <div class="lbl">Account Number</div>
         <div class="val">${record.accountNo || "PENDING"}</div>
@@ -382,6 +382,12 @@ export function printBobReceipt(record: BobCustomerRecord, customSettings?: BobS
         <div class="lbl">Reference Number</div>
         <div class="val">${record.refNo || "—"}</div>
       </div>
+      ${record.crfNo || record.crf_number ? `
+      <div class="amount-item">
+        <div class="lbl">CRF Number</div>
+        <div class="val">${record.crfNo || record.crf_number}</div>
+      </div>
+      ` : ""}
     </div>
 
     <!-- 5. Social Security Schemes (SSS) -->
@@ -553,7 +559,7 @@ export default function BobReceipt({
       </div>
 
       {/* Account Number Box (Ink-Saving White) */}
-      <div className="grid grid-cols-3 gap-2 p-3 bg-white border-2 border-orange-500 rounded-xl text-center">
+      <div className={`grid ${record.crfNo || record.crf_number ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"} gap-2 p-3 bg-white border-2 border-orange-500 rounded-xl text-center`}>
         <div>
           <div className="text-[9px] font-bold text-slate-500 uppercase">Account Number</div>
           <div className="font-mono font-black text-slate-900 text-sm">{record.accountNo || "PENDING"}</div>
@@ -566,6 +572,12 @@ export default function BobReceipt({
           <div className="text-[9px] font-bold text-slate-500 uppercase">Reference Number</div>
           <div className="font-mono font-bold text-slate-900 text-xs">{record.refNo || "—"}</div>
         </div>
+        {(record.crfNo || record.crf_number) && (
+          <div>
+            <div className="text-[9px] font-bold text-slate-500 uppercase">CRF Number</div>
+            <div className="font-mono font-bold text-orange-700 text-xs">{record.crfNo || record.crf_number}</div>
+          </div>
+        )}
       </div>
 
       {/* Schemes Card */}

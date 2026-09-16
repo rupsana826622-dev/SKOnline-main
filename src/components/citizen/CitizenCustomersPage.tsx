@@ -79,9 +79,18 @@ export default function CitizenCustomersPage() {
     });
   }, [records, search, selectedService, selectedStatusTab]);
 
+  // Strict numeric serial sorting
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const numA = parseInt(String(a.serialNo || a.serial_no || 0).replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(String(b.serialNo || b.sl_no || 0).replace(/\D/g, ""), 10) || 0;
+      return numA - numB;
+    });
+  }, [filtered]);
+
   const handleExport = () => {
     exportToCSV(
-      filtered.map(r => ({
+      sorted.map(r => ({
         "Serial No": r.serialNo,
         "Customer Name": r.customerName,
         "Contact Number": r.contactNo,
@@ -339,7 +348,7 @@ export default function CitizenCustomersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-              {filtered.map((r, index) => (
+              {sorted.map((r, index) => (
                 <tr
                   key={r.id}
                   onClick={() => {
