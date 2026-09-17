@@ -16,7 +16,14 @@ export default function LoginPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (getSession()) navigate("/dashboard", { replace: true });
+    const sess = getSession();
+    if (sess) {
+      if (sess.tenantCode === "file_workspace") {
+        navigate("/studio/dashboard", { replace: true });
+      } else {
+        navigate("/dashboard", { replace: true });
+      }
+    }
   }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -55,7 +62,12 @@ export default function LoginPage() {
             tenantId: tMeta.tenantId,
             bankName: tMeta.bankName,
           });
-          navigate("/dashboard", { replace: true });
+          // Studio Archive workspace gets its own route
+          if (tMeta.tenantCode === "file_workspace") {
+            navigate("/studio/dashboard", { replace: true });
+          } else {
+            navigate("/dashboard", { replace: true });
+          }
           setLoading(false);
           return;
         }
@@ -80,7 +92,12 @@ export default function LoginPage() {
         bankName:   bankName,
       });
 
-      navigate("/dashboard", { replace: true });
+      // Studio Archive workspace gets its own route
+      if (workspaceCode === "file_workspace") {
+        navigate("/studio/dashboard", { replace: true });
+      } else {
+        navigate("/dashboard", { replace: true });
+      }
     } catch (networkErr) {
       console.error("Login error:", networkErr);
       setError("Unable to connect to the authentication server. Please try again.");

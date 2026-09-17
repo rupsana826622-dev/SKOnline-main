@@ -18,6 +18,9 @@ import InquiriesPage from "./pages/InquiriesPage";
 import { syncFromSupabase, getTenantCode } from "@/lib/storage";
 import { syncBobFromSupabase } from "@/lib/bobStorage";
 import { syncCitizenFromSupabase } from "@/lib/citizenStorage";
+import StudioLayout from "@/pages/studio/StudioLayout";
+import StudioDashboard from "@/pages/studio/StudioDashboard";
+import StudioRecords from "@/pages/studio/StudioRecords";
 
 export default function App() {
   useEffect(() => {
@@ -61,6 +64,11 @@ export default function App() {
           <Route path="/inquiries" element={<InquiriesPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/family-mapping" element={<FamilyMappingPage />} />
+        </Route>
+        {/* ── Studio Archive Workspace (4th tenant: file_workspace) ─────── */}
+        <Route element={<StudioLayout />}>
+          <Route path="/studio/dashboard" element={<StudioDashboard />} />
+          <Route path="/studio/records" element={<StudioRecords />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

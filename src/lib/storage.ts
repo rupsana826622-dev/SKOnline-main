@@ -38,6 +38,12 @@ export const TENANTS: Record<string, { tenantCode: string; tenantId: string; ban
     tenantId:   "bob_csp",
     bankName:   "Bank of Baroda",
   },
+  // file  + Skonline@1234  →  Digital File & Photo Archive workspace
+  file: {
+    tenantCode: "file_workspace",
+    tenantId:   "file_workspace",
+    bankName:   "Digital File & Photo Archive",
+  },
 };
 
 
