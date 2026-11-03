@@ -9,6 +9,10 @@ export interface TenantSession {
   tenantCode: string;
   tenantId: string;
   bankName: string;
+  role?: string;
+  tenant_id?: string;
+  name?: string;
+  current_mode?: "prospect" | "active";
 }
 
 // Workspace routing metadata — NO credentials stored here.
@@ -43,6 +47,12 @@ export const TENANTS: Record<string, { tenantCode: string; tenantId: string; ban
     tenantCode: "file_workspace",
     tenantId:   "file_workspace",
     bankName:   "Digital File & Photo Archive",
+  },
+  // lic  + Skonline@1234  →  LIC Insurance Management Portal
+  lic: {
+    tenantCode: "lic_workspace",
+    tenantId:   "lic_workspace",
+    bankName:   "LIC Portal",
   },
 };
 

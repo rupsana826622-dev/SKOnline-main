@@ -21,6 +21,11 @@ import { syncCitizenFromSupabase } from "@/lib/citizenStorage";
 import StudioLayout from "@/pages/studio/StudioLayout";
 import StudioDashboard from "@/pages/studio/StudioDashboard";
 import StudioRecords from "@/pages/studio/StudioRecords";
+import LicLayout from "@/pages/lic/LicLayout";
+import LicDashboard from "@/pages/lic/LicDashboard";
+import LicProspectsPage from "@/pages/lic/LicProspectsPage";
+import LicPoliciesPage from "@/pages/lic/LicPoliciesPage";
+import LicLedgerPage from "@/pages/lic/LicLedgerPage";
 
 export default function App() {
   useEffect(() => {
@@ -29,6 +34,8 @@ export default function App() {
       syncBobFromSupabase();
     } else if (tc === "new_csp") {
       syncCitizenFromSupabase();
+    } else if (tc === "file_workspace" || tc === "lic_workspace") {
+      // Isolated workspaces manage their own sync/storage
     } else {
       syncFromSupabase(tc);
     }
@@ -69,6 +76,13 @@ export default function App() {
         <Route element={<StudioLayout />}>
           <Route path="/studio/dashboard" element={<StudioDashboard />} />
           <Route path="/studio/records" element={<StudioRecords />} />
+        </Route>
+        {/* ── LIC Insurance Management Portal (Dual-Mode: Prospect Hub & Active Ledger) ── */}
+        <Route element={<LicLayout />}>
+          <Route path="/lic/dashboard" element={<LicDashboard />} />
+          <Route path="/lic/prospects" element={<LicProspectsPage />} />
+          <Route path="/lic/policies" element={<LicPoliciesPage />} />
+          <Route path="/lic/ledger" element={<LicLedgerPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

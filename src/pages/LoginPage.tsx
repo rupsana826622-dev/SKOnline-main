@@ -20,6 +20,8 @@ export default function LoginPage() {
     if (sess) {
       if (sess.tenantCode === "file_workspace") {
         navigate("/studio/dashboard", { replace: true });
+      } else if (sess.tenantCode === "lic_workspace" || sess.role === "lic") {
+        navigate("/lic/dashboard", { replace: true });
       } else {
         navigate("/dashboard", { replace: true });
       }
@@ -34,6 +36,23 @@ export default function LoginPage() {
 
     const user = username.trim();
     const pass = password.trim();
+
+    // ── Dedicated LIC credentials check ────────────────────────────────────
+    if (user.toLowerCase() === "lic" && pass === "Skonline@1234") {
+      setSession({
+        username: "lic",
+        tenantCode: "lic_workspace",
+        tenantId: "lic_workspace",
+        bankName: "LIC Portal",
+        role: "lic",
+        tenant_id: "lic_workspace",
+        name: "LIC Portal",
+        current_mode: "prospect",
+      });
+      navigate("/lic/dashboard", { replace: true });
+      setLoading(false);
+      return;
+    }
 
     // ── Dynamic Supabase public.tenants authentication ─────────────────────
     // All credential verification runs against the database on every attempt.
@@ -61,10 +80,16 @@ export default function LoginPage() {
             tenantCode: tMeta.tenantCode,
             tenantId: tMeta.tenantId,
             bankName: tMeta.bankName,
+            role: lowerUser === "lic" ? "lic" : undefined,
+            tenant_id: tMeta.tenantId,
+            name: tMeta.bankName,
+            current_mode: lowerUser === "lic" ? "prospect" : undefined,
           });
           // Studio Archive workspace gets its own route
           if (tMeta.tenantCode === "file_workspace") {
             navigate("/studio/dashboard", { replace: true });
+          } else if (tMeta.tenantCode === "lic_workspace") {
+            navigate("/lic/dashboard", { replace: true });
           } else {
             navigate("/dashboard", { replace: true });
           }
@@ -79,8 +104,9 @@ export default function LoginPage() {
       }
 
       // ── Workspace routing based on tenant_code from DB ──────────────────
-      // tenant_code = 'boi_csp'  →  Bank of India CSP workspace
-      // tenant_code = 'new_csp'  →  Digital Citizen Services workspace
+      // tenant_code = 'boi_csp'        →  Bank of India CSP workspace
+      // tenant_code = 'new_csp'        →  Digital Citizen Services workspace
+      // tenant_code = 'lic_workspace'  →  LIC Insurance Management Portal
       const workspaceCode: string = tenant.tenant_code || tenant.workspace || "boi_csp";
       const tenantId: string      = tenant.id          || workspaceCode;
       const bankName: string      = tenant.bank_name   || "SK ONLINE";
@@ -90,11 +116,17 @@ export default function LoginPage() {
         tenantCode: workspaceCode,
         tenantId:   tenantId,
         bankName:   bankName,
+        role:       workspaceCode === "lic_workspace" ? "lic" : undefined,
+        tenant_id:  tenantId,
+        name:       bankName,
+        current_mode: workspaceCode === "lic_workspace" ? "prospect" : undefined,
       });
 
       // Studio Archive workspace gets its own route
       if (workspaceCode === "file_workspace") {
         navigate("/studio/dashboard", { replace: true });
+      } else if (workspaceCode === "lic_workspace") {
+        navigate("/lic/dashboard", { replace: true });
       } else {
         navigate("/dashboard", { replace: true });
       }
