@@ -212,8 +212,9 @@ export default function ConvertProspectModal({
         onSuccess(res.policy);
         onClose();
       }
-    } catch (err: any) {
-      toast.error(err.message || "An unexpected error occurred.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An unexpected error occurred.";
+      toast.error(message);
     } finally {
       setLoading(false);
     }

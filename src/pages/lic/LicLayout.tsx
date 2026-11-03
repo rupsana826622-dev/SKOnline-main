@@ -1,29 +1,13 @@
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import {
-  Users, Award, Calendar, LogOut, RefreshCw, ChevronLeft, ChevronRight,
-  ShieldCheck, ArrowRightLeft, Landmark, Menu, X, Sparkles
+  Users, Award, Calendar, LogOut, ArrowRightLeft, Menu, X, Sparkles
 } from "lucide-react";
 import { getSession, clearSession } from "@/lib/storage";
 import { getLicMode, setLicMode } from "@/lib/licStorage";
 import { cn } from "@/lib/utils";
 import logoImg from "@/assets/sk-logo.png";
-
-export interface LicContextValue {
-  mode: "prospect" | "active";
-  toggleMode: () => void;
-  setMode: (m: "prospect" | "active") => void;
-}
-
-export const LicContext = createContext<LicContextValue>({
-  mode: "prospect",
-  toggleMode: () => {},
-  setMode: () => {},
-});
-
-export function useLic() {
-  return useContext(LicContext);
-}
+import { LicContext } from "./LicContext";
 
 export default function LicLayout() {
   const navigate = useNavigate();

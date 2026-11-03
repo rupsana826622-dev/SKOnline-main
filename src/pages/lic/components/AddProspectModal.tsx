@@ -75,8 +75,9 @@ export default function AddProspectModal({ open, onClose, onSuccess }: AddProspe
         onSuccess(data);
         onClose();
       }
-    } catch (err: any) {
-      toast.error(err.message || "An error occurred.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An error occurred.";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -290,7 +291,7 @@ export default function AddProspectModal({ open, onClose, onSuccess }: AddProspe
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Customer Feedback</label>
                 <select
                   value={formData.feedback}
-                  onChange={e => setFormData({ ...formData, feedback: e.target.value as any })}
+                  onChange={e => setFormData({ ...formData, feedback: e.target.value as "yes" | "no" | "others" })}
                   className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 >
                   <option value="yes">Yes - Highly Interested</option>

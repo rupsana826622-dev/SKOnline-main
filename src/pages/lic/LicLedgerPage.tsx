@@ -38,8 +38,8 @@ export default function LicLedgerPage() {
     loadData();
   }, []);
 
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const today = useMemo(() => new Date(), []);
+  const todayStr = useMemo(() => today.toISOString().split("T")[0], [today]);
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth();
 
@@ -77,7 +77,7 @@ export default function LicLedgerPage() {
       lapsedCount,
       pendingCollectionTotal,
     };
-  }, [policies, todayStr, currentYear, currentMonth]);
+  }, [policies, today, todayStr, currentYear, currentMonth]);
 
   // Filtered Ledger List
   const filteredLedger = useMemo(() => {
@@ -107,7 +107,7 @@ export default function LicLedgerPage() {
 
       return true;
     });
-  }, [policies, ledgerFilter, searchQuery, todayStr, currentYear, currentMonth]);
+  }, [policies, ledgerFilter, searchQuery, today, todayStr, currentYear, currentMonth]);
 
   const handleWhatsAppReminder = (p: LicActivePolicy) => {
     const mobile = (p.whatsapp_number || p.mobile || "").replace(/\D/g, "");

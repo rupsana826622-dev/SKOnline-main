@@ -49,8 +49,8 @@ export default function LicPoliciesPage() {
     loadData();
   }, []);
 
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const today = useMemo(() => new Date(), []);
+  const todayStr = useMemo(() => today.toISOString().split("T")[0], [today]);
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); // 0-indexed
 
@@ -80,7 +80,7 @@ export default function LicPoliciesPage() {
       upcomingDues,
       lapsedCount,
     };
-  }, [policies, todayStr]);
+  }, [policies, today, todayStr]);
 
   // Filtering for Policies or Dues Ledger
   const filteredPolicies = useMemo(() => {
@@ -119,7 +119,7 @@ export default function LicPoliciesPage() {
 
       return true;
     });
-  }, [policies, activeSubTab, dueFilter, modeFilter, searchQuery, todayStr, currentYear, currentMonth]);
+  }, [policies, activeSubTab, dueFilter, modeFilter, searchQuery, today, todayStr, currentYear, currentMonth]);
 
   const handleDelete = async (id: string, policyNumber: string) => {
     if (!window.confirm(`Are you sure you want to delete policy #${policyNumber}?`)) {

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
-  X, CheckCircle, ShieldCheck, Users, Plus, Trash2, Calendar, Phone, Home, Heart, Award
+  X, CheckCircle, Users, Plus, Trash2, Home, Heart, Award
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -56,6 +56,17 @@ export default function DirectAddPolicyModal({
   const [references, setReferences] = useState<LicReferencePerson[]>([]);
 
   const [loading, setLoading] = useState(false);
+
+  // Auto-initialize default next due date and maturity when modal opens
+  useEffect(() => {
+    if (open) {
+      if (!nextPremiumDate) {
+        const start = proposalDate ? new Date(proposalDate) : new Date();
+        start.setFullYear(start.getFullYear() + 1);
+        setNextPremiumDate(start.toISOString().split("T")[0]);
+      }
+    }
+  }, [open, nextPremiumDate, proposalDate]);
 
   if (!open) return null;
 
@@ -158,8 +169,9 @@ export default function DirectAddPolicyModal({
         onSuccess(res.data);
         onClose();
       }
-    } catch (err: any) {
-      toast.error(err.message || "An unexpected error occurred.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An unexpected error occurred.";
+      toast.error(message);
     } finally {
       setLoading(false);
     }

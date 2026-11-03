@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useLic } from "./LicLayout";
+import { useLic } from "./LicContext";
 import LicProspectsPage from "./LicProspectsPage";
 import LicPoliciesPage from "./LicPoliciesPage";
 

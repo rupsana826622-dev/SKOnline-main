@@ -49,7 +49,9 @@ export default function EditProspectModal({
         sum_assured: prospect.sum_assured ? String(prospect.sum_assured) : "",
         premium_amount: prospect.premium_amount ? String(prospect.premium_amount) : "",
         conversation_date: prospect.conversation_date || "",
-        feedback: (prospect.feedback as any) || "others",
+        feedback: (prospect.feedback === "yes" || prospect.feedback === "no" || prospect.feedback === "others")
+          ? prospect.feedback
+          : "others",
         appointment_date_time: prospect.appointment_date_time ? prospect.appointment_date_time.slice(0, 16) : "",
         notes: prospect.notes || "",
       });
@@ -95,8 +97,9 @@ export default function EditProspectModal({
         onSuccess(data);
         onClose();
       }
-    } catch (err: any) {
-      toast.error(err.message || "An error occurred.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An error occurred.";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -281,7 +284,7 @@ export default function EditProspectModal({
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Customer Feedback</label>
                 <select
                   value={formData.feedback}
-                  onChange={e => setFormData({ ...formData, feedback: e.target.value as any })}
+                  onChange={e => setFormData({ ...formData, feedback: e.target.value as "yes" | "no" | "others" })}
                   className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                   <option value="yes">Yes - Highly Interested</option>
